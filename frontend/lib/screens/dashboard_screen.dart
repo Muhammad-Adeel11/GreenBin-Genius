@@ -1,16 +1,6 @@
 import 'package:flutter/material.dart';
-
-// Placeholder for the Camera Screen
-class CameraScreen extends StatelessWidget {
-  const CameraScreen({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("Camera")),
-      body: const Center(child: Text("Camera View Opening...")),
-    );
-  }
-}
+import '../utils/responsive.dart';
+import 'camera_scanner_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -20,114 +10,94 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  int _selectedIndex = 2; // Default to "Impact" (index 2)
+  int _selectedIndex = 2;
 
-  // List of placeholder pages for the other tabs
   final List<Widget> _pages = [
     const Center(child: Text("Activity Page")),
     const Center(child: Text("Challenges Page")),
-    const ImpactTab(), // We will build this custom tab below
+    const ImpactTab(),
     const Center(child: Text("Leaderboard Page")),
     const Center(child: Text("Tasks Page")),
   ];
 
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
+  void _onItemTapped(int index) => setState(() => _selectedIndex = index);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-
-      // The body changes based on the selected tab
       body: _pages[_selectedIndex],
-
-      // The Camera Button (Floating Action Button)
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const CameraScreen()),
-          );
-        },
-        backgroundColor: const Color(0xFF2196F3), // Brand Blue
-        child: const Icon(Icons.camera_alt, color: Colors.white),
+        onPressed: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const AiScannerScreen()),
+        ),
+        backgroundColor: const Color(0xFF2196F3),
+        child: Icon(Icons.camera_alt, color: Colors.white,
+            size: R.icon(context, 26)),
       ),
-
-      // The Bottom Navigation Bar with 5 items
       bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed, // Needed for 4+ items
+        type: BottomNavigationBarType.fixed,
         currentIndex: _selectedIndex,
         selectedItemColor: const Color(0xFF2196F3),
         unselectedItemColor: Colors.grey,
-        selectedLabelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-        unselectedLabelStyle: const TextStyle(fontSize: 12),
+        selectedLabelStyle: TextStyle(
+            fontSize: R.fs(context, 11), fontWeight: FontWeight.bold),
+        unselectedLabelStyle: TextStyle(fontSize: R.fs(context, 11)),
         onTap: _onItemTapped,
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.bubble_chart_outlined),
-            label: 'Activity',
-          ),
+              icon: Icon(Icons.bubble_chart_outlined), label: 'Activity'),
           BottomNavigationBarItem(
-            icon: Icon(Icons.flag_outlined),
-            label: 'Challenges',
-          ),
+              icon: Icon(Icons.flag_outlined), label: 'Challenges'),
           BottomNavigationBarItem(
-            icon: Icon(Icons.language),
-            label: 'Impact',
-          ),
+              icon: Icon(Icons.language), label: 'Impact'),
           BottomNavigationBarItem(
-            icon: Icon(Icons.emoji_events_outlined),
-            label: 'Leaderboard',
-          ),
+              icon: Icon(Icons.emoji_events_outlined), label: 'Leaderboard'),
           BottomNavigationBarItem(
-            icon: Icon(Icons.assignment_outlined),
-            label: 'Tasks',
-          ),
+              icon: Icon(Icons.assignment_outlined), label: 'Tasks'),
         ],
       ),
     );
   }
 }
 
-// This is the content of the "Impact" tab matching your screenshots
+// ── Impact Tab ──────────────────────────────────────────────
+
 class ImpactTab extends StatelessWidget {
   const ImpactTab({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final sp = R.sp(context);
+
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 1. Blue Header Section with Custom Curve
+          // Blue Header
           ClipPath(
             clipper: HeaderCurveClipper(),
             child: Container(
-              height: 380, // Increased height to match screenshot
+              height: R.h(context, 38),
               width: double.infinity,
               color: const Color(0xFF2196F3),
               child: SafeArea(
                 child: Padding(
-                  padding: const EdgeInsets.all(24.0),
+                  padding: R.pagePadding(context).add(
+                      EdgeInsets.only(top: sp)),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Top Bar
+                      // Top Row
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          // Profile/Globe Button (Top Left)
                           GestureDetector(
-                            onTap: () {
-                              // Profile Action
-                            },
+                            onTap: () {},
                             child: Container(
-                              width: 40,
-                              height: 40,
+                              width: R.icon(context, 40),
+                              height: R.icon(context, 40),
                               decoration: BoxDecoration(
                                 gradient: const LinearGradient(
                                   colors: [Colors.cyanAccent, Colors.blue],
@@ -135,54 +105,60 @@ class ImpactTab extends StatelessWidget {
                                   end: Alignment.bottomRight,
                                 ),
                                 shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white, width: 2),
+                                border: Border.all(
+                                    color: Colors.white, width: 2),
                               ),
-                              child: const Icon(Icons.public, color: Colors.white),
+                              child: const Icon(Icons.public,
+                                  color: Colors.white),
                             ),
                           ),
-                          // Title
-                          const Text(
+                          Text(
                             "Impact",
                             style: TextStyle(
                               color: Colors.white,
-                              fontSize: 20,
+                              fontSize: R.fs(context, 20),
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          const SizedBox(width: 40), // Balance the row
+                          SizedBox(width: R.icon(context, 40)),
                         ],
                       ),
 
-                      const SizedBox(height: 40),
+                      SizedBox(height: sp * 2),
 
-                      // Stats
-                      const Text(
+                      Text(
                         "Total Global Litter Pickup",
-                        style: TextStyle(color: Colors.white70, fontSize: 16),
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: R.fs(context, 15),
+                        ),
                       ),
-                      const SizedBox(height: 8),
-                      const Text(
+                      SizedBox(height: sp * 0.5),
+                      Text(
                         "24,291,206",
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 56, // Larger font size
+                          fontSize: R.fs(context, 44),
                           fontWeight: FontWeight.w400,
                           letterSpacing: -1.0,
                         ),
                       ),
 
-                      const SizedBox(height: 30),
+                      SizedBox(height: sp * 1.5),
 
-                      const Text(
+                      Text(
                         "Overall Pickup For November, 2025",
-                        style: TextStyle(color: Colors.white70, fontSize: 16),
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: R.fs(context, 15),
+                        ),
                       ),
-                      const SizedBox(height: 8),
-                      const Text(
+                      SizedBox(height: sp * 0.5),
+                      Text(
                         "85,450",
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 56, // Larger font size
+                          fontSize: R.fs(context, 44),
                           fontWeight: FontWeight.w400,
                           letterSpacing: -1.0,
                         ),
@@ -194,152 +170,163 @@ class ImpactTab extends StatelessWidget {
             ),
           ),
 
-          const SizedBox(height: 20),
+          SizedBox(height: sp * 1.5),
 
-          // 2. Bar Chart Section
+          // Bar Chart
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            padding: R.pagePadding(context),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                _buildBar("APR", 60, false),
-                _buildBar("MAY", 80, false),
-                _buildBar("JUN", 40, false),
-                _buildBar("JUL", 70, false),
-                _buildBar("AUG", 50, false),
-                _buildBar("SEP", 65, false),
-                _buildBar("OCT", 45, false),
-                _buildBar("NOV", 55, true), // Active Month
+                _buildBar(context, "APR", 60, false),
+                _buildBar(context, "MAY", 80, false),
+                _buildBar(context, "JUN", 40, false),
+                _buildBar(context, "JUL", 70, false),
+                _buildBar(context, "AUG", 50, false),
+                _buildBar(context, "SEP", 65, false),
+                _buildBar(context, "OCT", 45, false),
+                _buildBar(context, "NOV", 55, true),
               ],
             ),
           ),
 
-          const SizedBox(height: 40),
+          SizedBox(height: sp * 2.5),
 
-          // 3. Activity Section (Responsive Title)
+          // Activity Section Title
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            padding: R.pagePadding(context),
             child: SizedBox(
-              width: double.infinity, // Ensures container takes full width
+              width: double.infinity,
               child: FittedBox(
-                fit: BoxFit.scaleDown, // Scales down text if needed
-                alignment: Alignment.centerLeft, // Aligns to start
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
                 child: Row(
                   children: [
-                    const Text(
-                      "My ",
-                      style: TextStyle(fontSize: 28, fontWeight: FontWeight.w300),
-                    ),
-                    const Text(
-                      "Activity ",
-                      style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-                    ),
-                    const Text(
-                      "This Week",
-                      style: TextStyle(fontSize: 28, fontWeight: FontWeight.w300),
-                    ),
-                    const SizedBox(width: 10),
-                    Icon(Icons.info, color: Colors.blue[500], size: 28),
+                    Text("My ",
+                        style: TextStyle(
+                            fontSize: R.fs(context, 26),
+                            fontWeight: FontWeight.w300)),
+                    Text("Activity ",
+                        style: TextStyle(
+                            fontSize: R.fs(context, 26),
+                            fontWeight: FontWeight.bold)),
+                    Text("This Week",
+                        style: TextStyle(
+                            fontSize: R.fs(context, 26),
+                            fontWeight: FontWeight.w300)),
+                    SizedBox(width: sp * 0.75),
+                    Icon(Icons.info,
+                        color: Colors.blue[500],
+                        size: R.icon(context, 26)),
                   ],
                 ),
               ),
             ),
           ),
 
-          const SizedBox(height: 20),
+          SizedBox(height: sp),
 
           // Date Circles
           SizedBox(
-            height: 60,
+            height: R.h(context, 7),
             child: ListView(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 24),
+              padding: R.pagePadding(context),
               children: [
-                _buildDateCircle("11/27"),
-                _buildDateCircle("11/28"),
-                _buildDateCircle("11/29"),
-                _buildDateCircle("11/30"),
-                _buildDateCircle("12/1"),
-                _buildDateCircle("12/2"),
-                _buildDateCircle("12/3", isActive: true),
+                _buildDateCircle(context, "11/27"),
+                _buildDateCircle(context, "11/28"),
+                _buildDateCircle(context, "11/29"),
+                _buildDateCircle(context, "11/30"),
+                _buildDateCircle(context, "12/1"),
+                _buildDateCircle(context, "12/2"),
+                _buildDateCircle(context, "12/3", isActive: true),
               ],
             ),
           ),
 
-          const SizedBox(height: 40),
+          SizedBox(height: sp * 2.5),
 
-          // 4. Stories of Impact
+          // Stories of Impact
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            padding: R.pagePadding(context),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                const Text(
+                Text(
                   "Stories of\nImpact",
-                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                      fontSize: R.fs(context, 24),
+                      fontWeight: FontWeight.bold),
                 ),
                 Text(
                   "View All",
-                  style: TextStyle(color: Colors.pink[400], fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                      color: Colors.pink[400],
+                      fontWeight: FontWeight.bold,
+                      fontSize: R.fs(context, 14)),
                 ),
               ],
             ),
           ),
 
-          const SizedBox(height: 20),
+          SizedBox(height: sp),
 
-          // Stories List
           SizedBox(
-            height: 240,
+            height: R.h(context, 26),
             child: ListView(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 24),
+              padding: R.pagePadding(context),
               children: [
-                _buildStoryCard(
-                  "Litter Data Helps San Francisco Win Court Case",
-                  "https://picsum.photos/300/200?random=10",
-                ),
-                _buildStoryCard(
-                  "How Lodi brought together its local businesses",
-                  "https://picsum.photos/300/200?random=11",
-                ),
+                _buildStoryCard(context, "Litter Data Helps San Francisco Win Court Case",
+                    "https://picsum.photos/300/200?random=10"),
+                _buildStoryCard(context, "How Lodi brought together its local businesses",
+                    "https://picsum.photos/300/200?random=11"),
               ],
             ),
           ),
-          const SizedBox(height: 100), // Bottom padding for FAB
+          SizedBox(height: sp * 6), // FAB space
         ],
       ),
     );
   }
 
-  // Helper for Bar Chart
-  Widget _buildBar(String label, double height, bool isActive) {
+  Widget _buildBar(
+      BuildContext context, String label, double barH, bool isActive) {
+    final scaledH = R.isSmall(context) ? barH * 0.75 : barH;
     return Column(
       children: [
         Container(
-          width: 8,
-          height: height,
+          width: R.isSmall(context) ? 6.0 : 8.0,
+          height: scaledH,
           decoration: BoxDecoration(
-            color: isActive ? const Color(0xFF2196F3) : Colors.grey[200],
+            color: isActive
+                ? const Color(0xFF2196F3)
+                : Colors.grey[200],
             borderRadius: BorderRadius.circular(4),
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         Text(
           label,
-          style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontSize: R.fs(context, 9),
+            color: Colors.grey,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ],
     );
   }
 
-  // Helper for Date Circles
-  Widget _buildDateCircle(String date, {bool isActive = false}) {
+  Widget _buildDateCircle(BuildContext context, String date,
+      {bool isActive = false}) {
+    final size = R.h(context, 6.5).clamp(42.0, 60.0);
     return Container(
-      width: 54,
-      margin: const EdgeInsets.only(right: 12),
+      width: size,
+      height: size,
+      margin: EdgeInsets.only(right: R.sp(context) * 0.75),
       decoration: BoxDecoration(
         color: isActive ? const Color(0xFF2196F3) : Colors.grey[400],
         shape: BoxShape.circle,
@@ -347,9 +334,9 @@ class ImpactTab extends StatelessWidget {
       child: Center(
         child: Text(
           date,
-          style: const TextStyle(
+          style: TextStyle(
             color: Colors.white,
-            fontSize: 13,
+            fontSize: R.fs(context, 11),
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -357,11 +344,12 @@ class ImpactTab extends StatelessWidget {
     );
   }
 
-  // Helper for Story Card
-  Widget _buildStoryCard(String title, String imageUrl) {
+  Widget _buildStoryCard(
+      BuildContext context, String title, String imageUrl) {
+    final sp = R.sp(context);
     return Container(
-      width: 220,
-      margin: const EdgeInsets.only(right: 16),
+      width: R.w(context, 56),
+      margin: EdgeInsets.only(right: sp),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -380,18 +368,18 @@ class ImpactTab extends StatelessWidget {
             borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
             child: Image.network(
               imageUrl,
-              height: 120,
+              height: R.h(context, 14),
               width: double.infinity,
               fit: BoxFit.cover,
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: EdgeInsets.all(sp),
             child: Text(
               title,
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.bold,
-                fontSize: 15,
+                fontSize: R.fs(context, 13),
                 height: 1.2,
               ),
               maxLines: 3,
@@ -404,30 +392,18 @@ class ImpactTab extends StatelessWidget {
   }
 }
 
-// Custom Clipper for the Background Curve
 class HeaderCurveClipper extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {
-    var path = Path();
-    path.lineTo(0, size.height * 0.85); // Start slightly above the bottom-left corner
-
-    // Create a smooth wave:
-    // 1. Dip down slightly
-    // 2. Curve up towards the right
-    path.quadraticBezierTo(
-      size.width * 0.25, size.height, // Control point (bottom left area)
-      size.width * 0.6, size.height * 0.85, // First curve end point
-    );
-
-    path.quadraticBezierTo(
-      size.width * 0.85, size.height * 0.75, // Control point for second curve
-      size.width, size.height * 0.6, // End point (higher up on the right side)
-    );
-
-    path.lineTo(size.width, 0); // Line to top right
-    path.lineTo(0, 0); // Line to top left
-    path.close();
-
+    final path = Path()
+      ..lineTo(0, size.height * 0.85)
+      ..quadraticBezierTo(size.width * 0.25, size.height,
+          size.width * 0.6, size.height * 0.85)
+      ..quadraticBezierTo(size.width * 0.85, size.height * 0.75,
+          size.width, size.height * 0.6)
+      ..lineTo(size.width, 0)
+      ..lineTo(0, 0)
+      ..close();
     return path;
   }
 

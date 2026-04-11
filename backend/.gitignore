@@ -1,0 +1,27 @@
+# Environment
+.env
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+venv/
+.venv/
+env/
+
+# Models (large binary files – upload separately to HF Model Hub)
+ml/*.h5
+ml/*.pt
+ml/*.tflite
+ml/*.bin
+
+# Misc
+.DS_Store
+*.log
+.pytest_cache/

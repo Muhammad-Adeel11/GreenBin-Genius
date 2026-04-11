@@ -1,38 +1,23 @@
 import 'package:flutter/material.dart';
-import 'impact_stories_screen.dart'; // Import the new screen
+import '../utils/responsive.dart';
+import 'impact_stories_screen.dart';
 
 class GoalSelectionScreen extends StatelessWidget {
   const GoalSelectionScreen({super.key});
 
   final List<Map<String, dynamic>> goals = const [
-    {
-      'icon': Icons.lightbulb_outline_rounded,
-      'title': 'Inspire Cleanups',
-    },
-    {
-      'icon': Icons.trending_up_rounded,
-      'title': 'Improve Data Quality',
-    },
-    {
-      'icon': Icons.handshake_outlined,
-      'title': 'Join a Cleanup',
-    },
-    {
-      'icon': Icons.saved_search_rounded,
-      'title': 'Track My Impact',
-    },
-    {
-      'icon': Icons.gavel_rounded,
-      'title': 'Change Policy',
-    },
-    {
-      'icon': Icons.help_outline_rounded,
-      'title': 'Not Sure',
-    },
+    {'icon': Icons.lightbulb_outline_rounded, 'title': 'Inspire Cleanups'},
+    {'icon': Icons.trending_up_rounded, 'title': 'Improve Data Quality'},
+    {'icon': Icons.handshake_outlined, 'title': 'Join a Cleanup'},
+    {'icon': Icons.saved_search_rounded, 'title': 'Track My Impact'},
+    {'icon': Icons.gavel_rounded, 'title': 'Change Policy'},
+    {'icon': Icons.help_outline_rounded, 'title': 'Not Sure'},
   ];
 
   @override
   Widget build(BuildContext context) {
+    final sp = R.sp(context);
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -45,16 +30,16 @@ class GoalSelectionScreen extends StatelessWidget {
       ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+          padding: R.pagePadding(context),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 10),
-              // Title
+              SizedBox(height: sp * 0.5),
               RichText(
                 text: TextSpan(
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  style: TextStyle(
                     color: Colors.black,
+                    fontSize: R.fs(context, 26),
                     fontWeight: FontWeight.w400,
                   ),
                   children: const [
@@ -67,25 +52,21 @@ class GoalSelectionScreen extends StatelessWidget {
                   ],
                 ),
               ),
-
-              const SizedBox(height: 30),
-
-              // Grid of Options
+              SizedBox(height: sp * 2),
               Expanded(
                 child: GridView.builder(
                   itemCount: goals.length,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                    childAspectRatio: 0.85,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: R.isLarge(context) ? 3 : 2,
+                    crossAxisSpacing: sp,
+                    mainAxisSpacing: sp,
+                    childAspectRatio: R.isSmall(context) ? 1.0 : 0.85,
                   ),
-                  itemBuilder: (context, index) {
-                    return _buildGoalCard(context, goals[index]);
-                  },
+                  itemBuilder: (context, index) =>
+                      _buildGoalCard(context, goals[index]),
                 ),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: sp),
             ],
           ),
         ),
@@ -95,13 +76,10 @@ class GoalSelectionScreen extends StatelessWidget {
 
   Widget _buildGoalCard(BuildContext context, Map<String, dynamic> goal) {
     return InkWell(
-      onTap: () {
-        // Navigate to Impact Stories Screen
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const ImpactStoriesScreen()),
-        );
-      },
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const ImpactStoriesScreen()),
+      ),
       borderRadius: BorderRadius.circular(16),
       child: Container(
         decoration: BoxDecoration(
@@ -120,17 +98,17 @@ class GoalSelectionScreen extends StatelessWidget {
           children: [
             Icon(
               goal['icon'],
-              size: 48,
-              color: const Color(0xFF2196F3), // Brand Blue
+              size: R.icon(context, 44),
+              color: const Color(0xFF2196F3),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: R.sp(context)),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12.0),
+              padding: EdgeInsets.symmetric(horizontal: R.sp(context) * 0.75),
               child: Text(
                 goal['title'],
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 15,
+                style: TextStyle(
+                  fontSize: R.fs(context, 14),
                   fontWeight: FontWeight.w600,
                   color: Colors.black87,
                 ),

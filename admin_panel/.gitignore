@@ -1,0 +1,32 @@
+# ── GreenBin Genius — Admin Panel .gitignore ─────────────────────────────────
+
+# Secrets
+.env
+.env.*
+# .env.example
+# .env.example
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+.vite/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Cache
+.eslintcache
+.stylelintcache
+*.tsbuildinfo
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db

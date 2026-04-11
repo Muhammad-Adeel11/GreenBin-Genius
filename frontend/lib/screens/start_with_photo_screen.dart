@@ -1,35 +1,15 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'dashboard_screen.dart'; // Import Dashboard
-
-// Placeholder for Login
-class LoginScreen extends StatelessWidget {
-  const LoginScreen({super.key});
-  @override
-  Widget build(BuildContext context) {
-    // For now, let's auto-navigate to Dashboard or show a button
-    return Scaffold(
-      appBar: AppBar(title: const Text("Login")),
-      body: Center(
-        child: ElevatedButton(
-          onPressed: () {
-            // REMOVED 'const' here to prevent constructor errors if Dashboard changes
-            Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => DashboardScreen())
-            );
-          },
-          child: const Text("Login (Go to Dashboard)"),
-        ),
-      ),
-    );
-  }
-}
+import '../utils/responsive.dart';
+import 'register_screen.dart';
 
 class StartWithPhotoScreen extends StatelessWidget {
   const StartWithPhotoScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final sp = R.sp(context);
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -42,17 +22,17 @@ class StartWithPhotoScreen extends StatelessWidget {
       ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+          padding: R.pagePadding(context),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 10),
+              SizedBox(height: sp * 0.5),
 
-              // 1. Title
               RichText(
                 text: TextSpan(
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  style: TextStyle(
                     color: Colors.black,
+                    fontSize: R.fs(context, 26),
                     fontWeight: FontWeight.w400,
                   ),
                   children: const [
@@ -67,21 +47,19 @@ class StartWithPhotoScreen extends StatelessWidget {
 
               const Spacer(flex: 1),
 
-              // 2. The Visualization Card
               Center(
                 child: Column(
                   children: [
-                    // The Image Container
                     Container(
-                      height: 250, // Slightly taller to match screenshot proportions
-                      width: 250,
-                      padding: const EdgeInsets.all(24),
+                      height: R.h(context, 28),
+                      width: R.h(context, 28),
+                      padding: EdgeInsets.all(sp * 1.5),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.06), // Very subtle shadow
+                            color: Colors.black.withOpacity(0.06),
                             blurRadius: 20,
                             offset: const Offset(0, 8),
                           ),
@@ -89,35 +67,32 @@ class StartWithPhotoScreen extends StatelessWidget {
                       ),
                       child: Stack(
                         children: [
-                          // The Cup Image
                           Center(
                             child: Image.asset(
                               'assets/images/cup_example.png',
                               fit: BoxFit.contain,
                             ),
                           ),
-                          // Decorative Leaf Icons (Top Right)
                           const Positioned(
                             top: 0,
                             right: 0,
-                            child: Icon(Icons.eco, color: Color(0xFF4CAF50), size: 24),
+                            child: Icon(Icons.eco,
+                                color: Color(0xFF4CAF50), size: 24),
                           ),
-                          // Decorative Leaf Icons (Left Center - connected to tree)
                           const Positioned(
                             left: 0,
-                            top: 80,
-                            child: Icon(Icons.eco, color: Color(0xFF2E7D32), size: 24),
+                            top: 60,
+                            child: Icon(Icons.eco,
+                                color: Color(0xFF2E7D32), size: 24),
                           ),
                         ],
                       ),
                     ),
 
-                    const SizedBox(height: 20),
+                    SizedBox(height: sp * 1.25),
 
-                    // The Tree/Tags Structure
-                    // Using a constrained width to keep alignment tight
                     SizedBox(
-                      width: 300,
+                      width: R.w(context, 75),
                       child: Column(
                         children: [
                           _buildTagRow(context, 'Category', 'Drink', isFirst: true),
@@ -133,14 +108,13 @@ class StartWithPhotoScreen extends StatelessWidget {
 
               const Spacer(flex: 2),
 
-              // 3. Instruction Text
               RichText(
                 textAlign: TextAlign.center,
                 text: TextSpan(
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  style: TextStyle(
                     color: Colors.black,
+                    fontSize: R.fs(context, 22),
                     fontWeight: FontWeight.w300,
-                    fontSize: 24,
                   ),
                   children: [
                     const TextSpan(text: 'Find '),
@@ -153,47 +127,46 @@ class StartWithPhotoScreen extends StatelessWidget {
                           color: Color(0xFF2196F3),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
+                        child: Icon(Icons.camera_alt,
+                            color: Colors.white,
+                            size: R.icon(context, 18)),
                       ),
                     ),
-                    const TextSpan(text: ' on your screen\nto get started'),
+                    const TextSpan(
+                        text: ' on your screen\nto get started'),
                   ],
                 ),
               ),
 
               const Spacer(flex: 1),
 
-              // 4. Start Button
               SizedBox(
                 width: double.infinity,
-                height: 56,
+                height: R.buttonHeight(context),
                 child: ElevatedButton(
-                  onPressed: () {
-                    // Navigates to Login, which then goes to Dashboard
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const LoginScreen()),
-                    );
-                  },
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const RegisterScreen()),
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.black,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
+                        borderRadius: BorderRadius.circular(30)),
                     elevation: 0,
                   ),
-                  child: const Text(
+                  child: Text(
                     'START',
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: R.fs(context, 15),
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1.0,
                     ),
                   ),
                 ),
               ),
-              const SizedBox(height: 36),
+              SizedBox(height: sp * 2),
             ],
           ),
         ),
@@ -201,37 +174,28 @@ class StartWithPhotoScreen extends StatelessWidget {
     );
   }
 
-  // Helper widget to build the "Tree" connected lines and tags
-  Widget _buildTagRow(BuildContext context, String label, String value, {bool isFirst = false, bool isLast = false}) {
+  Widget _buildTagRow(BuildContext context, String label, String value,
+      {bool isFirst = false, bool isLast = false}) {
+    final sp = R.sp(context);
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // The Tree Line Visuals column
           SizedBox(
-            width: 40, // Increased width for the connection line area
+            width: 40,
             child: Column(
               children: [
-                // Upper Line (connects to item above)
                 Expanded(
                   child: Container(
-                    width: 1, // Thin line
+                    width: 1,
                     color: isFirst ? Colors.transparent : Colors.grey[300],
-                    margin: const EdgeInsets.only(left: 20), // Center the line
+                    margin: const EdgeInsets.only(left: 20),
                   ),
                 ),
-                // The Horizontal Connector (The "Branch")
-                Row(
-                  children: [
-                    const SizedBox(width: 20), // Spacing to align with vertical line
-                    Container(
-                      width: 12, // Length of the horizontal branch
-                      height: 1,
-                      color: Colors.grey[300],
-                    ),
-                  ],
-                ),
-                // Lower Line (connects to item below)
+                Row(children: [
+                  const SizedBox(width: 20),
+                  Container(width: 12, height: 1, color: Colors.grey[300]),
+                ]),
                 Expanded(
                   child: Container(
                     width: 1,
@@ -242,39 +206,36 @@ class StartWithPhotoScreen extends StatelessWidget {
               ],
             ),
           ),
-
-          // The Content (Label + Value Button)
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6.0),
+              padding: EdgeInsets.symmetric(vertical: sp * 0.4),
               child: Row(
                 children: [
-                  // Label (Category, Object, etc.)
                   SizedBox(
-                    width: 80, // Slightly wider to accommodate "Confidence"
+                    width: 80,
                     child: Text(
                       label,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                        fontSize: R.fs(context, 13),
                         color: Colors.black87,
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
-                  // Value Button (Drink, Cup, etc.)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    padding: EdgeInsets.symmetric(
+                        horizontal: sp, vertical: sp * 0.35),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF2196F3), // Brand Blue
+                      color: const Color(0xFF2196F3),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
                       value,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w600,
-                        fontSize: 13,
+                        fontSize: R.fs(context, 12),
                       ),
                     ),
                   ),

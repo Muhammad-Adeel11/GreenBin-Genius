@@ -1,0 +1,118 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Google Fonts ──────────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+/* ── Base resets ────────────────────────────────────────────────────────── */
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html {
+    font-size: 14px;
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    @apply bg-gb-base text-ink font-sans;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar       { @apply w-1.5 h-1.5; }
+  ::-webkit-scrollbar-track { @apply bg-gb-surface; }
+  ::-webkit-scrollbar-thumb { @apply bg-eco-border rounded-full; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-eco-muted; }
+
+  /* Input focus ring override */
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    @apply ring-1 ring-eco-border border-eco-border;
+  }
+}
+
+/* ── Reusable component layer ───────────────────────────────────────────── */
+@layer components {
+
+  /* Card */
+  .card {
+    @apply bg-gb-card border border-gb-border rounded-card
+           transition-colors duration-150 hover:border-eco-border;
+  }
+
+  /* Buttons */
+  .btn {
+    @apply inline-flex items-center gap-1.5 px-4 py-2 rounded-lg
+           font-sans font-semibold text-sm cursor-pointer border-none
+           transition-all duration-150;
+  }
+  .btn-primary {
+    @apply bg-eco text-ink-inverse hover:bg-eco-hover
+           active:scale-95 hover:-translate-y-px;
+  }
+  .btn-ghost {
+    @apply bg-transparent text-ink-sub border border-gb-border
+           hover:border-eco-border hover:text-eco hover:bg-eco-muted;
+  }
+  .btn-danger {
+    @apply bg-red-500/10 text-red-400 border border-red-500/20
+           hover:bg-red-500 hover:text-white;
+  }
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs;
+  }
+
+  /* Input */
+  .input {
+    @apply w-full bg-gb-input border border-gb-border rounded-lg
+           text-ink font-sans text-sm px-3 py-2 placeholder-ink-muted
+           transition-colors duration-150;
+  }
+
+  /* Badge */
+  .badge {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5
+           rounded-full text-xs font-semibold whitespace-nowrap;
+  }
+  .badge-green  { @apply bg-eco-muted   text-eco; }
+  .badge-yellow { @apply bg-yellow-500/15 text-yellow-400; }
+  .badge-red    { @apply bg-red-500/15   text-red-400; }
+  .badge-blue   { @apply bg-sky-500/15   text-sky-400; }
+  .badge-gray   { @apply bg-white/5      text-ink-sub; }
+  .badge-lime   { @apply bg-lime-500/15  text-lime-400; }
+  .badge-orange { @apply bg-orange-500/15 text-orange-400; }
+  .badge-purple { @apply bg-purple-500/15 text-purple-400; }
+
+  /* Table */
+  .tbl { @apply w-full border-collapse; }
+  .tbl thead tr    { @apply border-b border-gb-border; }
+  .tbl thead th    { @apply text-left px-3.5 py-2.5 text-xs font-semibold
+                            tracking-widest uppercase text-ink-muted; }
+  .tbl tbody tr    { @apply border-b border-gb-border transition-colors
+                            duration-100 hover:bg-eco-50; }
+  .tbl tbody tr:last-child { @apply border-b-0; }
+  .tbl tbody td    { @apply px-3.5 py-3 text-sm text-ink; }
+
+  /* Confidence bar */
+  .conf-track {
+    @apply flex-1 h-1.5 bg-gb-surface rounded-full overflow-hidden;
+  }
+  .conf-fill  { @apply h-full rounded-full transition-all duration-500; }
+
+  /* Section title */
+  .section-title {
+    @apply text-base font-bold text-ink tracking-tight;
+  }
+
+  /* Sidebar nav item */
+  .nav-item {
+    @apply flex items-center gap-2.5 px-3 py-2.5 rounded-lg
+           text-ink-sub text-sm font-medium no-underline
+           transition-all duration-150
+           hover:text-eco hover:bg-eco-muted;
+  }
+  .nav-item-active {
+    @apply bg-gb-hover text-eco border-l-[3px] border-eco pl-[9px];
+  }
+}

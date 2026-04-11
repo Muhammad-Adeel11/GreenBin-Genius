@@ -1,13 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:frontend/screens/impact/impact_screen.dart';
-import 'package:frontend/services/model_service.dart';
 import 'utils/app_theme.dart'; // Imports your custom Blue Theme
 import 'screens/splash_screen.dart'; // Imports your Splash Screen
-// import 'services/model_loader.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  // await ModelService.loadModels();
+void main() {
   runApp(const GreenBinGeniusApp());
 }
 
@@ -18,8 +13,8 @@ class GreenBinGeniusApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'GreenBin Genius',
-      debugShowCheckedModeBanner:
-          false, // Hides the 'Debug' banner in the corner
+      debugShowCheckedModeBanner: false, // Hides the 'Debug' banner in the corner
+
       // Apply the custom theme defined in lib/utils/app_theme.dart
       theme: AppTheme.lightTheme,
 
