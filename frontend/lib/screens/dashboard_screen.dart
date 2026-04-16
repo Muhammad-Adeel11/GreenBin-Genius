@@ -1,16 +1,33 @@
 import 'package:flutter/material.dart';
 import '../utils/responsive.dart';
 import 'camera_scanner_screen.dart';
+import 'profile_screen.dart';
+import 'camera_tutorial_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+  final int initialTabIndex;
+  final bool justUploaded;
+
+  static List<String> globalActivityPhotos = [];
+
+  const DashboardScreen({
+    super.key,
+    this.initialTabIndex = 2,
+    this.justUploaded = false,
+  });
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  int _selectedIndex = 2;
+  late int _selectedIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedIndex = widget.initialTabIndex;
+  }
 
   final List<Widget> _pages = [
     const Center(child: Text("Activity Page")),
@@ -26,11 +43,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: _pages[_selectedIndex],
+      body: Column(
+        children: [
+          if (widget.justUploaded && _selectedIndex == 0)
+            Container(
+              width: double.infinity,
+              color: const Color(0xFF2196F3),
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              child: Row(
+                children: [
+                  const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Text(
+                    "Uploading photo 1/1",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: R.fs(context, 14),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          Expanded(child: _pages[_selectedIndex]),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const AiScannerScreen()),
+          MaterialPageRoute(builder: (context) => const TutorialStep1()),
         ),
         backgroundColor: const Color(0xFF2196F3),
         child: Icon(Icons.camera_alt, color: Colors.white,
@@ -94,7 +142,10 @@ class ImpactTab extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           GestureDetector(
-                            onTap: () {},
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                            ),
                             child: Container(
                               width: R.icon(context, 40),
                               height: R.icon(context, 40),
