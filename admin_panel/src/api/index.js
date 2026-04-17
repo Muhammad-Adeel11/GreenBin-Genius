@@ -3,7 +3,7 @@ import api from './axiosClient'
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 export const authApi = {
-  login:        (email, password) => api.post('/auth/login', { email, password }),
+  login:        (email, password) => api.post('/auth/admin-login', { email, password }),
   googleUrl:    ()                => `${BASE_URL}/api/v1/auth/google`,
   refresh:      (token)           => api.post('/auth/refresh', { refresh_token: token }),
   getMe:        ()                => api.get('/auth/me'),
