@@ -134,6 +134,37 @@ async def login(body: UserLoginRequest):
     )
 
 
+@router.post(
+    "/admin-login",
+    response_model=TokenResponse,
+    summary="Login strictly for administrators",
+)
+async def admin_login(body: UserLoginRequest):
+    user = await users_col().find_one({"email": body.email})
+    if not user or not verify_password(body.password, user["password"]):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password.",
+        )
+
+    # Specific Admin Role check
+    if user.get("role") != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access Denied. Administrator privileges required.",
+        )
+
+    user_id = str(user["_id"])
+    token = create_token(user_id, body.email)
+
+    return TokenResponse(
+        access_token=token,
+        user_id=user_id,
+        name=user["name"],
+        email=user["email"],
+    )
+
+
 @router.get(
     "/me",
     summary="Get the currently authenticated user's profile",
