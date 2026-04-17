@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../utils/responsive.dart';
 import 'dashboard_screen.dart';
+import 'camera_scanner_screen.dart';
 
 // ==========================================
 // PAGE 1: What is a good photo?
@@ -197,7 +198,7 @@ class TutorialStep3 extends StatelessWidget {
               onPressed: () {
                 Navigator.pushReplacement(
                   context,
-                  MaterialPageRoute(builder: (context) => const ActiveCameraScreen()),
+                  MaterialPageRoute(builder: (context) => const AiScannerScreen()),
                 );
               },
               child: Text("Next", style: TextStyle(color: Colors.white, fontSize: R.fs(context, 16))),
@@ -249,11 +250,11 @@ class TutorialStep3 extends StatelessWidget {
                     SizedBox(height: sp * 1.5),
 
                     _buildDialogButton(context, "WHILE USING THE APP", const Color(0xFF2196F3), Colors.white, () {
-                      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const ActiveCameraScreen()));
+                      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const AiScannerScreen()));
                     }),
                     const Divider(height: 1, thickness: 1),
                     _buildDialogButton(context, "ONLY THIS TIME", Colors.white, Colors.black, () {
-                      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const ActiveCameraScreen()));
+                      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const AiScannerScreen()));
                     }),
                     const Divider(height: 1, thickness: 1),
                     _buildDialogButton(context, "DENY", Colors.white, Colors.black, () {
