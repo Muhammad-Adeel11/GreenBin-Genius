@@ -10,6 +10,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../utils/responsive.dart';
+import 'profile_screen.dart';
 
 // ─── Data model ──────────────────────────────────────────────────────────────
 
@@ -55,8 +56,13 @@ class WasteBin {
 
 class BinLocatorScreen extends StatefulWidget {
   final String? wasteCategory; // Passed from ClassificationResultScreen
+  final bool isTabMode; // If embedding as a tab in the dashboard
 
-  const BinLocatorScreen({super.key, this.wasteCategory});
+  const BinLocatorScreen({
+    super.key, 
+    this.wasteCategory,
+    this.isTabMode = false,
+  });
 
   @override
   State<BinLocatorScreen> createState() => _BinLocatorScreenState();
@@ -485,11 +491,39 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
         ),
         child: Row(
           children: [
-            IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new,
-                  color: Colors.white, size: 20),
-              onPressed: () => Navigator.pop(context),
-            ),
+            if (!widget.isTabMode)
+              IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new,
+                    color: Colors.white, size: 20),
+                onPressed: () => Navigator.pop(context),
+              )
+            else
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    PageRouteBuilder(
+                      pageBuilder: (context, animation, secondaryAnimation) => const ProfileScreen(),
+                      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                        var begin = const Offset(-1.0, 0.0);
+                        var end = Offset.zero;
+                        var curve = Curves.easeInOutQuart;
+                        var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+                        return SlideTransition(position: animation.drive(tween), child: child);
+                      },
+                    ),
+                  );
+                },
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 8),
+                  width: R.icon(context, 36), height: R.icon(context, 36),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(colors: [Colors.cyanAccent, Colors.blue], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                  ),
+                ),
+              ),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
