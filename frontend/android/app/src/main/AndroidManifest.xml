@@ -7,11 +7,18 @@
     <!-- Camera access for AI waste scanner -->
     <uses-permission android:name="android.permission.CAMERA"/>
 
+    <!-- GPS location for Bin Locator -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
 
     <application
         android:label="frontend"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <!-- Google Maps API Key -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyAw2p9UWzl7VaDXeItQV46WRA7nW3m0Wl4"/>
         <activity
             android:name=".MainActivity"
             android:exported="true"

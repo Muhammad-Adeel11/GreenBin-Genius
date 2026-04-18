@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import '../utils/responsive.dart';
 import '../services/api_service.dart';
+import 'bin_locator_screen.dart';
 
 class ClassificationResultScreen extends StatefulWidget {
   final File imageFile;
@@ -244,13 +245,20 @@ class _ClassificationResultScreenState
 
                 SizedBox(height: sp * 2),
 
-                // Action buttons
+                // Find Nearest Bin button
                 SizedBox(
                   width: double.infinity,
-                  height: 56,
+                  height: R.buttonHeight(context),
                   child: ElevatedButton.icon(
                     onPressed: () {
-                      // TODO: Navigate to Bin Locator with result category
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => BinLocatorScreen(
+                            wasteCategory: _result!.category,
+                          ),
+                        ),
+                      );
                     },
                     icon: const Icon(Icons.location_on),
                     label: Text(
