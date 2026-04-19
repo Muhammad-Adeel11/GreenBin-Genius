@@ -14,10 +14,12 @@
     font-size: 14px;
     scroll-behavior: smooth;
     -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
   }
 
   body {
     @apply bg-gb-base text-ink font-sans;
+    overflow-x: hidden;
   }
 
   /* Custom scrollbar */
