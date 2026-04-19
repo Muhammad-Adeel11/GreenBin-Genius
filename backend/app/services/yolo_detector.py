@@ -34,6 +34,22 @@ def load_model_on_startup():
 
     try:
         from ultralytics import YOLO  # type: ignore
+        
+        # ── Compatibility Fix for DFLoss ──────────────────────────
+        # Inject DFLoss into ultralytics.utils.loss if it's missing
+        # This resolves unpickling errors on some versions
+        import ultralytics.utils.loss as loss_module
+        if not hasattr(loss_module, 'DFLoss'):
+            import torch.nn as nn
+            class DFLoss(nn.Module):
+                def __init__(self, reg_max=16):
+                    super().__init__()
+                    self.reg_max = reg_max
+                def forward(self, pred_dist, target):
+                    return None # Stub for unpickling
+            setattr(loss_module, 'DFLoss', DFLoss)
+        # ──────────────────────────────────────────────────────────
+
         _yolo_model = YOLO(model_path)
         _yolo_loaded = True
         logger.info(f"[OK] YOLO model loaded from '{model_path}'.")
