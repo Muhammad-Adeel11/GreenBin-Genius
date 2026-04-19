@@ -6,6 +6,20 @@ import {
 import Layout from '../components/layout/Layout'
 import { Modal, Spinner } from '../components/ui/index.jsx'
 import { binsApi } from '../api'
+import { GoogleMap, useJsApiLoader, MarkerF, InfoWindowF } from '@react-google-maps/api'
+import { DARK_EMERALD_STYLE } from '../api/mapStyles'
+
+const GOOGLE_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''
+
+const mapContainerStyle = {
+  width: '100%',
+  height: '100%'
+}
+
+const defaultCenter = {
+  lat: 33.6844,
+  lng: 73.0479
+}
 
 /* ── Status config ────────────────────────────────────────────────────────── */
 const STATUS_CFG = {
@@ -134,14 +148,35 @@ export default function BinLocations() {
     } catch(e) { console.error(e) }
   }
 
-  /* ── Map pins — spread across Islamabad/Abbottabad area ─────────────── */
-  const mapPins = (bins.length ? bins : MOCK_BINS).slice(0,8).map((b, i) => ({
-    id: b.id || b._id || String(i),
-    x:  20 + (i % 4) * 20 + Math.sin(i) * 8,
-    y:  25 + Math.floor(i / 4) * 35 + Math.cos(i) * 10,
-    status: b.status || 'ACTIVE',
-    label:  b.name || `BIN-10${i+1}`,
-  }))
+  const { isLoaded } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: GOOGLE_API_KEY
+  })
+
+  const [map, setMap] = useState(null)
+
+  const onMapLoad = useCallback((mapInstance) => {
+    setMap(mapInstance)
+  }, [])
+
+  const handleMarkerClick = (id) => {
+    setActiveId(id)
+  }
+
+  // Effect to pan map when activeId changes from sidebar
+  useEffect(() => {
+    if (map && activeId) {
+      const bin = bins.find(b => b.id === activeId || b._id === activeId) || MOCK_BINS.find(b => b.id === activeId)
+      if (bin) {
+        const lat = bin.latitude || bin.location?.coordinates?.[1]
+        const lng = bin.longitude || bin.location?.coordinates?.[0]
+        if (lat && lng) {
+          map.panTo({ lat, lng })
+          map.setZoom(16)
+        }
+      }
+    }
+  }, [activeId, map, bins])
 
   return (
     <Layout title="Disposal Locations" subtitle="Manage bins & GPS coordinates">
@@ -197,39 +232,52 @@ export default function BinLocations() {
         </div>
 
         {/* ── Map area ─────────────────────────────────────────────── */}
-        <div className="flex-1 relative bg-[#1a2a1a] overflow-hidden">
-          {/* Topo-style map background */}
-          <div className="absolute inset-0" style={{
-            backgroundImage: `
-              radial-gradient(circle at 30% 40%, rgba(34,197,94,0.04) 0%, transparent 50%),
-              radial-gradient(circle at 70% 60%, rgba(34,197,94,0.03) 0%, transparent 40%)
-            `,
-            backgroundSize: '100% 100%',
-          }}>
-            {/* Grid lines */}
-            <svg className="w-full h-full opacity-10" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse">
-                  <path d="M 60 0 L 0 0 0 60" fill="none" stroke="#22c55e" strokeWidth="0.5"/>
-                </pattern>
-              </defs>
-              <rect width="100%" height="100%" fill="url(#grid)"/>
-            </svg>
-            {/* Region labels */}
-            {['KHYBER PAKHTUNKHWA','ISLAMABAD CAPITAL TERRITORY','PUNJAB'].map((l, i) => (
-              <div key={l} className="absolute text-[0.6rem] text-eco/30 font-bold tracking-[0.15em] uppercase pointer-events-none"
-                style={{ left:`${15+i*28}%`, top:`${20+i*20}%`, transform:'rotate(-10deg)' }}>
-                {l}
-              </div>
-            ))}
-          </div>
-
-          {/* Map pins */}
-          {mapPins.map(pin => (
-            <MapPin2 key={pin.id} x={pin.x} y={pin.y} status={pin.status}
-              active={pin.id === activeId} label={pin.label}
-              onClick={() => setActiveId(pin.id)}/>
-          ))}
+        <div className="flex-1 relative bg-[#0a1a0a] overflow-hidden">
+          {isLoaded ? (
+            <GoogleMap
+              mapContainerStyle={mapContainerStyle}
+              center={defaultCenter}
+              zoom={13}
+              onLoad={onMapLoad}
+              options={{
+                styles: DARK_EMERALD_STYLE,
+                disableDefaultUI: true,
+                zoomControl: false,
+                mapTypeControl: false,
+                streetViewControl: false,
+                fullscreenControl: false
+              }}
+            >
+              {(bins.length ? bins : MOCK_BINS).map((bin) => {
+                const lat = bin.latitude || bin.location?.coordinates?.[1] || 33.6844
+                const lng = bin.longitude || bin.location?.coordinates?.[0] || 73.0479
+                const cfg = statusCfg(bin.status)
+                const id = bin.id || bin._id
+                
+                return (
+                  <MarkerF
+                    key={id}
+                    position={{ lat, lng }}
+                    onClick={() => handleMarkerClick(id)}
+                    icon={{
+                      path: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z",
+                      fillColor: cfg.dot === 'bg-eco' ? '#22c55e' : cfg.dot === 'bg-red-500' ? '#ef4444' : '#f59e0b',
+                      fillOpacity: 1,
+                      strokeWeight: 2,
+                      strokeColor: "#ffffff",
+                      scale: activeId === id ? 1.5 : 1.2,
+                      anchor: { x: 12, y: 22 }
+                    }}
+                  />
+                )
+              })}
+            </GoogleMap>
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-eco/40">
+              <Spinner />
+              <span className="ml-3 font-medium">Loading Google Maps...</span>
+            </div>
+          )}
 
           {/* Detail popup */}
           {activeBin && (
@@ -271,18 +319,19 @@ export default function BinLocations() {
           )}
 
           {/* Zoom controls */}
-          <div className="absolute top-4 right-4 flex flex-col gap-1">
-            {[
-              { label:'⊕', title:'My location' },
-              { label:'+', title:'Zoom in' },
-              { label:'−', title:'Zoom out' },
-              { label:'⊞', title:'Layers' },
-            ].map(({label,title}) => (
-              <button key={title} title={title}
-                className="w-9 h-9 bg-gb-card border border-gb-border rounded-lg flex items-center justify-center text-ink-sub text-[1rem] hover:text-eco hover:border-eco-border transition-all cursor-pointer shadow-card">
-                {label}
-              </button>
-            ))}
+          <div className="absolute top-4 right-4 flex flex-col gap-1 z-20">
+            <button key="recenter" title="Recenter Map" onClick={() => map?.panTo(defaultCenter)}
+              className="w-9 h-9 bg-gb-card border border-gb-border rounded-lg flex items-center justify-center text-ink-sub text-[1rem] hover:text-eco hover:border-eco-border transition-all cursor-pointer shadow-card">
+              ⊕
+            </button>
+            <button key="zoom_in" title="Zoom In" onClick={() => map?.setZoom((map.getZoom() || 13) + 1)}
+              className="w-9 h-9 bg-gb-card border border-gb-border rounded-lg flex items-center justify-center text-ink-sub text-[1rem] hover:text-eco hover:border-eco-border transition-all cursor-pointer shadow-card">
+              +
+            </button>
+            <button key="zoom_out" title="Zoom Out" onClick={() => map?.setZoom((map.getZoom() || 13) - 1)}
+              className="w-9 h-9 bg-gb-card border border-gb-border rounded-lg flex items-center justify-center text-ink-sub text-[1rem] hover:text-eco hover:border-eco-border transition-all cursor-pointer shadow-card">
+              −
+            </button>
           </div>
 
           {/* Map legend */}
