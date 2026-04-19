@@ -693,6 +693,8 @@ class _ActivityTabState extends State<ActivityTab> {
                 disposalTip: item['disposal_tip'] ?? '',
                 disposalTipUr: item['disposal_tip_ur'] ?? '',
                 recyclable: isRecyclable,
+                imageUrl: item['image_url'],
+                timestamp: item['timestamp'] != null ? DateTime.parse(item['timestamp']) : DateTime.now(),
               );
               
               Navigator.push(context, MaterialPageRoute(

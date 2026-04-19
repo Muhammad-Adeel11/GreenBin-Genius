@@ -24,12 +24,19 @@ class UserLoginRequest(BaseModel):
     password: str
 
 
+class UserInfo(BaseModel):
+    id: str
+    name: str
+    email: str
+    role: str = "USER"
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user_id: str
     name: str
     email: str
+    user: UserInfo
 
 
 # ──────────────────────────────────────────────
