@@ -239,6 +239,7 @@ class ClassificationResult {
   final String disposalTip;
   final String disposalTipUr;
   final bool recyclable;
+  final String? imageUrl;
   final DateTime timestamp;
 
   const ClassificationResult({
@@ -249,6 +250,7 @@ class ClassificationResult {
     required this.disposalTip,
     required this.disposalTipUr,
     required this.recyclable,
+    this.imageUrl,
     required this.timestamp,
   });
 
@@ -261,6 +263,7 @@ class ClassificationResult {
       disposalTip: json['disposal_tip'] ?? '',
       disposalTipUr: json['disposal_tip_ur'] ?? '',
       recyclable: json['recyclable'] ?? false,
+      imageUrl: json['image_url'],
       timestamp: json['timestamp'] != null
           ? DateTime.parse(json['timestamp'])
           : DateTime.now(),
