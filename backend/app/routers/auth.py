@@ -107,6 +107,12 @@ async def register(body: UserRegisterRequest):
         user_id=user_id,
         name=body.name,
         email=body.email,
+        user={
+            "id": user_id,
+            "name": body.name,
+            "email": body.email,
+            "role": "USER"
+        }
     )
 
 
@@ -125,12 +131,19 @@ async def login(body: UserLoginRequest):
 
     user_id = str(user["_id"])
     token = create_token(user_id, body.email)
+    role = user.get("role", "USER").upper()
 
     return TokenResponse(
         access_token=token,
         user_id=user_id,
         name=user["name"],
         email=user["email"],
+        user={
+            "id": user_id,
+            "name": user["name"],
+            "email": user["email"],
+            "role": role
+        }
     )
 
 
@@ -156,12 +169,19 @@ async def admin_login(body: UserLoginRequest):
 
     user_id = str(user["_id"])
     token = create_token(user_id, body.email)
+    role = user.get("role", "ADMIN").upper()
 
     return TokenResponse(
         access_token=token,
         user_id=user_id,
         name=user["name"],
         email=user["email"],
+        user={
+            "id": user_id,
+            "name": user["name"],
+            "email": user["email"],
+            "role": role
+        }
     )
 
 
