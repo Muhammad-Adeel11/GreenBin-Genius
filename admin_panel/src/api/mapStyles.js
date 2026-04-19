@@ -1,0 +1,22 @@
+export const DARK_EMERALD_STYLE = [
+  { "elementType": "geometry", "stylers": [{ "color": "#1a2a1a" }] },
+  { "elementType": "labels.text.stroke", "stylers": [{ "color": "#1a2a1a" }] },
+  { "elementType": "labels.text.fill", "stylers": [{ "color": "#4a6e4a" }] },
+  { "featureType": "administrative", "elementType": "geometry.stroke", "stylers": [{ "color": "#2c4a2c" }] },
+  { "featureType": "administrative.land_parcel", "elementType": "labels.text.fill", "stylers": [{ "color": "#3d5e3d" }] },
+  { "featureType": "landscape.man_made", "elementType": "geometry.stroke", "stylers": [{ "color": "#2c4a2c" }] },
+  { "featureType": "landscape.natural", "elementType": "geometry", "stylers": [{ "color": "#1a2a1a" }] },
+  { "featureType": "poi", "elementType": "geometry", "stylers": [{ "color": "#2c4a2c" }] },
+  { "featureType": "poi", "elementType": "labels.text.fill", "stylers": [{ "color": "#4a6e4a" }] },
+  { "featureType": "poi.park", "elementType": "geometry.fill", "stylers": [{ "color": "#123412" }] },
+  { "featureType": "poi.park", "elementType": "labels.text.fill", "stylers": [{ "color": "#4a6e4a" }] },
+  { "featureType": "road", "elementType": "geometry", "stylers": [{ "color": "#2c4a2c" }] },
+  { "featureType": "road", "elementType": "geometry.stroke", "stylers": [{ "color": "#1a2a1a" }] },
+  { "featureType": "road", "elementType": "labels.text.fill", "stylers": [{ "color": "#4a6e4a" }] },
+  { "featureType": "road.highway", "elementType": "geometry", "stylers": [{ "color": "#22c55e" }, { "lightness": -70 }] },
+  { "featureType": "road.highway", "elementType": "geometry.stroke", "stylers": [{ "color": "#1a2a1a" }] },
+  { "featureType": "road.highway", "elementType": "labels.text.fill", "stylers": [{ "color": "#4a6e4a" }] },
+  { "featureType": "transit", "elementType": "geometry", "stylers": [{ "color": "#2c4a2c" }] },
+  { "featureType": "water", "elementType": "geometry", "stylers": [{ "color": "#0a1a0a" }] },
+  { "featureType": "water", "elementType": "labels.text.fill", "stylers": [{ "color": "#2c4a2c" }] }
+]

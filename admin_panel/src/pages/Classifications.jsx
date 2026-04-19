@@ -51,7 +51,7 @@ function EditModal({ open, item, onClose, onSave }) {
       </div>
       <div className="flex gap-2 justify-end">
         <button className="btn btn-ghost btn-sm" onClick={onClose}>Cancel</button>
-        <button className="btn btn-primary btn-sm" onClick={() => { onSave(item?.id,sel); onClose() }} disabled={sel===item?.predicted_category}>
+        <button className="btn btn-primary btn-sm" onClick={() => { onSave(item?.id,sel); onClose() }} disabled={sel===(item?.category || item?.predicted_category)}>
           Save Label
         </button>
       </div>
@@ -75,7 +75,8 @@ export default function Classifications() {
         classificationApi.getHistory({ limit: 50, skip: 0 }),
         analyticsApi.getDashboard(),
       ])
-      const data = Array.isArray(hRes.data) ? hRes.data : MOCK_ITEMS
+      const hData = hRes.data
+      const data = Array.isArray(hData.items) ? hData.items : MOCK_ITEMS
       setItems(data)
       setFiltered(data)
       const dist = dRes.data?.category_distribution || []
@@ -147,9 +148,9 @@ export default function Classifications() {
           {loading ? <Spinner /> : filtered.length===0 ? <EmptyState icon="🗂️" message="No classifications found"/> : (
             <div className="grid grid-cols-4 gap-4">
               {filtered.map((item,i) => {
-                const conf        = item.confidence_score ?? (item.conf/100)
+                const conf        = item.confidence ?? item.confidence_score ?? (item.conf ? item.conf/100 : 0)
                 const pct         = Math.round(conf*100)
-                const cat         = item.predicted_category || 'UNKNOWN'
+                const cat         = item.category || item.predicted_category || 'UNKNOWN'
                 const needsReview = conf < 0.60 || cat === 'UNKNOWN'
                 return (
                   <div key={item.id||i}
