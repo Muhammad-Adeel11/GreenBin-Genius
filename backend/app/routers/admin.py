@@ -132,3 +132,62 @@ async def get_model_status(_ = Depends(get_admin_user)):
 async def reload_models(_ = Depends(get_admin_user)):
     # Mocking real operation to prevent locking the app in MVP
     return {"success": True, "message": "Models successfully reloaded"}
+
+
+# ── Leaderboard ────────────────────────────────────────────────────────────────
+@router.get("/leaderboard")
+async def get_leaderboard(_ = Depends(get_admin_user), limit: int = 10):
+    """Top users ranked by total_scans (contribution points)."""
+    u_col  = users_col()
+    cursor = u_col.find({}).sort("total_scans", -1).limit(limit)
+    users  = await cursor.to_list(length=limit)
+    result = []
+    for u in users:
+        result.append({
+            "user_id":                str(u["_id"]),
+            "name":                   u.get("name", "Unknown"),
+            "email":                  u.get("email", ""),
+            "total_classifications":  u.get("total_scans", 0),
+            "contribution_points":    u.get("total_scans", 0) * 10,
+        })
+    return result
+
+
+# ── Also expose at /api/leaderboard (admin panel calls /leaderboard) ──────────
+leaderboard_router = APIRouter(prefix="/api", tags=["Leaderboard"])
+
+@leaderboard_router.get("/leaderboard")
+async def public_leaderboard(limit: int = 10, _ = Depends(get_admin_user)):
+    """Alias so admin panel can call /api/leaderboard directly."""
+    u_col  = users_col()
+    cursor = u_col.find({}).sort("total_scans", -1).limit(limit)
+    users  = await cursor.to_list(length=limit)
+    result = []
+    for u in users:
+        result.append({
+            "user_id":               str(u["_id"]),
+            "name":                  u.get("name", "Unknown"),
+            "email":                 u.get("email", ""),
+            "total_classifications": u.get("total_scans", 0),
+            "contribution_points":   u.get("total_scans", 0) * 10,
+        })
+    return result
+
+
+# ── Admin: all classifications (not per-user) ──────────────────────────────────
+@router.get("/classifications")
+async def admin_get_all_classifications(
+    _ = Depends(get_admin_user),
+    skip: int = 0,
+    limit: int = 50,
+):
+    """All classifications across all users for the admin panel."""
+    col    = classifications_col()
+    cursor = col.find({}).sort("timestamp", -1).skip(skip).limit(limit)
+    items  = await cursor.to_list(length=limit)
+    for i in items:
+        i["id"] = str(i.pop("_id"))
+        if "timestamp" in i and hasattr(i["timestamp"], "isoformat"):
+            i["timestamp"] = i["timestamp"].isoformat()
+    total = await col.count_documents({})
+    return {"total": total, "items": items}

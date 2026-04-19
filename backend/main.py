@@ -97,6 +97,7 @@ app.include_router(history.router)
 app.include_router(bins.router)
 app.include_router(analytics.router)
 app.include_router(admin.router)
+app.include_router(admin.leaderboard_router)   # GET /api/leaderboard
 
 
 # ── Root Health-Check ────────────────────────────────────────
