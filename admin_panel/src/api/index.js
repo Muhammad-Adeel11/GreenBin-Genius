@@ -10,7 +10,7 @@ export const authApi = {
 }
 
 export const classificationApi = {
-  getHistory:   (params)          => api.get('/classify/history', { params }),
+  getHistory:   (params)          => api.get('/admin/classifications', { params }),
   getDetail:    (id)              => api.get(`/classify/${id}`),
   addFeedback:  (id, cat)         => api.post(`/classify/${id}/feedback`, { corrected_category: cat }),
   getModelInfo: ()                => api.get('/classify/model/info'),

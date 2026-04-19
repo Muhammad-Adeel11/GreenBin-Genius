@@ -40,8 +40,10 @@ export default function Dashboard() {
         analyticsApi.getDashboard(),
         classificationApi.getHistory({ limit: 6, skip: 0 }),
       ])
-      setStats(dashRes.data)
-      setRecent(Array.isArray(recRes.data) ? recRes.data : [])
+      const dashData = dashRes.data
+      const recData  = recRes.data
+      setStats(dashData)
+      setRecent(Array.isArray(recData.items) ? recData.items : [])
     } catch (e) {
       console.error(e)
     } finally {
@@ -233,7 +235,7 @@ export default function Dashboard() {
                     <td><Badge label={row.predicted_category || row.category} /></td>
                     {/* Confidence */}
                     <td className="min-w-[140px]">
-                      <ConfidenceBar value={row.confidence_score ?? (row.conf / 100)} />
+                      <ConfidenceBar value={row.confidence ?? row.confidence_score ?? (row.conf ? row.conf / 100 : 0)} />
                     </td>
                     {/* User */}
                     <td className="font-mono text-[0.72rem] text-ink-muted">

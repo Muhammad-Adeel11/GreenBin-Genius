@@ -156,17 +156,17 @@ export default function Users() {
 
   return (
     <Layout title="Users & Leaderboard">
-      <div className="flex gap-5">
+      <div className="flex gap-5 min-w-0">
 
         {/* ── Left main ─────────────────────────────────────────────── */}
-        <div className="flex-1 min-w-0 space-y-6">
+        <div className="flex-1 min-w-0 space-y-6 overflow-hidden">
 
           {/* ── Global Leaderboard ─────────────────────────────────── */}
           <div>
             <h1 className="text-[1.65rem] font-bold text-ink tracking-tight leading-tight">Global Leaderboard</h1>
             <p className="text-[0.82rem] text-ink-muted mt-1 mb-4">Top 10 eco-contributors ranked by sustainability score.</p>
 
-            <div className="card overflow-hidden">
+            <div className="card overflow-x-auto">
               {loadingLead ? <Spinner/> : (
                 <table className="tbl">
                   <thead>
@@ -222,7 +222,7 @@ export default function Users() {
               </div>
             </div>
 
-            <div className="card overflow-hidden">
+            <div className="card overflow-x-auto">
               {loadingHist ? (
                 <Spinner/>
               ) : !histSearch.trim() ? (
@@ -287,7 +287,7 @@ export default function Users() {
         </div>
 
         {/* ── Right sidebar ──────────────────────────────────────────── */}
-        <div className="w-60 flex-shrink-0 space-y-4">
+        <div className="w-56 flex-shrink-0 space-y-4">
           <h3 className="text-[0.95rem] font-bold text-ink">Contribution Analytics</h3>
 
           {/* Most Active Regions */}
