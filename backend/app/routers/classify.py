@@ -5,12 +5,19 @@ Follows FR-3 (AI Image Classification) from SRS.
 """
 
 from datetime import datetime
+from typing import Optional
 from fastapi import APIRouter, File, UploadFile, Depends, HTTPException, status
-from app.models.schemas import ClassificationResult
+from app.models.schemas import (
+    ClassificationResult,
+    CNNClassificationResult,
+    YOLOClassificationResult
+)
 from app.services import cnn_classifier, yolo_detector
 from app.db.mongo import classifications_col, users_col
 from app.routers.auth import get_current_user
 from bson import ObjectId
+import cloudinary
+import cloudinary.uploader
 
 router = APIRouter(prefix="/api", tags=["Classification"])
 
@@ -26,37 +33,40 @@ _EXT_TO_MIME = {
 
 
 def _resolve_content_type(file: UploadFile) -> str:
-    """
-    Return a resolved MIME type.
-    Android camera sometimes sends 'application/octet-stream'; in that case
-    we fall back to the filename extension (e.g. 'photo.jpeg' → 'image/jpeg').
-    """
+    """Return a resolved MIME type."""
     ct = (file.content_type or "").lower()
     if ct in ALLOWED_TYPES:
         return ct
-    # Fallback: detect from filename extension
     if file.filename:
         ext = file.filename.rsplit(".", 1)[-1].lower()
         if ext in _EXT_TO_MIME:
             return _EXT_TO_MIME[ext]
-    return ct  # return as-is so the error message is accurate
+    return ct
+
+
+async def _handle_cloudinary_upload(image_bytes: bytes) -> Optional[str]:
+    """Helper to upload image to Cloudinary if configured."""
+    import os
+    from typing import Optional
+    if os.getenv("CLOUDINARY_URL") or os.getenv("CLOUDINARY_CLOUD_NAME"):
+        try:
+            upload_res = cloudinary.uploader.upload(image_bytes)
+            return upload_res.get("secure_url")
+        except Exception as e:
+            print(f"[Cloudinary Warning] Upload failed: {e}")
+    return None
 
 
 @router.post(
     "/classify",
     response_model=ClassificationResult,
-    summary="Upload a waste image and get AI classification",
-    description=(
-        "Accepts a JPEG/PNG image via multipart upload. "
-        "Runs dual-model inference (CNN for category/material, YOLO for object). "
-        "Returns structured classification data and bilingual disposal tips."
-    ),
+    summary="Combined AI classification (CNN + YOLO)",
 )
 async def classify_image(
     file: UploadFile = File(..., description="Waste image (JPEG / PNG)"),
     current_user: dict = Depends(get_current_user),
 ):
-    # ── Validate file type (with octet-stream fallback) ───────
+    # ── Validate and Read ─────────────────────────────────────
     resolved_type = _resolve_content_type(file)
     if resolved_type not in ALLOWED_TYPES:
         raise HTTPException(
@@ -64,20 +74,18 @@ async def classify_image(
             detail=f"Unsupported file type '{file.content_type}'. Use JPEG or PNG.",
         )
 
-
     image_bytes = await file.read()
-
-    if len(image_bytes) > 10 * 1024 * 1024:   # 10 MB guard
+    if len(image_bytes) > 10 * 1024 * 1024:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             detail="Image too large. Maximum size is 10 MB.",
         )
 
-    # ── Run inference ─────────────────────────────────────────
-    cnn_result  = cnn_classifier.predict(image_bytes)
-    yolo_result = yolo_detector.detect(image_bytes)
-
+    # ── Inference ─────────────────────────────────────────────
     timestamp = datetime.utcnow()
+    cnn_result = cnn_classifier.predict(image_bytes)
+    yolo_result = yolo_detector.detect(image_bytes)
+    image_url = await _handle_cloudinary_upload(image_bytes)
 
     result = ClassificationResult(
         category=cnn_result["category"],
@@ -87,10 +95,11 @@ async def classify_image(
         disposal_tip=cnn_result["disposal_tip"],
         disposal_tip_ur=cnn_result["disposal_tip_ur"],
         recyclable=cnn_result["recyclable"],
+        image_url=image_url,
         timestamp=timestamp,
     )
 
-    # ── Persist classification to MongoDB (non-blocking) ──────
+    # ── Persistence ───────────────────────────────────────────
     user_id = str(current_user["_id"])
     await classifications_col().insert_one({
         "user_id":        user_id,
@@ -100,19 +109,64 @@ async def classify_image(
         "confidence":     result.confidence,
         "recyclable":     result.recyclable,
         "disposal_tip":   result.disposal_tip,
+        "image_url":      image_url,
         "timestamp":      timestamp,
         "filename":       file.filename,
-        "mock_cnn":       cnn_result.get("mock", False),
-        "mock_yolo":      yolo_result.get("mock", False),
     })
 
-    # ── Increment user total_scans counter ───────────────────
     await users_col().update_one(
-        {"_id": ObjectId(user_id)},
-        {"$inc": {"total_scans": 1}},
+        {"_id": ObjectId(user_id)}, {"$inc": {"total_scans": 1}}
     )
 
     return result
+
+
+@router.post(
+    "/classify/cnn",
+    response_model=CNNClassificationResult,
+    summary="CNN-only classification",
+)
+async def classify_cnn(
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user),
+):
+    image_bytes = await file.read()
+    timestamp = datetime.utcnow()
+    cnn_result = cnn_classifier.predict(image_bytes)
+    image_url = await _handle_cloudinary_upload(image_bytes)
+
+    return CNNClassificationResult(
+        category=cnn_result["category"],
+        material=cnn_result["material"],
+        confidence=cnn_result["confidence"],
+        disposal_tip=cnn_result["disposal_tip"],
+        disposal_tip_ur=cnn_result["disposal_tip_ur"],
+        recyclable=cnn_result["recyclable"],
+        image_url=image_url,
+        timestamp=timestamp,
+    )
+
+
+@router.post(
+    "/classify/yolo",
+    response_model=YOLOClassificationResult,
+    summary="YOLO-only object detection",
+)
+async def classify_yolo(
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user),
+):
+    image_bytes = await file.read()
+    timestamp = datetime.utcnow()
+    yolo_result = yolo_detector.detect(image_bytes)
+    image_url = await _handle_cloudinary_upload(image_bytes)
+
+    return YOLOClassificationResult(
+        object_detected=yolo_result["object_detected"],
+        confidence=yolo_result["yolo_confidence"],
+        image_url=image_url,
+        timestamp=timestamp,
+    )
 
 
 @router.get(

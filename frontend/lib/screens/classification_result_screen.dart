@@ -5,9 +5,11 @@ import '../services/api_service.dart';
 import 'bin_locator_screen.dart';
 
 class ClassificationResultScreen extends StatefulWidget {
-  final File imageFile;
+  final File? imageFile;
+  final String? imageUrl;
+  final ClassificationResult? preloadedResult;
 
-  const ClassificationResultScreen({super.key, required this.imageFile});
+  const ClassificationResultScreen({super.key, this.imageFile, this.imageUrl, this.preloadedResult});
 
   @override
   State<ClassificationResultScreen> createState() =>
@@ -23,12 +25,18 @@ class _ClassificationResultScreenState
   @override
   void initState() {
     super.initState();
-    _runClassification();
+    if (widget.preloadedResult != null) {
+      _result = widget.preloadedResult;
+      _isAnalyzing = false;
+    } else {
+      _runClassification();
+    }
   }
 
   Future<void> _runClassification() async {
+    if (widget.imageFile == null) return;
     try {
-      final result = await ApiService.instance.classifyImage(widget.imageFile);
+      final result = await ApiService.instance.classifyImage(widget.imageFile!);
       if (mounted) {
         setState(() {
           _result = result;
@@ -88,7 +96,11 @@ class _ClassificationResultScreenState
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(20),
-                  child: Image.file(widget.imageFile, fit: BoxFit.cover),
+                  child: widget.imageFile != null
+                      ? Image.file(widget.imageFile!, fit: BoxFit.cover)
+                      : (widget.imageUrl != null 
+                          ? Image.network(widget.imageUrl!, fit: BoxFit.cover) 
+                          : Container(color: Colors.grey[200], child: const Center(child: Icon(Icons.image, color: Colors.grey, size: 50)))),
                 ),
               ),
               SizedBox(height: sp * 2),

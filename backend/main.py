@@ -13,11 +13,25 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
 from app.db.mongo import ping as ping_db
+from app.db.mongo import ping as ping_db
 from app.services import cnn_classifier, yolo_detector
 from app.routers import auth, classify, history, bins, analytics, admin
+import cloudinary
+# import cloudinary.config  -- Removed as it's not a valid module
 
 # ── Environment & Logging ────────────────────────────────────
 load_dotenv()
+
+# Cloudinary Setup
+if os.getenv("CLOUDINARY_URL"):
+    cloudinary.config(secure=True)
+elif os.getenv("CLOUDINARY_CLOUD_NAME"):
+    cloudinary.config(
+        cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
+        api_key=os.getenv("CLOUDINARY_API_KEY"),
+        api_secret=os.getenv("CLOUDINARY_API_SECRET"),
+        secure=True
+    )
 
 logging.basicConfig(
     level=logging.INFO,

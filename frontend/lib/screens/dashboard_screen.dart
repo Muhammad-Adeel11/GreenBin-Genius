@@ -3,6 +3,8 @@ import '../utils/responsive.dart';
 import 'camera_tutorial_screen.dart';
 import 'profile_screen.dart';
 import 'bin_locator_screen.dart';
+import '../services/api_service.dart';
+import 'classification_result_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final int initialTabIndex;
@@ -444,7 +446,7 @@ class RibbonClipper extends CustomClipper<Path> {
 // ACTIVITY TAB
 // ==========================================
 class ActivityTab extends StatefulWidget {
-  final List<String> photos;
+  final List<String> photos; // Kept for interface compatibility but ignored
   final bool justUploaded;
 
   const ActivityTab({super.key, required this.photos, this.justUploaded = false});
@@ -454,18 +456,35 @@ class ActivityTab extends StatefulWidget {
 }
 
 class _ActivityTabState extends State<ActivityTab> {
-  bool _isUploading = false;
+  bool _isLoading = true;
+  String? _error;
+  List<dynamic> _history = [];
   bool _isSelectionMode = false;
   final Set<int> _selectedIndices = {};
 
   @override
   void initState() {
     super.initState();
-    if (widget.justUploaded) {
-      _isUploading = true;
-      Future.delayed(const Duration(seconds: 3), () {
-        if (mounted) setState(() { _isUploading = false; });
-      });
+    _fetchHistory();
+  }
+
+  Future<void> _fetchHistory() async {
+    try {
+      setState(() { _isLoading = true; _error = null; });
+      final res = await ApiService.instance.getHistory(limit: 50);
+      if (mounted) {
+        setState(() {
+          _history = res['entries'] ?? [];
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -476,10 +495,22 @@ class _ActivityTabState extends State<ActivityTab> {
     });
   }
 
-  void _deleteSelected() {
+  Future<void> _deleteSelected() async {
     final indices = _selectedIndices.toList()..sort((a, b) => b.compareTo(a));
+    
+    // Show a loading overlay here ideally, but for MVP we delete sequentially and pop
+    for (var index in indices) {
+      final id = _history[index]['id'] ?? _history[index]['_id'];
+      if (id != null) {
+        try {
+          await ApiService.instance.deleteHistoryEntry(id);
+        } catch (e) {
+          debugPrint("Failed to delete $id: $e");
+        }
+      }
+    }
+    _fetchHistory();
     setState(() {
-      for (var index in indices) { DashboardScreen.globalActivityPhotos.removeAt(index); }
       _isSelectionMode = false;
       _selectedIndices.clear();
     });
@@ -497,7 +528,7 @@ class _ActivityTabState extends State<ActivityTab> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const SizedBox(height: 10),
-                Text("Are you sure you want to delete this litter?", textAlign: TextAlign.center, style: TextStyle(fontSize: R.fs(context, 16), fontWeight: FontWeight.bold)),
+                Text("Are you sure you want to delete these records?", textAlign: TextAlign.center, style: TextStyle(fontSize: R.fs(context, 16), fontWeight: FontWeight.bold)),
                 const SizedBox(height: 30),
                 Row(
                   children: [
@@ -561,7 +592,7 @@ class _ActivityTabState extends State<ActivityTab> {
                         Icon(Icons.local_offer_outlined, color: Colors.white, size: R.icon(context, 26)),
                         SizedBox(width: sp),
                         GestureDetector(
-                          onTap: () { if (widget.photos.isNotEmpty) setState(() { _isSelectionMode = true; }); },
+                          onTap: () { if (_history.isNotEmpty) setState(() { _isSelectionMode = true; }); },
                           child: Icon(Icons.delete_outline, color: Colors.white, size: R.icon(context, 26)),
                         ),
                       ],
@@ -571,41 +602,30 @@ class _ActivityTabState extends State<ActivityTab> {
             ),
           ),
         ),
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: R.w(context, 5), vertical: R.h(context, 1.5)),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              Text("Show Untagged", style: TextStyle(fontWeight: FontWeight.bold, fontSize: R.fs(context, 13))),
-              SizedBox(width: sp * 0.5),
-              SizedBox(height: R.icon(context, 24), child: Switch(value: false, onChanged: (value) {}, activeColor: const Color(0xFF007AFF))),
-            ],
-          ),
-        ),
-        if (_isUploading)
-          Container(
-            margin: EdgeInsets.symmetric(horizontal: R.w(context, 5), vertical: R.h(context, 1)),
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(30), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 5))]),
-            child: Row(
-              children: [
-                CircleAvatar(radius: R.icon(context, 20), backgroundColor: Colors.grey, backgroundImage: const AssetImage('assets/images/tut_can1.png')),
-                SizedBox(width: sp),
-                Text("Uploading Photo ", style: TextStyle(color: Colors.grey, fontSize: R.fs(context, 14))),
-                Text("1/1", style: TextStyle(fontWeight: FontWeight.bold, fontSize: R.fs(context, 14))),
-                const Spacer(),
-                Text("Check it out", style: TextStyle(color: Colors.pink[400], fontWeight: FontWeight.bold, fontSize: R.fs(context, 12))),
-                SizedBox(width: sp * 0.5),
-              ],
-            ),
-          ),
+        
         Expanded(
           child: Stack(
             children: [
-              (widget.photos.isEmpty || (_isUploading && widget.photos.length <= 1)) ? _buildEmptyState(context) : _buildImageGrid(context),
-              if (_isSelectionMode && widget.photos.isNotEmpty)
+              if (_isLoading)
+                const Center(child: CircularProgressIndicator())
+              else if (_error != null)
+                Center(child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.error_outline, color: Colors.red, size: 50),
+                    const SizedBox(height: 10),
+                    Text("Failed to load history", style: TextStyle(color: Colors.red)),
+                    TextButton(onPressed: _fetchHistory, child: const Text("Retry"))
+                  ],
+                ))
+              else if (_history.isEmpty)
+                _buildEmptyState(context)
+              else
+                _buildHistoryList(context),
+
+              if (_isSelectionMode && _history.isNotEmpty)
                 Positioned(
-                  bottom: 16, left: 16, right: 90,
+                  bottom: 16, left: 16, right: 16,
                   child: GestureDetector(
                     onTap: _selectedIndices.isEmpty ? null : () => _showDeleteDialog(context),
                     child: Container(
@@ -615,7 +635,7 @@ class _ActivityTabState extends State<ActivityTab> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Icon(Icons.delete_outline, color: _selectedIndices.isEmpty ? Colors.grey : const Color(0xFFD32F2F)),
-                          Text("DELETE ${_selectedIndices.length} PHOTO${_selectedIndices.length != 1 ? 'S' : ''}", style: TextStyle(color: _selectedIndices.isEmpty ? Colors.grey : const Color(0xFFD32F2F), fontWeight: FontWeight.bold, fontSize: R.fs(context, 12), letterSpacing: 1.0)),
+                          Text("DELETE ${_selectedIndices.length} RECORD${_selectedIndices.length != 1 ? 'S' : ''}", style: TextStyle(color: _selectedIndices.isEmpty ? Colors.grey : const Color(0xFFD32F2F), fontWeight: FontWeight.bold, fontSize: R.fs(context, 13), letterSpacing: 1.0)),
                           const SizedBox(width: 24),
                         ],
                       ),
@@ -640,37 +660,106 @@ class _ActivityTabState extends State<ActivityTab> {
             alignment: Alignment.center,
             children: [
               Transform.rotate(angle: -0.2, child: Icon(Icons.note, size: R.icon(context, 110), color: const Color(0xFF007AFF))),
-              Positioned(right: 30, bottom: 50, child: Transform.rotate(angle: 0.5, child: Icon(Icons.note, size: R.icon(context, 50), color: Colors.blue.withOpacity(0.2)))),
-              Positioned(left: 30, top: 70, child: Transform.rotate(angle: -0.8, child: Icon(Icons.note, size: R.icon(context, 40), color: Colors.blue.withOpacity(0.2)))),
-              Positioned(bottom: 40, child: Icon(Icons.waves, size: R.icon(context, 40), color: Colors.blue.withOpacity(0.4))),
             ],
           ),
         ),
         SizedBox(height: R.h(context, 4)),
-        Text("No Photos", style: TextStyle(fontSize: R.fs(context, 22), fontWeight: FontWeight.bold, color: Colors.black87)),
+        Text("No Scans Yet", style: TextStyle(fontSize: R.fs(context, 22), fontWeight: FontWeight.bold, color: Colors.black87)),
         SizedBox(height: R.h(context, 10)),
       ],
     );
   }
 
-  Widget _buildImageGrid(BuildContext context) {
-    return GridView.builder(
-      padding: EdgeInsets.symmetric(horizontal: R.w(context, 4)),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 10, mainAxisSpacing: 10),
-      itemCount: widget.photos.length,
+  Widget _buildHistoryList(BuildContext context) {
+    return ListView.builder(
+      padding: EdgeInsets.symmetric(horizontal: R.w(context, 4), vertical: 8),
+      itemCount: _history.length,
       itemBuilder: (context, index) {
+        final item = _history[index];
         final isSelected = _selectedIndices.contains(index);
+        final bool isRecyclable = item['recyclable'] == true;
+        
         return GestureDetector(
-          onTap: () { if (_isSelectionMode) _toggleSelection(index); },
-          onLongPress: () { if (!_isSelectionMode) { setState(() { _isSelectionMode = true; _selectedIndices.add(index); }); } },
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              ClipRRect(borderRadius: BorderRadius.circular(12), child: Image.asset(widget.photos[index], fit: BoxFit.cover)),
-              if (_isSelectionMode && isSelected) Container(decoration: BoxDecoration(color: Colors.black.withOpacity(0.4), borderRadius: BorderRadius.circular(12))),
-              if (!_isSelectionMode) Positioned(bottom: 8, right: 8, child: Container(padding: const EdgeInsets.all(4), decoration: BoxDecoration(color: Colors.black.withOpacity(0.3), shape: BoxShape.circle), child: Icon(Icons.local_offer_outlined, color: Colors.white, size: R.icon(context, 16)))),
-              if (_isSelectionMode && isSelected) Positioned(top: 8, left: 8, child: Container(padding: const EdgeInsets.all(2), decoration: const BoxDecoration(color: Color(0xFF007AFF), shape: BoxShape.circle), child: Icon(Icons.check, color: Colors.white, size: R.icon(context, 14)))),
-            ],
+          onTap: () {
+            if (_isSelectionMode) {
+              _toggleSelection(index);
+            } else {
+              // Parse to ClassificationResult
+              final resultObj = ClassificationResult(
+                category: item['category'] ?? 'Unknown',
+                objectDetected: item['object_detected'] ?? 'Unknown',
+                material: item['material'] ?? 'Unknown',
+                confidence: (item['confidence'] as num?)?.toDouble() ?? 0.0,
+                disposalTip: item['disposal_tip'] ?? '',
+                disposalTipUr: item['disposal_tip_ur'] ?? '',
+                recyclable: isRecyclable,
+              );
+              
+              Navigator.push(context, MaterialPageRoute(
+                builder: (_) => ClassificationResultScreen(
+                  preloadedResult: resultObj,
+                  imageUrl: item['image_url'],
+                )
+              ));
+            }
+          },
+          onLongPress: () {
+            if (!_isSelectionMode) {
+              setState(() { _isSelectionMode = true; _selectedIndices.add(index); });
+            }
+          },
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isSelected ? Colors.blue.withValues(alpha: 0.1) : Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: isSelected ? const Color(0xFF007AFF) : Colors.grey.withValues(alpha: 0.2), width: isSelected ? 2 : 1),
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8, offset: const Offset(0, 2))],
+            ),
+            child: Row(
+              children: [
+                // Thumbnail
+                Container(
+                  width: 60, height: 60,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(12),
+                    image: item['image_url'] != null ? DecorationImage(image: NetworkImage(item['image_url']), fit: BoxFit.cover) : null,
+                  ),
+                  child: item['image_url'] == null ? const Icon(Icons.image, color: Colors.grey) : null,
+                ),
+                const SizedBox(width: 16),
+                
+                // Info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(item['object_detected'] ?? 'Unknown Object', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      const SizedBox(height: 4),
+                      Text("Category: ${item['category']}", style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                      const SizedBox(height: 4),
+                      Text(item['timestamp']?.toString().substring(0, 10) ?? '', style: TextStyle(color: Colors.grey[400], fontSize: 11)),
+                    ],
+                  ),
+                ),
+                
+                // Recyclable Badge
+                Column(
+                  children: [
+                    Icon(
+                      isRecyclable ? Icons.recycling : Icons.delete_outline,
+                      color: isRecyclable ? Colors.green : Colors.orange,
+                    ),
+                    if (_isSelectionMode && isSelected) ...[
+                      const SizedBox(height: 8),
+                      Container(padding: const EdgeInsets.all(2), decoration: const BoxDecoration(color: Color(0xFF007AFF), shape: BoxShape.circle), child: const Icon(Icons.check, color: Colors.white, size: 14)),
+                    ]
+                  ],
+                ),
+              ],
+            ),
           ),
         );
       },

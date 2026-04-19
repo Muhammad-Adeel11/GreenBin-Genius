@@ -12,51 +12,50 @@ from PIL import Image
 
 logger = logging.getLogger(__name__)
 
-# ── Class labels (must match training order) ───────────────
+# ── Class labels (must match training order: Flask script order) ─
 CLASS_LABELS = [
-    "Trash",          # 0
-    "Vegetation",     # 1
-    "cardboard",      # 2
-    "clothes",        # 3
-    "e-waste",        # 4
-    "food_waste",     # 5
-    "glass",          # 6
-    "medical",        # 7
-    "metal",          # 8
-    "not_food_waste", # 9
-    "paper",          # 10
-    "plastic",        # 11
-    "shoes",          # 12
+    "cardboard",      # 0
+    "clothes",        # 1
+    "e-waste",        # 2
+    "glass",          # 3
+    "medical",        # 4
+    "metal",          # 5
+    "organic",        # 6  -> triggers secondary model
+    "paper",          # 7
+    "plastic",        # 8
+    "shoes",          # 9
+    "food_waste",     # 10
+    "not_food_waste", # 11
 ]
 
 # ── Disposal guidance per category ──────────────────────────
 DISPOSAL_TIPS = {
-    "Trash":          ("Dispose in the general waste (black) bin.",
-                       "عام کوڑے کے ڈبے (کالے) میں ڈالیں۔"),
-    "Vegetation":     ("Compost or place in the organic (green) bin.",
-                       "کمپوسٹ کریں یا نامیاتی (سبز) ڈبے میں ڈالیں۔"),
     "cardboard":      ("Flatten, keep dry, and place in the recycling bin.",
                        "چپٹا کریں، خشک رکھیں اور ری سائیکلنگ ڈبے میں ڈالیں۔"),
     "clothes":        ("Donate if usable; otherwise place in textile bins.",
                        "اگر قابل استعمال ہو تو عطیہ کریں، ورنہ ٹیکسٹائل ڈبے میں ڈالیں۔"),
     "e-waste":        ("Take to an authorised e-waste collection centre.",
                        "مجاز ای-ویسٹ مرکز پر لے جائیں۔"),
-    "food_waste":     ("Compost or dispose in the organic (green) bin.",
-                       "کمپوسٹ کریں یا نامیاتی (سبز) ڈبے میں ڈالیں۔"),
     "glass":          ("Rinse and place in the glass recycling bin.",
                        "صاف کریں اور شیشہ ری سائیکلنگ ڈبے میں ڈالیں۔"),
     "medical":        ("Dispose at a pharmacy or medical waste facility.",
                        "فارمیسی یا طبی فضلہ مرکز پر ڈالیں۔"),
     "metal":          ("Rinse and place in the metal recycling bin.",
                        "صاف کریں اور دھات ری سائیکلنگ ڈبے میں ڈالیں۔"),
-    "not_food_waste": ("Dispose in the general waste bin.",
-                       "عام کوڑے کے ڈبے میں ڈالیں۔"),
+    "organic":        ("Compost or place in the organic (green) bin.",
+                       "کمپوسٹ کریں یا نامیاتی (سبز) ڈبے میں ڈالیں۔"),
     "paper":          ("Keep dry and place in the paper recycling bin.",
                        "خشک رکھیں اور کاغذ ری سائیکلنگ ڈبے میں ڈالیں۔"),
     "plastic":        ("Rinse and place in the plastic recycling (blue) bin.",
                        "صاف کریں اور نیلے پلاسٹک ری سائیکلنگ ڈبے میں ڈالیں۔"),
     "shoes":          ("Donate if usable; otherwise place in textile bins.",
                        "اگر قابل استعمال ہو تو عطیہ کریں، ورنہ ٹیکسٹائل ڈبے میں ڈالیں۔"),
+    "food_waste":     ("Compost or dispose in the organic (green) bin.",
+                       "کمپوسٹ کریں یا نامیاتی (سبز) ڈبے میں ڈالیں۔"),
+    "not_food_waste": ("Dispose in the general waste bin.",
+                       "عام کوڑے کے ڈبے میں ڈالیں۔"),
+    "Fresh/Food":     ("Keep refrigerated or consume soon. Do not waste food.",
+                       "ریفریجریٹر میں رکھیں یا جلد استعمال کریں۔ کھانا ضائع نہ کریں۔"),
 }
 
 # ── Categories considered recyclable ────────────────────────
@@ -66,51 +65,59 @@ RECYCLABLE_CATEGORIES = {
 
 # ── Material mapping ─────────────────────────────────────────
 MATERIAL_MAP = {
-    "Trash":          "Mixed",
-    "Vegetation":     "Organic",
     "cardboard":      "Cardboard",
     "clothes":        "Textile",
     "e-waste":        "Electronics",
-    "food_waste":     "Organic",
     "glass":          "Glass",
     "medical":        "Biohazard",
     "metal":          "Metal",
-    "not_food_waste": "Mixed",
+    "organic":        "Organic",
     "paper":          "Paper",
     "plastic":        "PET/HDPE",
     "shoes":          "Textile",
+    "food_waste":     "Organic",
+    "not_food_waste": "Mixed",
+    "Fresh/Food":     "Food",
 }
 
 # ── Singleton model state ────────────────────────────────────
 _model = None
+_food_waste_model = None
 _model_loaded = False
+_fw_loaded = False
 
 
 def load_model_on_startup():
-    """
-    Called once at FastAPI startup.
-    Gracefully handles the case where the model file is not yet present
-    (placeholder mode) so the API starts successfully regardless.
-    """
-    global _model, _model_loaded
-    model_path = os.getenv("CNN_MODEL_PATH", "ml/cnn_model.h5")
+    """Load both the primary .h5 model and the secondary TFSMLayer model."""
+    global _model, _model_loaded, _food_waste_model, _fw_loaded
+    
+    primary_path = os.getenv("CNN_MODEL_PATH", "ml/trashbox_cnn_model.h5")
+    fw_path = os.getenv("FOOD_WASTE_MODEL_PATH", "ml/food_waste_savedmodel")
 
-    if not os.path.exists(model_path):
-        logger.warning(
-            f"[WARN] CNN model NOT found at '{model_path}'. "
-            "Running in MOCK mode - upload cnn_model.h5 to activate real inference."
-        )
-        _model_loaded = False
-        return
-
-    try:
-        from tensorflow.keras.models import load_model  # type: ignore
-        _model = load_model(model_path)
-        _model_loaded = True
-        logger.info(f"[OK] CNN model loaded from '{model_path}'.")
-    except Exception as exc:
-        logger.error(f"[ERROR] Failed to load CNN model: {exc}")
-        _model_loaded = False
+    # Load Primary .h5 Model
+    if os.path.exists(primary_path):
+        try:
+            from tensorflow.keras.models import load_model  # type: ignore
+            _model = load_model(primary_path, compile=False)
+            _model_loaded = True
+            logger.info(f"[OK] CNN model loaded from '{primary_path}'.")
+        except Exception as exc:
+            logger.error(f"[ERROR] Failed to load primary CNN: {exc}")
+    
+    # Load Secondary Food Waste (TFSMLayer) Model
+    if os.path.exists(fw_path):
+        try:
+            from tensorflow.keras.layers import Input, TFSMLayer # type: ignore
+            from tensorflow.keras import Model # type: ignore
+            
+            input_tensor = Input(shape=(224, 224, 3))
+            layer = TFSMLayer(fw_path, call_endpoint="serving_default")
+            output = layer(input_tensor)
+            _food_waste_model = Model(inputs=input_tensor, outputs=output)
+            _fw_loaded = True
+            logger.info(f"[OK] Food waste SavedModel loaded from '{fw_path}'.")
+        except Exception as exc:
+            logger.error(f"[ERROR] Failed to load food waste model: {exc}")
 
 
 def _preprocess(image_bytes: bytes) -> np.ndarray:
@@ -118,19 +125,12 @@ def _preprocess(image_bytes: bytes) -> np.ndarray:
     img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
     img = img.resize((224, 224))
     arr = np.array(img, dtype=np.float32) / 255.0
-    return np.expand_dims(arr, axis=0)  # shape: (1, 224, 224, 3)
+    return np.expand_dims(arr, axis=0)
 
 
 def predict(image_bytes: bytes) -> dict:
-    """
-    Run CNN inference on raw image bytes.
-    Returns a dict with category, material, confidence, disposal tips,
-    and recyclable flag.
-
-    Falls back to a deterministic mock if the model is not loaded.
-    """
+    """Run CNN inference with potential two-step check for organic waste."""
     if not _model_loaded or _model is None:
-        # ── MOCK response while model file is absent ────────────
         label = "plastic"
         return {
             "category":     label,
@@ -142,12 +142,29 @@ def predict(image_bytes: bytes) -> dict:
             "mock":         True,
         }
 
-    # ── Real inference ──────────────────────────────────────────
     array = _preprocess(image_bytes)
-    predictions = _model.predict(array, verbose=0)   # shape: (1, 13)
-    class_idx = int(np.argmax(predictions[0]))
-    confidence = float(predictions[0][class_idx])
-    label = CLASS_LABELS[class_idx]
+    preds = _model.predict(array, verbose=0)
+    idx = int(np.argmax(preds[0]))
+    confidence = float(preds[0][idx])
+    label = CLASS_LABELS[idx]
+
+    # ── Secondary Food Waste Check ────────────────────────────
+    # In Flask code, 'organic' (index 6) triggers the specific food waste model.
+    if label == "organic" and _fw_loaded and _food_waste_model:
+        try:
+            res = _food_waste_model.predict(array, verbose=0)
+            # If result is dict (SavedModel behavior)
+            if isinstance(res, dict):
+                prob = list(res.values())[0][0][0]
+            else:
+                prob = res[0][0]
+            
+            # Label based on threshold (Flask uses 0.6)
+            label = "food_waste" if prob > 0.6 else "Fresh/Food"
+            confidence = float(prob)
+            logger.info(f"Secondary model matched: {label} ({prob})")
+        except Exception as e:
+            logger.error(f"Secondary model inference failed: {e}")
 
     return {
         "category":     label,

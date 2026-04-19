@@ -37,7 +37,7 @@ class TokenResponse(BaseModel):
 # ──────────────────────────────────────────────
 
 class ClassificationResult(BaseModel):
-    """Schema returned to the Flutter app after AI inference."""
+    """Aggregated schema returned by the combined endpoint."""
     category: str = Field(..., example="plastic")
     object_detected: str = Field(..., example="Bottle")
     material: str = Field(..., example="PET")
@@ -45,6 +45,27 @@ class ClassificationResult(BaseModel):
     disposal_tip: str = Field(..., example="Rinse and place in the blue recycling bin.")
     disposal_tip_ur: str = Field(..., example="صاف کریں اور نیلے ری سائیکلنگ ڈبے میں رکھیں۔")
     recyclable: bool = Field(..., example=True)
+    image_url: Optional[str] = Field(default=None, example="https://res.cloudinary.com/...")
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+
+class CNNClassificationResult(BaseModel):
+    """Result schema for the specialized CNN endpoint."""
+    category: str = Field(..., example="plastic")
+    material: str = Field(..., example="PET")
+    confidence: float = Field(..., example=0.94)
+    disposal_tip: str
+    disposal_tip_ur: str
+    recyclable: bool
+    image_url: Optional[str] = None
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+
+class YOLOClassificationResult(BaseModel):
+    """Result schema for the specialized YOLO endpoint."""
+    object_detected: str = Field(..., example="Bottle")
+    confidence: float = Field(..., example=0.88)
+    image_url: Optional[str] = None
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 
