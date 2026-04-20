@@ -11,8 +11,9 @@ from app.models.schemas import BinCreate, SuccessResponse
 router = APIRouter(prefix="/api/bins", tags=["Bin Locator"])
 
 
-@router.post("/", summary="Add a new bin location", response_model=SuccessResponse)
+@router.post("", summary="Add a new bin location", response_model=SuccessResponse)
 async def create_bin(bin_data: BinCreate):
+
     """
     Creates a new waste bin in the system with geo-coordinates.
     """
@@ -38,10 +39,11 @@ async def create_bin(bin_data: BinCreate):
 
 
 @router.get(
-    "/",
+    "",
     summary="Fetch all waste bin locations",
 )
 async def get_all_bins():
+
     """
     Returns a list of all waste bins in the system.
     """
