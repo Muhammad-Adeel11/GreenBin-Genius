@@ -66,6 +66,61 @@ async def create_bin(bin_data: BinCreate):
     }
 
 
+@router.post("/", summary="Add a new bin location", response_model=SuccessResponse)
+async def create_bin(bin_data: BinCreate):
+    """
+    Creates a new waste bin in the system with geo-coordinates.
+    """
+    doc = {
+        "name": bin_data.name,
+        "bin_type": bin_data.bin_type,
+        "address": bin_data.address,
+        "waste_types": bin_data.waste_types or ["PLASTIC"],
+        "status": "ACTIVE",
+        "location": {
+            "type": "Point",
+            "coordinates": [bin_data.longitude, bin_data.latitude]
+        }
+    }
+    
+    col = bins_col()
+    result = await col.insert_one(doc)
+    
+    return {
+        "success": True,
+        "message": f"Bin '{bin_data.name}' added successfully with ID {result.inserted_id}"
+    }
+
+
+@router.get(
+    "/",
+    summary="Fetch all waste bin locations",
+)
+async def get_all_bins():
+    """
+    Returns a list of all waste bins in the system.
+    """
+    cursor = bins_col().find({})
+    bins = []
+    async for doc in cursor:
+        coords = doc.get("location", {}).get("coordinates", [0, 0])
+        bins.append({
+            "id":           str(doc["_id"]),
+            "_id":          str(doc["_id"]),
+            "name":         doc.get("name", "Unnamed Bin"),
+            "bin_type":     doc.get("bin_type", "General"),
+            "status":       doc.get("status", "ACTIVE"),
+            "latitude":     coords[1],
+            "longitude":    coords[0],
+            "address":      doc.get("address"),
+            "waste_types":  doc.get("waste_types", ["PLASTIC"]),
+        })
+
+    return {"success": True, "total": len(bins), "data": bins}
+
+
+
+
 @router.get(
     "/",
     summary="Fetch all waste bin locations",
