@@ -136,11 +136,16 @@ export default function BinLocations() {
     setLoading(true)
     try {
       const res = await binsApi.getAll()
-      const data = Array.isArray(res.data) ? res.data : []
-      setBins(data.length ? data : MOCK_BINS)
-    } catch { setBins(MOCK_BINS) }
+      // Backend returns { success: true, data: [...] }
+      const data = res.data?.data || (Array.isArray(res.data) ? res.data : [])
+      setBins(data)
+    } catch (e) { 
+      console.error("Failed to load bins:", e)
+      setBins([]) 
+    }
     finally { setLoading(false) }
   }, [])
+
 
   useEffect(() => { load() }, [load])
 
@@ -184,7 +189,7 @@ export default function BinLocations() {
   // Effect to pan map when activeId changes from sidebar
   useEffect(() => {
     if (map && activeId) {
-      const bin = bins.find(b => b.id === activeId || b._id === activeId) || MOCK_BINS.find(b => b.id === activeId)
+      const bin = bins.find(b => b.id === activeId || b._id === activeId)
       if (bin) {
         const lat = bin.latitude || bin.location?.coordinates?.[1]
         const lng = bin.longitude || bin.location?.coordinates?.[0]
@@ -195,6 +200,7 @@ export default function BinLocations() {
       }
     }
   }, [activeId, map, bins])
+
 
   return (
     <Layout title="Disposal Locations" subtitle="Manage bins & GPS coordinates">
@@ -269,9 +275,10 @@ export default function BinLocations() {
               }}
             >
 
-              {(bins.length ? bins : MOCK_BINS).map((bin) => {
+              {bins.map((bin) => {
                 const lat = bin.latitude || bin.location?.coordinates?.[1] || 33.6844
                 const lng = bin.longitude || bin.location?.coordinates?.[0] || 73.0479
+
                 const cfg = statusCfg(bin.status)
                 const id = bin.id || bin._id
                 
