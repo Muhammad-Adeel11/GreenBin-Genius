@@ -92,8 +92,17 @@ function MapPin2({ x, y, status, active, onClick, label }) {
 }
 
 /* ── Add Bin Modal ────────────────────────────────────────────────────────── */
-function AddBinModal({ open, onClose, onSave }) {
+function AddBinModal({ open, onClose, onSave, initialData }) {
   const [form, setForm] = useState({ name:'', address:'', latitude:'', longitude:'', waste_types:[] })
+  
+  useEffect(() => {
+    if (initialData) {
+      setForm(p => ({ ...p, ...initialData }))
+    } else if (open) {
+      setForm({ name:'', address:'', latitude:'', longitude:'', waste_types:[] })
+    }
+  }, [initialData, open])
+
   const set = (k,v) => setForm(p=>({...p,[k]:v}))
   return (
     <Modal open={open} onClose={onClose} title="Add New Bin Location" width="max-w-md">
@@ -101,7 +110,7 @@ function AddBinModal({ open, onClose, onSave }) {
         {[['name','Bin Name (e.g. BIN-105)'],['address','Address'],['latitude','Latitude'],['longitude','Longitude']].map(([k,ph])=>(
           <div key={k}>
             <label className="text-[0.74rem] font-semibold text-ink-sub block mb-1 capitalize">{k}</label>
-            <input value={form[k]} onChange={e=>set(k,e.target.value)} placeholder={ph} className="input text-[0.82rem] py-2"/>
+            <input value={form[k]} onChange={e=>set(k,e.target.value)} placeholder={ph} className="input text-[0.82rem] py-2" type={k==='latitude'||k==='longitude' ? 'number' : 'text'}/>
           </div>
         ))}
         <div className="flex gap-2 justify-end pt-1">
@@ -113,13 +122,15 @@ function AddBinModal({ open, onClose, onSave }) {
   )
 }
 
+
 export default function BinLocations() {
   const [bins,       setBins]       = useState([])
   const [loading,    setLoading]    = useState(true)
   const [search,     setSearch]     = useState('')
   const [statusFilter, setStatus]   = useState('All Bins')
   const [activeId,   setActiveId]   = useState(null)
-  const [addModal,   setAddModal]   = useState(false)
+  const [addModal,   setAddModal]   = useState({ open: false, initialData: null })
+
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -159,9 +170,16 @@ export default function BinLocations() {
     setMap(mapInstance)
   }, [])
 
+  const onMapClick = useCallback((e) => {
+    const lat = e.latLng.lat()
+    const lng = e.latLng.lng()
+    setAddModal({ open: true, initialData: { latitude: lat.toFixed(6), longitude: lng.toFixed(6) } })
+  }, [])
+
   const handleMarkerClick = (id) => {
     setActiveId(id)
   }
+
 
   // Effect to pan map when activeId changes from sidebar
   useEffect(() => {
@@ -191,10 +209,11 @@ export default function BinLocations() {
                 <h2 className="text-[1.2rem] font-bold text-ink">Disposal Locations</h2>
                 <p className="text-[0.72rem] text-ink-muted">Manage bins & GPS coordinates</p>
               </div>
-              <button onClick={() => setAddModal(true)}
+              <button onClick={() => setAddModal({ open: true, initialData: null })}
                 className="btn btn-primary btn-sm gap-1.5 text-[0.78rem]">
                 <MapPin size={13}/> Add Bin
               </button>
+
             </div>
             {/* Search */}
             <div className="relative">
@@ -239,6 +258,7 @@ export default function BinLocations() {
               center={defaultCenter}
               zoom={13}
               onLoad={onMapLoad}
+              onClick={onMapClick}
               options={{
                 styles: DARK_EMERALD_STYLE,
                 disableDefaultUI: true,
@@ -248,6 +268,7 @@ export default function BinLocations() {
                 fullscreenControl: false
               }}
             >
+
               {(bins.length ? bins : MOCK_BINS).map((bin) => {
                 const lat = bin.latitude || bin.location?.coordinates?.[1] || 33.6844
                 const lng = bin.longitude || bin.location?.coordinates?.[0] || 73.0479
@@ -351,7 +372,13 @@ export default function BinLocations() {
         </div>
       </div>
 
-      <AddBinModal open={addModal} onClose={() => setAddModal(false)} onSave={handleAdd}/>
+      <AddBinModal 
+        open={addModal.open} 
+        initialData={addModal.initialData}
+        onClose={() => setAddModal({ open: false, initialData: null })} 
+        onSave={handleAdd}
+      />
+
     </Layout>
   )
 }
