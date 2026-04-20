@@ -8,11 +8,12 @@ from fastapi import APIRouter, Query, HTTPException
 from app.db.mongo import bins_col
 from app.models.schemas import BinCreate, SuccessResponse
 
-router = APIRouter(prefix="/api/bins", tags=["Bin Locator"])
+router = APIRouter(prefix="/api", tags=["Bin Locator"])
 
 
-@router.post("", summary="Add a new bin location", response_model=SuccessResponse)
+@router.post("/bins", summary="Add a new bin location", response_model=SuccessResponse)
 async def create_bin(bin_data: BinCreate):
+
 
     """
     Creates a new waste bin in the system with geo-coordinates.
@@ -22,7 +23,8 @@ async def create_bin(bin_data: BinCreate):
         "bin_type": bin_data.bin_type,
         "address": bin_data.address,
         "waste_types": bin_data.waste_types or ["PLASTIC"],
-        "status": "ACTIVE",
+        "status": "AVAILABLE",
+
         "location": {
             "type": "Point",
             "coordinates": [bin_data.longitude, bin_data.latitude]
@@ -39,9 +41,10 @@ async def create_bin(bin_data: BinCreate):
 
 
 @router.get(
-    "",
+    "/bins",
     summary="Fetch all waste bin locations",
 )
+
 async def get_all_bins():
 
     """
@@ -56,7 +59,8 @@ async def get_all_bins():
             "_id":          str(doc["_id"]),
             "name":         doc.get("name", "Unnamed Bin"),
             "bin_type":     doc.get("bin_type", "General"),
-            "status":       doc.get("status", "ACTIVE"),
+            "status":       doc.get("status", "AVAILABLE"),
+
             "latitude":     coords[1],
             "longitude":    coords[0],
             "address":      doc.get("address"),
@@ -69,7 +73,7 @@ async def get_all_bins():
 
 
 @router.get(
-    "/nearby",
+    "/bins/nearby",
     summary="Find the nearest waste disposal bins",
     description=(
         "Pass the user's latitude and longitude. "
@@ -117,7 +121,7 @@ async def get_nearby_bins(
 
 
 @router.post(
-    "/seed",
+    "/bins/seed",
     summary="[Admin] Seed sample bin locations into MongoDB",
     description="Inserts a few sample bins for Abbottabad area. Run once during setup.",
 )
