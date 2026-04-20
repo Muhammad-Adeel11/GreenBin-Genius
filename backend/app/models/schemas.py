@@ -110,6 +110,17 @@ class BinLocation(BaseModel):
     address: Optional[str] = None
 
 
+class BinCreate(BaseModel):
+    """Payload for creating a new bin."""
+    name: str = Field(..., example="BIN-105")
+    bin_type: str = Field(default="Plastic / Recyclable", example="Plastic / Recyclable")
+    latitude: float
+    longitude: float
+    address: Optional[str] = None
+    waste_types: Optional[List[str]] = Field(default=["PLASTIC"])
+
+
+
 class NearbyBinsResponse(BaseModel):
     total: int
     bins: List[BinLocation]

@@ -46,11 +46,13 @@ export const tipsApi = {
 
 export const binsApi = {
   getNearby:    (params)          => api.get('/bins/nearby', { params }),
+  getAll:       (params)          => api.get('/bins', { params }),
   getDetail:    (id)              => api.get(`/bins/${id}`),
   create:       (data)            => api.post('/bins', data),
   update:       (id, data)        => api.put(`/bins/${id}`, data),
   delete:       (id)              => api.delete(`/bins/${id}`),
 }
+
 
 export const notificationsApi = {
   getAll:         (params)        => api.get('/notifications', { params }),
