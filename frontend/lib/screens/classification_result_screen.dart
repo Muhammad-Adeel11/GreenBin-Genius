@@ -199,9 +199,10 @@ class _ClassificationResultScreenState
                 _buildTagRow('Category', _result!.category, isFirst: true),
                 _buildTagRow('Object', _result!.objectDetected),
                 _buildTagRow('Material', _result!.material),
+                _buildTagRow('CNN Conf.', _result!.cnnConfidencePercent),
                 _buildTagRow(
-                  'Confidence',
-                  _result!.confidencePercent,
+                  'YOLO Conf.',
+                  _result!.yoloConfidencePercent,
                   isLast: true,
                 ),
 

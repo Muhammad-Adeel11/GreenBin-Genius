@@ -236,6 +236,8 @@ class ClassificationResult {
   final String objectDetected;
   final String material;
   final double confidence;
+  final double cnnConfidence;
+  final double yoloConfidence;
   final String disposalTip;
   final String disposalTipUr;
   final bool recyclable;
@@ -247,6 +249,8 @@ class ClassificationResult {
     required this.objectDetected,
     required this.material,
     required this.confidence,
+    required this.cnnConfidence,
+    required this.yoloConfidence,
     required this.disposalTip,
     required this.disposalTipUr,
     required this.recyclable,
@@ -260,6 +264,8 @@ class ClassificationResult {
       objectDetected: json['object_detected'] ?? 'Unknown',
       material: json['material'] ?? 'Unknown',
       confidence: (json['confidence'] as num?)?.toDouble() ?? 0.0,
+      cnnConfidence: (json['cnn_confidence'] as num?)?.toDouble() ?? (json['confidence'] as num?)?.toDouble() ?? 0.0,
+      yoloConfidence: (json['yolo_confidence'] as num?)?.toDouble() ?? 0.0,
       disposalTip: json['disposal_tip'] ?? '',
       disposalTipUr: json['disposal_tip_ur'] ?? '',
       recyclable: json['recyclable'] ?? false,
@@ -272,4 +278,7 @@ class ClassificationResult {
 
   /// Confidence as a percentage string e.g. "94%"
   String get confidencePercent => '${(confidence * 100).toStringAsFixed(0)}%';
+
+  String get cnnConfidencePercent => '${(cnnConfidence * 100).toStringAsFixed(0)}%';
+  String get yoloConfidencePercent => '${(yoloConfidence * 100).toStringAsFixed(0)}%';
 }

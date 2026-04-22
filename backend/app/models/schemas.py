@@ -48,7 +48,9 @@ class ClassificationResult(BaseModel):
     category: str = Field(..., example="plastic")
     object_detected: str = Field(..., example="Bottle")
     material: str = Field(..., example="PET")
-    confidence: float = Field(..., ge=0.0, le=1.0, example=0.94)
+    confidence: float = Field(..., ge=0.0, le=1.0, example=0.94)  # Legacy / Overall
+    cnn_confidence: float = Field(default=0.0, ge=0.0, le=1.0, example=0.94)
+    yolo_confidence: float = Field(default=0.0, ge=0.0, le=1.0, example=0.88)
     disposal_tip: str = Field(..., example="Rinse and place in the blue recycling bin.")
     disposal_tip_ur: str = Field(..., example="صاف کریں اور نیلے ری سائیکلنگ ڈبے میں رکھیں۔")
     recyclable: bool = Field(..., example=True)
@@ -84,6 +86,8 @@ class ClassificationHistoryEntry(BaseModel):
     object_detected: str
     material: str
     confidence: float
+    cnn_confidence: Optional[float] = 0.0
+    yolo_confidence: Optional[float] = 0.0
     recyclable: bool
     disposal_tip: str
     image_url: Optional[str] = None
