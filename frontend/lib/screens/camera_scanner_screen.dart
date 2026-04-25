@@ -3,6 +3,8 @@ import 'package:camera/camera.dart';
 import 'dart:ui';
 import 'classification_result_screen.dart';
 import 'dart:io';
+import 'package:image/image.dart' as img;
+import 'dart:math' as math;
 
 class AiScannerScreen extends StatefulWidget {
   const AiScannerScreen({super.key});
@@ -15,6 +17,10 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
   CameraController? _cameraController;
   List<CameraDescription>? _cameras;
   bool _isInit = false;
+  File? _capturedImage;
+  bool _isBlurry = false;
+  double _blurScore = 0.0;
+  bool _isCheckingBlur = false;
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
 
@@ -68,19 +74,91 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
       try {
         final image = await _cameraController!.takePicture();
         if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ClassificationResultScreen(
-                imageFile: File(image.path),
-              ),
-            ),
-          );
+          setState(() {
+            _capturedImage = File(image.path);
+            _isCheckingBlur = true;
+          });
+          _checkBlur(image.path);
         }
       } catch (e) {
         debugPrint("Error taking picture: $e");
       }
     }
+  }
+
+  Future<void> _checkBlur(String path) async {
+    try {
+      final bytes = await File(path).readAsBytes();
+      final image = img.decodeImage(bytes);
+      
+      if (image == null) return;
+
+      // 1. Downsample for performance (approx 300px)
+      final thumbnail = img.copyResize(image, width: 300);
+      
+      // 2. Grayscale
+      final grayscale = img.grayscale(thumbnail);
+      
+      // 3. Laplacian Variance calculation
+      // Kernel: [0, 1, 0, 1, -4, 1, 0, 1, 0]
+      double mean = 0;
+      List<double> laplacianValues = [];
+
+      for (int y = 1; y < grayscale.height - 1; y++) {
+        for (int x = 1; x < grayscale.width - 1; x++) {
+          final p1 = img.getLuminance(grayscale.getPixel(x, y - 1));
+          final p2 = img.getLuminance(grayscale.getPixel(x - 1, y));
+          final p3 = img.getLuminance(grayscale.getPixel(x, y));
+          final p4 = img.getLuminance(grayscale.getPixel(x + 1, y));
+          final p5 = img.getLuminance(grayscale.getPixel(x, y + 1));
+
+          double lap = (p1 + p2 + p4 + p5 - 4 * p3).toDouble();
+          laplacianValues.add(lap);
+          mean += lap;
+        }
+      }
+
+      mean /= laplacianValues.length;
+      double variance = 0;
+      for (var val in laplacianValues) {
+        variance += math.pow(val - mean, 2);
+      }
+      variance /= laplacianValues.length;
+
+      if (mounted) {
+        setState(() {
+          _blurScore = variance;
+          // Threshold of 100-200 is typical for Laplacian variance blur detection
+          // We'll be conservative and use 150.
+          _isBlurry = variance < 150.0;
+          _isCheckingBlur = false;
+        });
+      }
+    } catch (e) {
+      debugPrint("Blur check error: $e");
+      if (mounted) {
+        setState(() => _isCheckingBlur = false);
+      }
+    }
+  }
+
+  void _onContinue() {
+    if (_capturedImage != null) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ClassificationResultScreen(
+            imageFile: _capturedImage!,
+          ),
+        ),
+      );
+    }
+  }
+
+  void _onRecapture() {
+    setState(() {
+      _capturedImage = null;
+    });
   }
 
   @override
@@ -491,6 +569,172 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
                 ],
               );
             },
+          ),
+        ),
+        
+        // 4. Post-Capture Preview Overlay
+        if (_capturedImage != null)
+          _buildPreviewOverlay(),
+      ],
+    ),
+  );
+}
+
+Widget _buildPreviewOverlay() {
+  return Container(
+    color: Colors.black,
+    child: Stack(
+      fit: StackFit.expand,
+      children: [
+        // The Captured Image
+        Image.file(_capturedImage!, fit: BoxFit.cover),
+        
+        // Darkened bottom for buttons
+        Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.black.withOpacity(0.1),
+                Colors.black.withOpacity(0.8),
+              ],
+            ),
+          ),
+        ),
+
+        SafeArea(
+          child: Column(
+            children: [
+              const SizedBox(height: 20),
+              // Top Message
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.5),
+                  borderRadius: BorderRadius.circular(30),
+                  border: Border.all(color: Colors.white.withOpacity(0.2)),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.check_circle_outline, color: Colors.greenAccent, size: 18),
+                    SizedBox(width: 8),
+                    Text(
+                      "IMAGE CAPTURED",
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+              
+              const Spacer(),
+              
+              // Hint if blurry
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 40.0),
+                child: Column(
+                  children: [
+                    if (_isCheckingBlur)
+                      const CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
+                    else if (_isBlurry)
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.redAccent.withOpacity(0.5)),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 20),
+                            SizedBox(width: 8),
+                            Text(
+                              "BLUR DETECTED!",
+                              style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.greenAccent.withOpacity(0.5)),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.verified_outlined, color: Colors.greenAccent, size: 20),
+                            SizedBox(width: 8),
+                            Text(
+                              "SHARP IMAGE",
+                              style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                          ],
+                        ),
+                      ),
+                    const SizedBox(height: 16),
+                    Text(
+                      _isBlurry 
+                        ? "This photo looks a bit blurry. For best AI results, we recommend retaking it."
+                        : "Is the photo clear? If it's blurry, tap Recapture.",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.8),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              const SizedBox(height: 32),
+              
+              // Action Buttons
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24),
+                child: Row(
+                  children: [
+                    // Recapture Button
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _onRecapture,
+                        icon: const Icon(Icons.refresh, color: Colors.white),
+                        label: const Text("RECAPTURE"),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          side: const BorderSide(color: Colors.white30, width: 2),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    // Continue Button
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _onContinue,
+                        icon: const Icon(Icons.analytics, color: Colors.black87),
+                        label: const Text("ANALYZE"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF2196F3),
+                          foregroundColor: Colors.black87,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                          elevation: 8,
+                          shadowColor: const Color(0xFF2196F3).withOpacity(0.5),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ],

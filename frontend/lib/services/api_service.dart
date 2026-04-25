@@ -217,6 +217,28 @@ class ApiService {
   }
 
   // ═══════════════════════════════════════════════════════════
+  // LEADERBOARD
+  // ═══════════════════════════════════════════════════════════
+
+  Future<List<dynamic>> getMemberLeaderboard({int limit = 10}) async {
+    final res = await _client.get(
+      Uri.parse('$baseUrl/api/leaderboard/members?limit=$limit'),
+      headers: await _authHeaders(),
+    );
+    if (res.statusCode == 200) return jsonDecode(res.body);
+    throw _handleError(res);
+  }
+
+  Future<List<dynamic>> getCountryLeaderboard({int limit = 10}) async {
+    final res = await _client.get(
+      Uri.parse('$baseUrl/api/leaderboard/countries?limit=$limit'),
+      headers: await _authHeaders(),
+    );
+    if (res.statusCode == 200) return jsonDecode(res.body);
+    throw _handleError(res);
+  }
+
+  // ═══════════════════════════════════════════════════════════
   // HEALTH CHECK
   // ═══════════════════════════════════════════════════════════
 

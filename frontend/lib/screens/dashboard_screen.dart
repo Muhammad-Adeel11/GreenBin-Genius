@@ -226,24 +226,42 @@ class LeaderboardTab extends StatefulWidget {
 class _LeaderboardTabState extends State<LeaderboardTab> {
   bool _isMembersActive = true;
   String _selectedTimeFilter = 'Last 24 Hours';
+  bool _isLoading = true;
+  String? _error;
+  List<dynamic> _leaderboardData = [];
 
-  final List<Map<String, dynamic>> membersData = [
-    {'rank': '999+', 'name': 'Red Pioneer', 'score': '0 PIECE', 'isMe': true},
-    {'rank': '1', 'name': 'World Litter Run', 'score': '898 PIECES', 'avatar': 'https://picsum.photos/100?random=1'},
-    {'rank': '2', 'name': 'Joel Hibshman', 'score': '315 PIECES', 'avatar': 'https://picsum.photos/100?random=2'},
-    {'rank': '3', 'name': 'JobPriem', 'score': '238 PIECES', 'avatar': 'https://picsum.photos/100?random=3'},
-    {'rank': '4', 'name': 'Riemke Visser', 'score': '204 PIECES', 'avatar': 'https://picsum.photos/100?random=4'},
-    {'rank': '5', 'name': 'Lekjutter', 'score': '195 PIECES', 'avatar': 'https://picsum.photos/100?random=5'},
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _fetchLeaderboard();
+  }
 
-  final List<Map<String, dynamic>> countriesData = [
-    {'rank': '1', 'name': 'Canada', 'score': '898 PIECES', 'avatar': 'https://flagcdn.com/w160/ca.png'},
-    {'rank': '2', 'name': 'Netherlands', 'score': '886 PIECES', 'avatar': 'https://flagcdn.com/w160/nl.png'},
-    {'rank': '3', 'name': 'United States of America', 'score': '445 PIECES', 'avatar': 'https://flagcdn.com/w160/us.png'},
-    {'rank': '4', 'name': 'Bulgaria', 'score': '188 PIECES', 'avatar': 'https://flagcdn.com/w160/bg.png'},
-    {'rank': '5', 'name': 'Japan', 'score': '158 PIECES', 'avatar': 'https://flagcdn.com/w160/jp.png'},
-    {'rank': '6', 'name': 'Spain', 'score': '158 PIECES', 'avatar': 'https://flagcdn.com/w160/es.png'},
-  ];
+  Future<void> _fetchLeaderboard() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+
+      final data = _isMembersActive
+          ? await ApiService.instance.getMemberLeaderboard()
+          : await ApiService.instance.getCountryLeaderboard();
+
+      if (mounted) {
+        setState(() {
+          _leaderboardData = data;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
+  }
 
   void _showTimeFilterSheet() {
     showModalBottomSheet(
@@ -285,7 +303,6 @@ class _LeaderboardTabState extends State<LeaderboardTab> {
 
   @override
   Widget build(BuildContext context) {
-    final currentData = _isMembersActive ? membersData : countriesData;
     final sp = R.sp(context);
 
     return Column(
@@ -344,7 +361,10 @@ class _LeaderboardTabState extends State<LeaderboardTab> {
                 children: [
                   Expanded(
                     child: GestureDetector(
-                      onTap: () => setState(() => _isMembersActive = true),
+                      onTap: () {
+                        setState(() => _isMembersActive = true);
+                        _fetchLeaderboard();
+                      },
                       child: Container(
                         padding: EdgeInsets.only(bottom: R.h(context, 1.5)),
                         decoration: BoxDecoration(border: Border(bottom: BorderSide(color: _isMembersActive ? const Color(0xFF007AFF) : Colors.transparent, width: 2))),
@@ -354,7 +374,10 @@ class _LeaderboardTabState extends State<LeaderboardTab> {
                   ),
                   Expanded(
                     child: GestureDetector(
-                      onTap: () => setState(() => _isMembersActive = false),
+                      onTap: () {
+                        setState(() => _isMembersActive = false);
+                        _fetchLeaderboard();
+                      },
                       child: Container(
                         padding: EdgeInsets.only(bottom: R.h(context, 1.5)),
                         decoration: BoxDecoration(border: Border(bottom: BorderSide(color: !_isMembersActive ? const Color(0xFF007AFF) : Colors.transparent, width: 2))),
@@ -369,13 +392,29 @@ class _LeaderboardTabState extends State<LeaderboardTab> {
         ),
         const Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
         Expanded(
-          child: ListView.builder(
-            padding: EdgeInsets.only(bottom: R.h(context, 12)),
-            itemCount: currentData.length,
-            itemBuilder: (context, index) {
-              return _buildLeaderboardItem(currentData[index]);
-            },
-          ),
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _error != null
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.error_outline, color: Colors.red, size: sp * 2),
+                          SizedBox(height: sp),
+                          Text("Failed to load leaderboard", style: TextStyle(color: Colors.red, fontSize: R.fs(context, 14))),
+                          TextButton(onPressed: _fetchLeaderboard, child: const Text("Retry")),
+                        ],
+                      ),
+                    )
+                  : _leaderboardData.isEmpty
+                      ? Center(child: Text("No records found", style: TextStyle(color: Colors.grey, fontSize: R.fs(context, 14))))
+                      : ListView.builder(
+                          padding: EdgeInsets.only(bottom: R.h(context, 12)),
+                          itemCount: _leaderboardData.length,
+                          itemBuilder: (context, index) {
+                            return _buildLeaderboardItem(_leaderboardData[index]);
+                          },
+                        ),
         ),
       ],
     );

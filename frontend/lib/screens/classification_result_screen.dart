@@ -338,16 +338,17 @@ class _ClassificationResultScreenState
                 SizedBox(
                   width: double.infinity,
                   height: R.buttonHeight(context),
-                  child: OutlinedButton(
+                  child: OutlinedButton.icon(
                     onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.camera_alt_outlined),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.black54,
-                      side: const BorderSide(color: Colors.grey),
+                      foregroundColor: const Color(0xFF2196F3),
+                      side: const BorderSide(color: Color(0xFF2196F3)),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30)),
                     ),
-                    child: Text(
-                      'SCAN ANOTHER ITEM',
+                    label: Text(
+                      'RETAKE PHOTO / SCAN NEW',
                       style: TextStyle(
                           fontSize: R.fs(context, 14),
                           fontWeight: FontWeight.bold,
