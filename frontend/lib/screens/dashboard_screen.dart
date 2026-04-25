@@ -690,6 +690,8 @@ class _ActivityTabState extends State<ActivityTab> {
                 objectDetected: item['object_detected'] ?? 'Unknown',
                 material: item['material'] ?? 'Unknown',
                 confidence: (item['confidence'] as num?)?.toDouble() ?? 0.0,
+                cnnConfidence: (item['cnn_confidence'] as num?)?.toDouble() ?? (item['confidence'] as num?)?.toDouble() ?? 0.0,
+                yoloConfidence: (item['yolo_confidence'] as num?)?.toDouble() ?? 0.0,
                 disposalTip: item['disposal_tip'] ?? '',
                 disposalTipUr: item['disposal_tip_ur'] ?? '',
                 recyclable: isRecyclable,
@@ -739,9 +741,15 @@ class _ActivityTabState extends State<ActivityTab> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(item['object_detected'] ?? 'Unknown Object', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      const SizedBox(height: 4),
-                      Text("Category: ${item['category']}", style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          _buildMiniConfBadge("CNN", (item['cnn_confidence'] as num?)?.toDouble() ?? 0.0),
+                          const SizedBox(width: 8),
+                          _buildMiniConfBadge("YOLO", (item['yolo_confidence'] as num?)?.toDouble() ?? 0.0),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
                       Text(item['timestamp']?.toString().substring(0, 10) ?? '', style: TextStyle(color: Colors.grey[400], fontSize: 11)),
                     ],
                   ),
@@ -765,6 +773,33 @@ class _ActivityTabState extends State<ActivityTab> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildMiniConfBadge(String label, double confidence) {
+    final color = confidence >= 0.8 ? const Color(0xFF4CAF50) : 
+                  confidence >= 0.6 ? Colors.orange : Colors.red;
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            "$label: ",
+            style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.bold),
+          ),
+          Text(
+            "${(confidence * 100).toStringAsFixed(0)}%",
+            style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w900),
+          ),
+        ],
+      ),
     );
   }
 }
