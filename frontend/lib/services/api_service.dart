@@ -217,6 +217,28 @@ class ApiService {
   }
 
   // ═══════════════════════════════════════════════════════════
+  // LEADERBOARD
+  // ═══════════════════════════════════════════════════════════
+
+  Future<List<dynamic>> getMemberLeaderboard({int limit = 10}) async {
+    final res = await _client.get(
+      Uri.parse('$baseUrl/api/leaderboard/members?limit=$limit'),
+      headers: await _authHeaders(),
+    );
+    if (res.statusCode == 200) return jsonDecode(res.body);
+    throw _handleError(res);
+  }
+
+  Future<List<dynamic>> getCountryLeaderboard({int limit = 10}) async {
+    final res = await _client.get(
+      Uri.parse('$baseUrl/api/leaderboard/countries?limit=$limit'),
+      headers: await _authHeaders(),
+    );
+    if (res.statusCode == 200) return jsonDecode(res.body);
+    throw _handleError(res);
+  }
+
+  // ═══════════════════════════════════════════════════════════
   // HEALTH CHECK
   // ═══════════════════════════════════════════════════════════
 
@@ -236,6 +258,8 @@ class ClassificationResult {
   final String objectDetected;
   final String material;
   final double confidence;
+  final double cnnConfidence;
+  final double yoloConfidence;
   final String disposalTip;
   final String disposalTipUr;
   final bool recyclable;
@@ -247,6 +271,8 @@ class ClassificationResult {
     required this.objectDetected,
     required this.material,
     required this.confidence,
+    this.cnnConfidence = 0.0,
+    this.yoloConfidence = 0.0,
     required this.disposalTip,
     required this.disposalTipUr,
     required this.recyclable,
@@ -260,6 +286,8 @@ class ClassificationResult {
       objectDetected: json['object_detected'] ?? 'Unknown',
       material: json['material'] ?? 'Unknown',
       confidence: (json['confidence'] as num?)?.toDouble() ?? 0.0,
+      cnnConfidence: (json['cnn_confidence'] as num?)?.toDouble() ?? (json['confidence'] as num?)?.toDouble() ?? 0.0,
+      yoloConfidence: (json['yolo_confidence'] as num?)?.toDouble() ?? 0.0,
       disposalTip: json['disposal_tip'] ?? '',
       disposalTipUr: json['disposal_tip_ur'] ?? '',
       recyclable: json['recyclable'] ?? false,
@@ -272,4 +300,7 @@ class ClassificationResult {
 
   /// Confidence as a percentage string e.g. "94%"
   String get confidencePercent => '${(confidence * 100).toStringAsFixed(0)}%';
+
+  String get cnnConfidencePercent => '${(cnnConfidence * 100).toStringAsFixed(0)}%';
+  String get yoloConfidencePercent => '${(yoloConfidence * 100).toStringAsFixed(0)}%';
 }

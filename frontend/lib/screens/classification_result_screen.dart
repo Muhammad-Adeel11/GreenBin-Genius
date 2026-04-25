@@ -195,14 +195,59 @@ class _ClassificationResultScreenState
 
                 SizedBox(height: sp * 1.5),
 
-                // Classification tags
-                _buildTagRow('Category', _result!.category, isFirst: true),
-                _buildTagRow('Object', _result!.objectDetected),
-                _buildTagRow('Material', _result!.material),
-                _buildTagRow(
-                  'Confidence',
-                  _result!.confidencePercent,
-                  isLast: true,
+                // ── AI Model Insights (Transparency Breakdown)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: Colors.grey[200]!),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.analytics_outlined, color: Colors.grey[700], size: 18),
+                          const SizedBox(width: 8),
+                          Text(
+                            "AI MODEL INSIGHTS",
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1.2,
+                              color: Colors.grey[700],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      
+                      // YOLO Section
+                      _buildModelBar(
+                        modelName: "YOLO v8",
+                        taskName: "Object Detection",
+                        prediction: _result!.objectDetected,
+                        confidence: _result!.yoloConfidence,
+                        icon: Icons.filter_center_focus,
+                      ),
+                      
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16.0),
+                        child: Divider(height: 1),
+                      ),
+                      
+                      // CNN Section
+                      _buildModelBar(
+                        modelName: "InceptionV3",
+                        taskName: "Category & Material",
+                        prediction: "${_result!.category} (${_result!.material})",
+                        confidence: _result!.cnnConfidence,
+                        icon: Icons.layers_outlined,
+                      ),
+                    ],
+                  ),
                 ),
 
                 SizedBox(height: sp * 1.75),
@@ -293,16 +338,17 @@ class _ClassificationResultScreenState
                 SizedBox(
                   width: double.infinity,
                   height: R.buttonHeight(context),
-                  child: OutlinedButton(
+                  child: OutlinedButton.icon(
                     onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.camera_alt_outlined),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.black54,
-                      side: const BorderSide(color: Colors.grey),
+                      foregroundColor: const Color(0xFF2196F3),
+                      side: const BorderSide(color: Color(0xFF2196F3)),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30)),
                     ),
-                    child: Text(
-                      'SCAN ANOTHER ITEM',
+                    label: Text(
+                      'RETAKE PHOTO / SCAN NEW',
                       style: TextStyle(
                           fontSize: R.fs(context, 14),
                           fontWeight: FontWeight.bold,
@@ -319,74 +365,79 @@ class _ClassificationResultScreenState
     );
   }
 
-  Widget _buildTagRow(String label, String value,
-      {bool isFirst = false, bool isLast = false}) {
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SizedBox(
-            width: 40,
-            child: Column(
-              children: [
-                Expanded(
-                  child: Container(
-                    width: 1,
-                    color: isFirst ? Colors.transparent : Colors.grey[300],
-                    margin: const EdgeInsets.only(left: 20),
-                  ),
-                ),
-                Row(children: [
-                  const SizedBox(width: 20),
-                  Container(width: 12, height: 1, color: Colors.grey[300]),
-                ]),
-                Expanded(
-                  child: Container(
-                    width: 1,
-                    color: isLast ? Colors.transparent : Colors.grey[300],
-                    margin: const EdgeInsets.only(left: 20),
-                  ),
-                ),
-              ],
+  Widget _buildModelBar({
+    required String modelName,
+    required String taskName,
+    required String prediction,
+    required double confidence,
+    required IconData icon,
+  }) {
+    final color = confidence >= 0.8 ? const Color(0xFF4CAF50) : 
+                  confidence >= 0.6 ? Colors.orange : Colors.red;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey[200]!),
+              ),
+              child: Icon(icon, size: 16, color: Colors.black87),
             ),
-          ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8.0),
-              child: Row(
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(
-                    width: 90,
-                    child: Text(
-                      label,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                          color: Colors.black87),
-                    ),
+                  Text(
+                    modelName,
+                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 0.5),
                   ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF2196F3),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      value,
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13),
-                    ),
+                  Text(
+                    taskName,
+                    style: TextStyle(color: Colors.grey[600], fontSize: 11),
                   ),
                 ],
               ),
             ),
+            Text(
+              "${(confidence * 100).toStringAsFixed(0)}%",
+              style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: LinearProgressIndicator(
+                  value: confidence,
+                  backgroundColor: Colors.grey[200],
+                  valueColor: AlwaysStoppedAnimation<Color>(color),
+                  minHeight: 6,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          "PREDICTION: ${prediction.toUpperCase()}",
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+            color: Colors.grey[500],
+            letterSpacing: 0.5,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

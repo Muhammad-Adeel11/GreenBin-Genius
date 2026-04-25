@@ -6,9 +6,12 @@ GET /api/analytics/dashboard – admin dashboard (real aggregated data)
 """
 
 from fastapi import APIRouter, Depends
+from fastapi.responses import StreamingResponse
 from app.db.mongo import classifications_col, users_col
 from app.routers.auth import get_current_user
 from datetime import datetime, timedelta
+import csv
+import io
 
 router = APIRouter(prefix="/api/analytics", tags=["Analytics"])
 
@@ -152,3 +155,48 @@ async def low_confidence_analytics(_ = Depends(get_current_user)):
 @router.get("/corrections", summary="Classification corrections history")
 async def corrections_analytics(_ = Depends(get_current_user)):
     return []
+
+
+@router.get("/export/classifications", summary="Export classifications as CSV")
+async def export_classifications_csv(_ = Depends(get_current_user)):
+    """
+    Fetches all classification records and streams them as a CSV file.
+    """
+    col = classifications_col()
+    # Sort by most recent first
+    cursor = col.find({}).sort("timestamp", -1)
+
+    async def csv_generator():
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # Header row
+        writer.writerow([
+            "ID", "Timestamp", "Category", "Object Detected", 
+            "Confidence", "Recyclable", "User ID", "Image URL"
+        ])
+        yield output.getvalue()
+        output.truncate(0)
+        output.seek(0)
+        
+        async for item in cursor:
+            writer.writerow([
+                str(item.get("_id", "")),
+                item.get("timestamp", ""),
+                item.get("category", ""),
+                item.get("object_detected", ""),
+                item.get("confidence", ""),
+                item.get("recyclable", ""),
+                item.get("user_id", ""),
+                item.get("image_url", "")
+            ])
+            yield output.getvalue()
+            output.truncate(0)
+            output.seek(0)
+
+    filename = f"classifications_export_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.csv"
+    return StreamingResponse(
+        csv_generator(),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )

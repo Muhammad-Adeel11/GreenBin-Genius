@@ -70,6 +70,20 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
     return user
 
 
+async def get_current_user_optional(token: Optional[str] = Depends(oauth2_scheme)) -> Optional[dict]:
+    """Dependency – returns the user document if token is valid, otherwise None."""
+    if not token:
+        return None
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id: Optional[str] = payload.get("sub")
+        if user_id is None:
+            return None
+        return await users_col().find_one({"_id": ObjectId(user_id)})
+    except:
+        return None
+
+
 # ── Routes ───────────────────────────────────────────────────
 
 @router.post(
