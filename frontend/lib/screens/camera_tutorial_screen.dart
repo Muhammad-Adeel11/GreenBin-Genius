@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/responsive.dart';
 import 'dashboard_screen.dart';
 import 'camera_scanner_screen.dart';
@@ -195,11 +196,16 @@ class TutorialStep3 extends StatelessWidget {
           Padding(
             padding: EdgeInsets.only(right: sp),
             child: TextButton(
-              onPressed: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => const AiScannerScreen()),
-                );
+              onPressed: () async {
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setBool('has_seen_camera_tutorial', true);
+                
+                if (context.mounted) {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (context) => const AiScannerScreen()),
+                  );
+                }
               },
               child: Text("Next", style: TextStyle(color: Colors.white, fontSize: R.fs(context, 16))),
             ),
@@ -249,12 +255,20 @@ class TutorialStep3 extends StatelessWidget {
                     ),
                     SizedBox(height: sp * 1.5),
 
-                    _buildDialogButton(context, "WHILE USING THE APP", const Color(0xFF2196F3), Colors.white, () {
-                      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const AiScannerScreen()));
+                    _buildDialogButton(context, "WHILE USING THE APP", const Color(0xFF2196F3), Colors.white, () async {
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.setBool('has_seen_camera_tutorial', true);
+                      if (context.mounted) {
+                        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const AiScannerScreen()));
+                      }
                     }),
                     const Divider(height: 1, thickness: 1),
-                    _buildDialogButton(context, "ONLY THIS TIME", Colors.white, Colors.black, () {
-                      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const AiScannerScreen()));
+                    _buildDialogButton(context, "ONLY THIS TIME", Colors.white, Colors.black, () async {
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.setBool('has_seen_camera_tutorial', true);
+                      if (context.mounted) {
+                        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const AiScannerScreen()));
+                      }
                     }),
                     const Divider(height: 1, thickness: 1),
                     _buildDialogButton(context, "DENY", Colors.white, Colors.black, () {
