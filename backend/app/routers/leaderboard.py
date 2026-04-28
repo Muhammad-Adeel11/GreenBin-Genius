@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, Optional
+from fastapi import APIRouter, Depends
+from typing import Optional
 from app.db.mongo import users_col
 from app.routers.auth import get_current_user_optional
 from bson import ObjectId

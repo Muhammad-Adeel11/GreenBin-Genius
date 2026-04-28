@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../utils/responsive.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'camera_scanner_screen.dart';
 import 'camera_tutorial_screen.dart';
 import 'profile_screen.dart';
 import 'bin_locator_screen.dart';
@@ -54,11 +56,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
       backgroundColor: Colors.white,
       body: pages[_selectedIndex],
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const TutorialStep1()),
-          );
+        onPressed: () async {
+          final prefs = await SharedPreferences.getInstance();
+          final bool hasSeenTutorial = prefs.getBool('has_seen_camera_tutorial') ?? false;
+
+          if (context.mounted) {
+            if (hasSeenTutorial) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const AiScannerScreen()),
+              );
+            } else {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const TutorialStep1()),
+              );
+            }
+          }
         },
         backgroundColor: const Color(0xFF007AFF),
         shape: const CircleBorder(),

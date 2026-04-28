@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'dart:ui';
 import 'classification_result_screen.dart';
+import 'camera_tutorial_screen.dart';
 import 'dart:io';
 import 'package:image/image.dart' as img;
 import 'dart:math' as math;
@@ -21,6 +22,8 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
   bool _isBlurry = false;
   double _blurScore = 0.0;
   bool _isCheckingBlur = false;
+  FlashMode _flashMode = FlashMode.off;
+  int _cameraIndex = 0;
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
 
@@ -45,12 +48,14 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
       _cameras = await availableCameras();
       if (_cameras != null && _cameras!.isNotEmpty) {
         _cameraController = CameraController(
-          _cameras![0],
+          _cameras![_cameraIndex],
           ResolutionPreset.high,
           enableAudio: false,
         );
 
         await _cameraController!.initialize();
+        await _cameraController!.setFlashMode(_flashMode);
+        
         if (mounted) {
           setState(() {
             _isInit = true;
@@ -60,6 +65,46 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
     } catch (e) {
       debugPrint("Camera Error: $e");
     }
+  }
+
+  Future<void> _toggleFlash() async {
+    if (_cameraController == null || !_cameraController!.value.isInitialized) return;
+
+    FlashMode nextMode;
+    switch (_flashMode) {
+      case FlashMode.off:
+        nextMode = FlashMode.always;
+        break;
+      case FlashMode.always:
+        nextMode = FlashMode.auto;
+        break;
+      case FlashMode.auto:
+        nextMode = FlashMode.off;
+        break;
+      default:
+        nextMode = FlashMode.off;
+    }
+
+    try {
+      await _cameraController!.setFlashMode(nextMode);
+      setState(() {
+        _flashMode = nextMode;
+      });
+    } catch (e) {
+      debugPrint("Error setting flash mode: $e");
+    }
+  }
+
+  Future<void> _toggleCamera() async {
+    if (_cameras == null || _cameras!.length < 2) return;
+
+    setState(() {
+      _isInit = false;
+      _cameraIndex = (_cameraIndex + 1) % _cameras!.length;
+    });
+
+    await _cameraController?.dispose();
+    _initCamera();
   }
 
   @override
@@ -236,7 +281,12 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
                             ),
                             IconButton(
                               icon: const Icon(Icons.help_outline, color: Colors.white),
-                              onPressed: () {},
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => const TutorialStep1()),
+                                );
+                              },
                             ),
                           ],
                         ),
@@ -384,9 +434,18 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
                         top: 100,
                         child: Column(
                           children: [
-                            _buildSideButton(Icons.flash_on, "FLASH"),
+                            _buildSideButton(
+                              _getFlashIcon(), 
+                              "FLASH", 
+                              onTap: _toggleFlash,
+                              isActive: _flashMode != FlashMode.off,
+                            ),
                             const SizedBox(height: 24),
-                            _buildSideButton(Icons.flip_camera_ios, "FLIP"),
+                            _buildSideButton(
+                              Icons.flip_camera_ios, 
+                              "FLIP", 
+                              onTap: _toggleCamera,
+                            ),
                           ],
                         ),
                       ),
@@ -742,28 +801,40 @@ Widget _buildPreviewOverlay() {
   );
 }
 
-  Widget _buildSideButton(IconData icon, String label) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.5),
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.white.withOpacity(0.1)),
+  IconData _getFlashIcon() {
+    switch (_flashMode) {
+      case FlashMode.off: return Icons.flash_off;
+      case FlashMode.always: return Icons.flash_on;
+      case FlashMode.auto: return Icons.flash_auto;
+      default: return Icons.flash_off;
+    }
+  }
+
+  Widget _buildSideButton(IconData icon, String label, {VoidCallback? onTap, bool isActive = false}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isActive ? const Color(0xFF2196F3).withOpacity(0.3) : Colors.black.withOpacity(0.5),
+              shape: BoxShape.circle,
+              border: Border.all(color: isActive ? const Color(0xFF2196F3) : Colors.white.withOpacity(0.1)),
+            ),
+            child: Icon(icon, color: isActive ? const Color(0xFF2196F3) : Colors.white, size: 24),
           ),
-          child: Icon(icon, color: Colors.white, size: 24),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          label,
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.8),
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
+          const SizedBox(height: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: isActive ? const Color(0xFF2196F3) : Colors.white.withOpacity(0.8),
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
