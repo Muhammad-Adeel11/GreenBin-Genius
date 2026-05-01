@@ -43,6 +43,13 @@ class TokenResponse(BaseModel):
 # Classification Schemas
 # ──────────────────────────────────────────────
 
+class YOLODetection(BaseModel):
+    """Detailed YOLO detection including bounding box."""
+    label: str = Field(..., example="Bottle")
+    confidence: float = Field(..., example=0.88)
+    box: List[float] = Field(..., example=[100.0, 150.0, 300.0, 450.0])  # [xmin, ymin, xmax, ymax]
+
+
 class ClassificationResult(BaseModel):
     """Aggregated schema returned by the combined endpoint."""
     category: str = Field(..., example="plastic")
@@ -51,6 +58,7 @@ class ClassificationResult(BaseModel):
     confidence: float = Field(..., ge=0.0, le=1.0, example=0.94)  # Legacy / Overall
     cnn_confidence: float = Field(default=0.0, ge=0.0, le=1.0, example=0.94)
     yolo_confidence: float = Field(default=0.0, ge=0.0, le=1.0, example=0.88)
+    detections: List[YOLODetection] = Field(default_factory=list)
     disposal_tip: str = Field(..., example="Rinse and place in the blue recycling bin.")
     disposal_tip_ur: str = Field(..., example="صاف کریں اور نیلے ری سائیکلنگ ڈبے میں رکھیں۔")
     recyclable: bool = Field(..., example=True)
@@ -74,6 +82,7 @@ class YOLOClassificationResult(BaseModel):
     """Result schema for the specialized YOLO endpoint."""
     object_detected: str = Field(..., example="Bottle")
     confidence: float = Field(..., example=0.88)
+    detections: List[YOLODetection] = Field(default_factory=list)
     image_url: Optional[str] = None
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
@@ -88,6 +97,7 @@ class ClassificationHistoryEntry(BaseModel):
     confidence: float
     cnn_confidence: Optional[float] = 0.0
     yolo_confidence: Optional[float] = 0.0
+    detections: List[YOLODetection] = []
     recyclable: bool
     disposal_tip: str
     image_url: Optional[str] = None

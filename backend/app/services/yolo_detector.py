@@ -69,6 +69,7 @@ def detect(image_bytes: bytes) -> dict:
         return {
             "object_detected": "Bottle",
             "yolo_confidence": 0.88,
+            "detections": [],
             "mock": True,
         }
 
@@ -76,21 +77,35 @@ def detect(image_bytes: bytes) -> dict:
         img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
         results = _yolo_model(img, verbose=False)
 
-        # Extract the highest-confidence detection
+        # Extract all detections
+        detections = []
         top_label = "Unknown"
         top_conf = 0.0
 
         for result in results:
-            if result.boxes is not None and len(result.boxes) > 0:
-                best_idx = result.boxes.conf.argmax().item()
-                cls_id = int(result.boxes.cls[best_idx].item())
-                top_conf = float(result.boxes.conf[best_idx].item())
-                top_label = result.names.get(cls_id, "Unknown")
-                break
+            if result.boxes is not None:
+                for box in result.boxes:
+                    cls_id = int(box.cls[0].item())
+                    conf = float(box.conf[0].item())
+                    label = result.names.get(cls_id, "Unknown")
+                    xyxy = box.xyxy[0].tolist()  # [xmin, ymin, xmax, ymax]
+                    
+                    det = {
+                        "label": label.capitalize(),
+                        "confidence": round(conf, 4),
+                        "box": xyxy
+                    }
+                    detections.append(det)
+                    
+                    # Track top detection for summary fields
+                    if conf > top_conf:
+                        top_conf = conf
+                        top_label = label
 
         return {
             "object_detected": top_label.capitalize(),
             "yolo_confidence": round(top_conf, 4),
+            "detections": detections,
             "mock": False,
         }
     except Exception as exc:
@@ -98,5 +113,6 @@ def detect(image_bytes: bytes) -> dict:
         return {
             "object_detected": "Unknown",
             "yolo_confidence": 0.0,
+            "detections": [],
             "mock": True,
         }

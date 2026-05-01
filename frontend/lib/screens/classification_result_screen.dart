@@ -21,6 +21,7 @@ class _ClassificationResultScreenState
   bool _isAnalyzing = true;
   ClassificationResult? _result;
   String? _errorMessage;
+  Size? _imageSize;
 
   @override
   void initState() {
@@ -28,6 +29,19 @@ class _ClassificationResultScreenState
     if (widget.preloadedResult != null) {
       _result = widget.preloadedResult;
       _isAnalyzing = false;
+      // Get dimensions for network image if available
+      if (widget.imageUrl != null) {
+        final Image image = Image.network(widget.imageUrl!);
+        image.image.resolve(const ImageConfiguration()).addListener(
+          ImageStreamListener((ImageInfo info, bool _) {
+            if (mounted) {
+              setState(() {
+                _imageSize = Size(info.image.width.toDouble(), info.image.height.toDouble());
+              });
+            }
+          }),
+        );
+      }
     } else {
       _runClassification();
     }
@@ -36,6 +50,15 @@ class _ClassificationResultScreenState
   Future<void> _runClassification() async {
     if (widget.imageFile == null) return;
     try {
+      // Get image dimensions first
+      final bytes = await widget.imageFile!.readAsBytes();
+      final decodedImage = await decodeImageFromList(bytes);
+      if (mounted) {
+        setState(() {
+          _imageSize = Size(decodedImage.width.toDouble(), decodedImage.height.toDouble());
+        });
+      }
+
       final result = await ApiService.instance.classifyImage(widget.imageFile!);
       if (mounted) {
         setState(() {
@@ -80,27 +103,48 @@ class _ClassificationResultScreenState
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               SizedBox(height: sp),
-              // ── Captured Image
+              // ── Captured Image with Bounding Boxes
               Container(
-                height: R.h(context, 30),
+                height: R.h(context, 35),
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(24),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.1),
-                      blurRadius: 15,
-                      offset: const Offset(0, 5),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
                     ),
                   ],
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
-                  child: widget.imageFile != null
-                      ? Image.file(widget.imageFile!, fit: BoxFit.cover)
-                      : (widget.imageUrl != null 
-                          ? Image.network(widget.imageUrl!, fit: BoxFit.cover) 
-                          : Container(color: Colors.grey[200], child: const Center(child: Icon(Icons.image, color: Colors.grey, size: 50)))),
+                  borderRadius: BorderRadius.circular(24),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      return Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          // The actual image
+                          widget.imageFile != null
+                              ? Image.file(widget.imageFile!, fit: BoxFit.cover, key: const ValueKey('image'))
+                              : (widget.imageUrl != null 
+                                  ? Image.network(widget.imageUrl!, fit: BoxFit.cover) 
+                                  : Container(color: Colors.grey[200], child: const Center(child: Icon(Icons.image, color: Colors.grey, size: 50)))),
+                          
+                          // Draw YOLO Detections
+                          if (_result != null && _result!.detections.isNotEmpty)
+                            _buildDetectionsOverlay(constraints),
+
+                          // Analyzing Overlay
+                          if (_isAnalyzing)
+                            Container(
+                              color: Colors.black26,
+                              child: const Center(child: CircularProgressIndicator(color: Colors.white)),
+                            ),
+                        ],
+                      );
+                    },
+                  ),
                 ),
               ),
               SizedBox(height: sp * 2),
@@ -362,6 +406,60 @@ class _ClassificationResultScreenState
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildDetectionsOverlay(BoxConstraints constraints) {
+    if (_imageSize == null || _result == null) return const SizedBox.shrink();
+
+    final viewW = constraints.maxWidth;
+    final viewH = constraints.maxHeight;
+    final origW = _imageSize!.width;
+    final origH = _imageSize!.height;
+
+    // Calculate scale for BoxFit.cover
+    final scale = (viewW / origW > viewH / origH) ? viewW / origW : viewH / origH;
+    
+    // Calculate offsets
+    final dx = (viewW - origW * scale) / 2;
+    final dy = (viewH - origH * scale) / 2;
+
+    return Stack(
+      children: _result!.detections.map((det) {
+        final box = det.box; // [x1, y1, x2, y2]
+        
+        final left = box[0] * scale + dx;
+        final top = box[1] * scale + dy;
+        final width = (box[2] - box[0]) * scale;
+        final height = (box[3] - box[1]) * scale;
+
+        return Positioned(
+          left: left,
+          top: top,
+          width: width,
+          height: height,
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: const Color(0xFF00E5FF), width: 2),
+            ),
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                color: const Color(0xFF00E5FF),
+                child: Text(
+                  "${det.label} ${(det.confidence * 100).toStringAsFixed(0)}%",
+                  style: const TextStyle(
+                    color: Colors.black,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 

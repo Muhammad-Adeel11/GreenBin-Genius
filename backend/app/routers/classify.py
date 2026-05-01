@@ -94,6 +94,7 @@ async def classify_image(
         confidence=cnn_result["confidence"],
         cnn_confidence=cnn_result["confidence"],
         yolo_confidence=yolo_result["yolo_confidence"],
+        detections=yolo_result["detections"],
         disposal_tip=cnn_result["disposal_tip"],
         disposal_tip_ur=cnn_result["disposal_tip_ur"],
         recyclable=cnn_result["recyclable"],
@@ -111,6 +112,7 @@ async def classify_image(
         "confidence":     result.confidence,
         "cnn_confidence":  result.cnn_confidence,
         "yolo_confidence": result.yolo_confidence,
+        "detections":      result.detections,
         "recyclable":     result.recyclable,
         "disposal_tip":   result.disposal_tip,
         "image_url":      image_url,
@@ -168,6 +170,7 @@ async def classify_yolo(
     return YOLOClassificationResult(
         object_detected=yolo_result["object_detected"],
         confidence=yolo_result["yolo_confidence"],
+        detections=yolo_result["detections"],
         image_url=image_url,
         timestamp=timestamp,
     )

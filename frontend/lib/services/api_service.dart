@@ -49,6 +49,21 @@ class ApiService {
 
   // ── Generic error parser ─────────────────────────────────────
 
+  /// Wrap network calls to handle SocketException, ClientException, etc.
+  /// to avoid exposing backend URLs and provide user-friendly messages.
+  Future<T> _wrapNetworkCall<T>(Future<T> Function() call) async {
+    try {
+      return await call();
+    } on SocketException {
+      throw Exception('No internet connection. Please check your network and try again.');
+    } on http.ClientException {
+      throw Exception('Unable to reach the server. Please try again later.');
+    } catch (e) {
+      if (e is Exception) rethrow;
+      throw Exception('An unexpected error occurred. Please try again.');
+    }
+  }
+
   Exception _handleError(http.Response res) {
     try {
       final body = jsonDecode(res.body);
@@ -69,22 +84,24 @@ class ApiService {
     required String password,
     String language = 'en',
   }) async {
-    final res = await _client.post(
-      Uri.parse('$baseUrl/api/auth/register'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'name': name,
-        'email': email,
-        'password': password,
-        'language': language,
-      }),
-    );
-    if (res.statusCode == 201) {
-      final data = jsonDecode(res.body) as Map<String, dynamic>;
-      await saveToken(data['access_token']);
-      return data;
-    }
-    throw _handleError(res);
+    return _wrapNetworkCall(() async {
+      final res = await _client.post(
+        Uri.parse('$baseUrl/api/auth/register'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'name': name,
+          'email': email,
+          'password': password,
+          'language': language,
+        }),
+      );
+      if (res.statusCode == 201) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        await saveToken(data['access_token']);
+        return data;
+      }
+      throw _handleError(res);
+    });
   }
 
   /// Login an existing user. Returns the token response on success.
@@ -92,27 +109,31 @@ class ApiService {
     required String email,
     required String password,
   }) async {
-    final res = await _client.post(
-      Uri.parse('$baseUrl/api/auth/login'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'email': email, 'password': password}),
-    );
-    if (res.statusCode == 200) {
-      final data = jsonDecode(res.body) as Map<String, dynamic>;
-      await saveToken(data['access_token']);
-      return data;
-    }
-    throw _handleError(res);
+    return _wrapNetworkCall(() async {
+      final res = await _client.post(
+        Uri.parse('$baseUrl/api/auth/login'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'email': email, 'password': password}),
+      );
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        await saveToken(data['access_token']);
+        return data;
+      }
+      throw _handleError(res);
+    });
   }
 
   /// Fetch the currently authenticated user's profile.
   Future<Map<String, dynamic>> getMe() async {
-    final res = await _client.get(
-      Uri.parse('$baseUrl/api/auth/me'),
-      headers: await _authHeaders(),
-    );
-    if (res.statusCode == 200) return jsonDecode(res.body);
-    throw _handleError(res);
+    return _wrapNetworkCall(() async {
+      final res = await _client.get(
+        Uri.parse('$baseUrl/api/auth/me'),
+        headers: await _authHeaders(),
+      );
+      if (res.statusCode == 200) return jsonDecode(res.body);
+      throw _handleError(res);
+    });
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -122,35 +143,36 @@ class ApiService {
   /// Send an image file to the backend for AI classification.
   /// Automatically detects JPEG / PNG and sets the correct MIME type.
   Future<ClassificationResult> classifyImage(File imageFile) async {
-    final token = await getToken();
-    if (token == null) throw Exception('Not authenticated. Please log in first.');
+    return _wrapNetworkCall(() async {
+      final token = await getToken();
+      if (token == null) throw Exception('Not authenticated. Please log in first.');
 
-    // Detect MIME type from file extension.
-    // Android camera always saves as .jpg; gallery picks may be .png.
-    final ext = imageFile.path.split('.').last.toLowerCase();
-    final mimeType = ext == 'png' ? 'png' : 'jpeg';
+      // Detect MIME type from file extension.
+      final ext = imageFile.path.split('.').last.toLowerCase();
+      final mimeType = ext == 'png' ? 'png' : 'jpeg';
 
-    final request = http.MultipartRequest(
-      'POST',
-      Uri.parse('$baseUrl/api/classify'),
-    )
-      ..headers['Authorization'] = 'Bearer $token'
-      ..files.add(await http.MultipartFile.fromPath(
-        'file',
-        imageFile.path,
-        contentType: MediaType('image', mimeType), // ← explicit MIME type
-        filename: 'photo.$mimeType',               // ← gives backend a clean name
-      ));
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl/api/classify'),
+      )
+        ..headers['Authorization'] = 'Bearer $token'
+        ..files.add(await http.MultipartFile.fromPath(
+          'file',
+          imageFile.path,
+          contentType: MediaType('image', mimeType),
+          filename: 'photo.$mimeType',
+        ));
 
-    final streamed = await request.send();
-    final res = await http.Response.fromStream(streamed);
+      final streamed = await request.send();
+      final res = await http.Response.fromStream(streamed);
 
-    if (res.statusCode == 200) {
-      return ClassificationResult.fromJson(
-        jsonDecode(res.body) as Map<String, dynamic>,
-      );
-    }
-    throw _handleError(res);
+      if (res.statusCode == 200) {
+        return ClassificationResult.fromJson(
+          jsonDecode(res.body) as Map<String, dynamic>,
+        );
+      }
+      throw _handleError(res);
+    });
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -158,20 +180,24 @@ class ApiService {
   // ═══════════════════════════════════════════════════════════
 
   Future<Map<String, dynamic>> getHistory({int page = 1, int limit = 20}) async {
-    final res = await _client.get(
-      Uri.parse('$baseUrl/api/history?page=$page&limit=$limit'),
-      headers: await _authHeaders(),
-    );
-    if (res.statusCode == 200) return jsonDecode(res.body);
-    throw _handleError(res);
+    return _wrapNetworkCall(() async {
+      final res = await _client.get(
+        Uri.parse('$baseUrl/api/history?page=$page&limit=$limit'),
+        headers: await _authHeaders(),
+      );
+      if (res.statusCode == 200) return jsonDecode(res.body);
+      throw _handleError(res);
+    });
   }
 
   Future<void> deleteHistoryEntry(String id) async {
-    final res = await _client.delete(
-      Uri.parse('$baseUrl/api/history/$id'),
-      headers: await _authHeaders(),
-    );
-    if (res.statusCode != 200) throw _handleError(res);
+    return _wrapNetworkCall(() async {
+      final res = await _client.delete(
+        Uri.parse('$baseUrl/api/history/$id'),
+        headers: await _authHeaders(),
+      );
+      if (res.statusCode != 200) throw _handleError(res);
+    });
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -184,15 +210,17 @@ class ApiService {
     int maxDistanceM = 5000,
     int limit = 10,
   }) async {
-    final res = await _client.get(
-      Uri.parse(
-        '$baseUrl/api/bins/nearby?lat=$lat&lng=$lng'
-        '&max_distance_m=$maxDistanceM&limit=$limit',
-      ),
-      headers: await _authHeaders(),
-    );
-    if (res.statusCode == 200) return jsonDecode(res.body);
-    throw _handleError(res);
+    return _wrapNetworkCall(() async {
+      final res = await _client.get(
+        Uri.parse(
+          '$baseUrl/api/bins/nearby?lat=$lat&lng=$lng'
+          '&max_distance_m=$maxDistanceM&limit=$limit',
+        ),
+        headers: await _authHeaders(),
+      );
+      if (res.statusCode == 200) return jsonDecode(res.body);
+      throw _handleError(res);
+    });
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -200,20 +228,24 @@ class ApiService {
   // ═══════════════════════════════════════════════════════════
 
   Future<Map<String, dynamic>> getMyAnalytics() async {
-    final res = await _client.get(
-      Uri.parse('$baseUrl/api/analytics/me'),
-      headers: await _authHeaders(),
-    );
-    if (res.statusCode == 200) return jsonDecode(res.body);
-    throw _handleError(res);
+    return _wrapNetworkCall(() async {
+      final res = await _client.get(
+        Uri.parse('$baseUrl/api/analytics/me'),
+        headers: await _authHeaders(),
+      );
+      if (res.statusCode == 200) return jsonDecode(res.body);
+      throw _handleError(res);
+    });
   }
 
   Future<Map<String, dynamic>> getGlobalAnalytics() async {
-    final res = await _client.get(
-      Uri.parse('$baseUrl/api/analytics/global'),
-    );
-    if (res.statusCode == 200) return jsonDecode(res.body);
-    throw _handleError(res);
+    return _wrapNetworkCall(() async {
+      final res = await _client.get(
+        Uri.parse('$baseUrl/api/analytics/global'),
+      );
+      if (res.statusCode == 200) return jsonDecode(res.body);
+      throw _handleError(res);
+    });
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -221,21 +253,25 @@ class ApiService {
   // ═══════════════════════════════════════════════════════════
 
   Future<List<dynamic>> getMemberLeaderboard({int limit = 10}) async {
-    final res = await _client.get(
-      Uri.parse('$baseUrl/api/leaderboard/members?limit=$limit'),
-      headers: await _authHeaders(),
-    );
-    if (res.statusCode == 200) return jsonDecode(res.body);
-    throw _handleError(res);
+    return _wrapNetworkCall(() async {
+      final res = await _client.get(
+        Uri.parse('$baseUrl/api/leaderboard/members?limit=$limit'),
+        headers: await _authHeaders(),
+      );
+      if (res.statusCode == 200) return jsonDecode(res.body);
+      throw _handleError(res);
+    });
   }
 
   Future<List<dynamic>> getCountryLeaderboard({int limit = 10}) async {
-    final res = await _client.get(
-      Uri.parse('$baseUrl/api/leaderboard/countries?limit=$limit'),
-      headers: await _authHeaders(),
-    );
-    if (res.statusCode == 200) return jsonDecode(res.body);
-    throw _handleError(res);
+    return _wrapNetworkCall(() async {
+      final res = await _client.get(
+        Uri.parse('$baseUrl/api/leaderboard/countries?limit=$limit'),
+        headers: await _authHeaders(),
+      );
+      if (res.statusCode == 200) return jsonDecode(res.body);
+      throw _handleError(res);
+    });
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -243,15 +279,37 @@ class ApiService {
   // ═══════════════════════════════════════════════════════════
 
   Future<Map<String, dynamic>> healthCheck() async {
-    final res = await _client.get(Uri.parse('$baseUrl/health'));
-    if (res.statusCode == 200) return jsonDecode(res.body);
-    throw Exception('Backend unreachable');
+    return _wrapNetworkCall(() async {
+      final res = await _client.get(Uri.parse('$baseUrl/health'));
+      if (res.statusCode == 200) return jsonDecode(res.body);
+      throw Exception('Backend unreachable');
+    });
   }
 }
 
 // ─────────────────────────────────────────────────────────────
 // Data Model
 // ─────────────────────────────────────────────────────────────
+
+class YOLODetection {
+  final String label;
+  final double confidence;
+  final List<double> box; // [xmin, ymin, xmax, ymax]
+
+  const YOLODetection({
+    required this.label,
+    required this.confidence,
+    required this.box,
+  });
+
+  factory YOLODetection.fromJson(Map<String, dynamic> json) {
+    return YOLODetection(
+      label: json['label'] ?? 'Unknown',
+      confidence: (json['confidence'] as num?)?.toDouble() ?? 0.0,
+      box: (json['box'] as List<dynamic>?)?.map((e) => (e as num).toDouble()).toList() ?? [0.0, 0.0, 0.0, 0.0],
+    );
+  }
+}
 
 class ClassificationResult {
   final String category;
@@ -260,6 +318,7 @@ class ClassificationResult {
   final double confidence;
   final double cnnConfidence;
   final double yoloConfidence;
+  final List<YOLODetection> detections;
   final String disposalTip;
   final String disposalTipUr;
   final bool recyclable;
@@ -273,6 +332,7 @@ class ClassificationResult {
     required this.confidence,
     this.cnnConfidence = 0.0,
     this.yoloConfidence = 0.0,
+    this.detections = const [],
     required this.disposalTip,
     required this.disposalTipUr,
     required this.recyclable,
@@ -288,6 +348,9 @@ class ClassificationResult {
       confidence: (json['confidence'] as num?)?.toDouble() ?? 0.0,
       cnnConfidence: (json['cnn_confidence'] as num?)?.toDouble() ?? (json['confidence'] as num?)?.toDouble() ?? 0.0,
       yoloConfidence: (json['yolo_confidence'] as num?)?.toDouble() ?? 0.0,
+      detections: (json['detections'] as List<dynamic>?)
+          ?.map((e) => YOLODetection.fromJson(e as Map<String, dynamic>))
+          .toList() ?? [],
       disposalTip: json['disposal_tip'] ?? '',
       disposalTipUr: json['disposal_tip_ur'] ?? '',
       recyclable: json['recyclable'] ?? false,
