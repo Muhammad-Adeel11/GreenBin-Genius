@@ -209,12 +209,14 @@ class ApiService {
     required double lng,
     int maxDistanceM = 5000,
     int limit = 10,
+    String? binType,
   }) async {
     return _wrapNetworkCall(() async {
       final res = await _client.get(
         Uri.parse(
           '$baseUrl/api/bins/nearby?lat=$lat&lng=$lng'
-          '&max_distance_m=$maxDistanceM&limit=$limit',
+          '&max_distance_m=$maxDistanceM&limit=$limit'
+          '${binType != null ? "&bin_type=$binType" : ""}',
         ),
         headers: await _authHeaders(),
       );

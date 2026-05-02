@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/responsive.dart';
+import '../utils/app_theme.dart';
 import '../services/api_service.dart';
 import 'login_selection_screen.dart';
 
@@ -17,6 +18,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _aiSuggestions = true;
   bool _wifiOnly = false;
   bool _maxLocation = true;
+  bool _isDarkMode = false;
   bool _isLoading = true;
 
   @override
@@ -31,6 +33,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _aiSuggestions = prefs.getBool('ai_suggestions') ?? true;
       _wifiOnly = prefs.getBool('wifi_only') ?? false;
       _maxLocation = prefs.getBool('max_location') ?? true;
+      _isDarkMode = prefs.getBool('is_dark_mode') ?? false;
+      
+      // Update global notifier if needed
+      AppTheme.themeNotifier.value = _isDarkMode ? ThemeMode.dark : ThemeMode.light;
+      
       _isLoading = false;
     });
   }
@@ -42,6 +49,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (key == 'ai_suggestions') _aiSuggestions = value;
       if (key == 'wifi_only') _wifiOnly = value;
       if (key == 'max_location') _maxLocation = value;
+      if (key == 'is_dark_mode') {
+        _isDarkMode = value;
+        AppTheme.themeNotifier.value = value ? ThemeMode.dark : ThemeMode.light;
+      }
     });
   }
 
@@ -80,24 +91,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     if (_isLoading) {
       return const Scaffold(
-        backgroundColor: Colors.white,
         body: Center(child: CircularProgressIndicator()),
       );
     }
 
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black, size: 20),
-          onPressed: () => Navigator.pop(context),
-        ),
         title: Text(
           "Settings",
           style: TextStyle(
-            color: Colors.black,
             fontSize: R.fs(context, 18),
             fontWeight: FontWeight.bold,
           ),
@@ -110,6 +112,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(height: sp),
+
+            _buildSectionTitle(context, "APPEARANCE"),
+            SizedBox(height: sp),
+            
+            _buildSwitchOption(context, "Dark Mode", _isDarkMode, (val) {
+              _updateSetting('is_dark_mode', val);
+            }),
+            const Divider(height: 32),
 
             _buildSectionTitle(context, "PREFERENCES"),
             SizedBox(height: sp),
@@ -153,13 +163,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             // Clear Cache (Mock)
             ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.delete_sweep_outlined, color: Colors.black87),
+              leading: Icon(Icons.delete_sweep_outlined, color: Theme.of(context).colorScheme.onSurface),
               title: Text(
                 "Clear History Cache",
                 style: TextStyle(
                   fontSize: R.fs(context, 15),
                   fontWeight: FontWeight.bold,
-                  color: Colors.black87,
                 ),
               ),
               onTap: () {
@@ -174,13 +183,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             // Reset Tutorial
             ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.help_outline, color: Colors.black87),
+              leading: Icon(Icons.help_outline, color: Theme.of(context).colorScheme.onSurface),
               title: Text(
                 "Show Camera Tutorial Again",
                 style: TextStyle(
                   fontSize: R.fs(context, 15),
                   fontWeight: FontWeight.bold,
-                  color: Colors.black87,
                 ),
               ),
               onTap: () async {
@@ -193,6 +201,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 }
               },
             ),
+
+            const Divider(height: 32),
 
             SizedBox(height: sp * 4),
             _buildSectionTitle(context, "ABOUT"),
@@ -215,7 +225,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   style: TextStyle(
                     fontSize: R.fs(context, 14),
                     fontWeight: FontWeight.bold,
-                    color: Colors.black87,
                   ),
                 ),
               ],
@@ -241,6 +250,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   // Helper widget to build the switch rows
   Widget _buildSwitchOption(BuildContext context, String title, bool value, ValueChanged<bool> onChanged) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -249,7 +260,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           style: TextStyle(
             fontSize: R.fs(context, 15),
             fontWeight: FontWeight.bold,
-            color: Colors.black87,
+            color: isDark ? Colors.white : Colors.black87,
           ),
         ),
         CupertinoSwitch(
