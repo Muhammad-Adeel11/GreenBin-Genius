@@ -428,39 +428,55 @@ class _ClassificationResultScreenState
 
     return Stack(
       children: _result!.detections.map((det) {
-        final box = det.box; // [x1, y1, x2, y2]
-        
-        final left = box[0] * scale + dx;
-        final top = box[1] * scale + dy;
-        final width = (box[2] - box[0]) * scale;
-        final height = (box[3] - box[1]) * scale;
+          final box = det.box; // [x1, y1, x2, y2]
+          
+          final left = box[0] * scale + dx;
+          final top = box[1] * scale + dy;
+          final width = (box[2] - box[0]) * scale;
+          final height = (box[3] - box[1]) * scale;
 
-        return Positioned(
-          left: left,
-          top: top,
-          width: width,
-          height: height,
-          child: Container(
-            decoration: BoxDecoration(
-              border: Border.all(color: const Color(0xFF00E5FF), width: 2),
-            ),
-            child: Align(
-              alignment: Alignment.topLeft,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                color: const Color(0xFF00E5FF),
-                child: Text(
-                  "${det.label} ${(det.confidence * 100).toStringAsFixed(0)}%",
-                  style: const TextStyle(
-                    color: Colors.black,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+          const themeColor = Color(0xFF00FFD4); // Bright Cyan like the user's image
+
+          return Positioned(
+            left: left,
+            top: top,
+            width: width,
+            height: height,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                // Bounding Box
+                Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: themeColor, width: 3),
                   ),
                 ),
-              ),
+                // Label with background
+                Positioned(
+                  top: -22, // Place slightly above the box
+                  left: -1.5,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: const BoxDecoration(
+                      color: themeColor,
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(2),
+                        topRight: Radius.circular(2),
+                      ),
+                    ),
+                    child: Text(
+                      "${det.label.toUpperCase()} ${det.confidence.toStringAsFixed(2)}",
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ),
-        );
+          );
       }).toList(),
     );
   }
