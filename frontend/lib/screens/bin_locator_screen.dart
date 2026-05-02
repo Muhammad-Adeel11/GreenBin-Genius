@@ -47,23 +47,21 @@ class WasteBin {
   }
 
   Color get typeColor {
-    switch (type) {
-      case 'Recycling':  return const Color(0xFF2196F3);
-      case 'Organic':    return const Color(0xFF4CAF50);
-      case 'E-Waste':    return const Color(0xFFFF9800);
-      case 'Glass':      return const Color(0xFF9C27B0);
-      default:           return const Color(0xFF607D8B);
-    }
+    final t = type.toLowerCase();
+    if (t.contains('recycl') || t.contains('plastic')) return const Color(0xFF2196F3);
+    if (t.contains('organ') || t.contains('veg')) return const Color(0xFF4CAF50);
+    if (t.contains('e-waste') || t.contains('electr')) return const Color(0xFFFF9800);
+    if (t.contains('glass')) return const Color(0xFF9C27B0);
+    return const Color(0xFF607D8B);
   }
 
   IconData get typeIcon {
-    switch (type) {
-      case 'Recycling':  return Icons.recycling;
-      case 'Organic':    return Icons.eco;
-      case 'E-Waste':    return Icons.electrical_services;
-      case 'Glass':      return Icons.local_bar;
-      default:           return Icons.delete_outline;
-    }
+    final t = type.toLowerCase();
+    if (t.contains('recycl') || t.contains('plastic')) return Icons.recycling;
+    if (t.contains('organ') || t.contains('veg')) return Icons.eco;
+    if (t.contains('e-waste') || t.contains('electr')) return Icons.electrical_services;
+    if (t.contains('glass')) return Icons.local_bar;
+    return Icons.delete_outline;
   }
 }
 
@@ -137,10 +135,12 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        setState(() {
-          _locationError = 'Location services are disabled.\nPlease enable GPS.';
-          _locationLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _locationError = 'Location services are disabled.\nPlease enable GPS.';
+            _locationLoading = false;
+          });
+        }
         return;
       }
 
@@ -150,11 +150,13 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
       }
       if (permission == LocationPermission.deniedForever ||
           permission == LocationPermission.denied) {
-        setState(() {
-          _locationError =
-              'Location permission denied.\nPlease allow in Settings.';
-          _locationLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _locationError =
+                'Location permission denied.\nPlease allow in Settings.';
+            _locationLoading = false;
+          });
+        }
         return;
       }
 
@@ -184,14 +186,20 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
   /// Fetch real bins from the backend via ApiService.
   Future<void> _fetchRealBins(Position pos) async {
     try {
+      debugPrint('📍 USER LOCATION: ${pos.latitude}, ${pos.longitude}');
+      debugPrint('🔍 Fetching real bins (Radius: 50km)...');
+      
       final response = await ApiService.instance.getNearbyBins(
         lat: pos.latitude,
         lng: pos.longitude,
         binType: widget.wasteCategory,
+        maxDistanceM: 50000, 
       );
 
       final List<dynamic> binData = response['bins'] ?? [];
       final bins = binData.map((b) => WasteBin.fromMap(b)).toList();
+      
+      debugPrint('✅ API returned ${bins.length} real bins.');
 
       if (mounted) {
         setState(() {
@@ -199,16 +207,24 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
             ..clear()
             ..addAll(bins);
         });
-        _buildMarkers();
+        
+        if (bins.isEmpty) {
+          debugPrint('⚠️ No real bins found within 50km of your current location.');
+          debugPrint('💡 Falling back to mock data for UI visualization.');
+          _generateNearbyBins(pos);
+        } else {
+          debugPrint('💎 Real bins loaded successfully!');
+          _buildMarkers();
+        }
       }
     } catch (e) {
-      debugPrint('Error fetching bins: $e');
-      // Fallback to mock if API fails for any reason
+      debugPrint('❌ Error fetching real bins: $e. Falling back to mock data.');
       _generateNearbyBins(pos);
     }
   }
 
   /// Generate realistic‑looking mock bins around the user's real GPS position.
+  void _generateNearbyBins(Position pos) {
     final rng = math.Random(42);
     final binTypes = ['Recycling', 'General', 'Organic', 'E-Waste', 'Glass'];
     final binNames = [
@@ -239,11 +255,13 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
     bins.sort((a, b) =>
         _distanceTo(pos, a.position).compareTo(_distanceTo(pos, b.position)));
 
-    setState(() {
-      _nearbyBins
-        ..clear()
-        ..addAll(bins);
-    });
+    if (mounted) {
+      setState(() {
+        _nearbyBins
+          ..clear()
+          ..addAll(bins);
+      });
+    }
   }
 
   double _distanceTo(Position pos, LatLng target) =>
@@ -298,17 +316,22 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
       ));
     }
 
-    if (mounted) setState(() => _markers ..clear() ..addAll(markers));
+    if (mounted) {
+      setState(() {
+        _markers
+          ..clear()
+          ..addAll(markers);
+      });
+    }
   }
 
   double _binHue(String type) {
-    switch (type) {
-      case 'Recycling': return BitmapDescriptor.hueBlue;
-      case 'Organic':   return BitmapDescriptor.hueGreen;
-      case 'E-Waste':   return BitmapDescriptor.hueOrange;
-      case 'Glass':     return BitmapDescriptor.hueViolet;
-      default:          return BitmapDescriptor.hueCyan;
-    }
+    final t = type.toLowerCase();
+    if (t.contains('recycl') || t.contains('plastic')) return BitmapDescriptor.hueBlue;
+    if (t.contains('organ') || t.contains('veg')) return BitmapDescriptor.hueGreen;
+    if (t.contains('e-waste') || t.contains('electr')) return BitmapDescriptor.hueOrange;
+    if (t.contains('glass')) return BitmapDescriptor.hueViolet;
+    return BitmapDescriptor.hueCyan;
   }
 
   Future<void> _animateToUser() async {
@@ -663,7 +686,7 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
 
   Widget _buildBottomList(double sp) {
     return Container(
-      height: R.h(context, 30),
+      height: R.h(context, 33),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
@@ -749,25 +772,25 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
                   blurRadius: 12, offset: const Offset(0, 4))]
               : [],
         ),
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 Container(
-                  width: 38, height: 38,
+                  width: 32, height: 32,
                   decoration: BoxDecoration(
                     color: bin.typeColor.withOpacity(0.12),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(bin.typeIcon,
-                      color: bin.typeColor, size: 20),
+                      color: bin.typeColor, size: 18),
                 ),
                 const Spacer(),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 3),
+                      horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
                     color: bin.isOpen
                         ? const Color(0xFF4CAF50).withOpacity(0.12)
@@ -777,7 +800,7 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
                   child: Text(
                     bin.isOpen ? 'Open' : 'Closed',
                     style: TextStyle(
-                      fontSize: 10,
+                      fontSize: 9,
                       fontWeight: FontWeight.bold,
                       color: bin.isOpen
                           ? const Color(0xFF4CAF50)
@@ -787,22 +810,22 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
                 ),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 6),
             Text(
               bin.name,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                fontSize: R.fs(context, 13),
+                fontSize: R.fs(context, 12),
                 color: Colors.black87,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             Text(
               bin.type,
               style: TextStyle(
-                fontSize: R.fs(context, 11),
+                fontSize: R.fs(context, 10),
                 color: bin.typeColor,
                 fontWeight: FontWeight.w600,
               ),
@@ -811,13 +834,13 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
             Row(
               children: [
                 Icon(Icons.directions_walk,
-                    size: 14, color: Colors.grey[500]),
+                    size: 13, color: Colors.grey[500]),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
                     '${_formatDistance(dist)} • ${_walkTime(dist)}',
                     style: TextStyle(
-                      fontSize: R.fs(context, 11),
+                      fontSize: R.fs(context, 10),
                       color: Colors.grey[500],
                     ),
                     maxLines: 1,

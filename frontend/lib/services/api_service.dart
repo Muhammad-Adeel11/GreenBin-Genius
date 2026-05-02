@@ -325,6 +325,9 @@ class ClassificationResult {
   final String disposalTipUr;
   final bool recyclable;
   final String? imageUrl;
+  final String? annotatedImageUrl;
+  final String? summary;
+  final Map<String, dynamic> itemCounts;
   final DateTime timestamp;
 
   const ClassificationResult({
@@ -339,6 +342,9 @@ class ClassificationResult {
     required this.disposalTipUr,
     required this.recyclable,
     this.imageUrl,
+    this.annotatedImageUrl,
+    this.summary,
+    this.itemCounts = const {},
     required this.timestamp,
   });
 
@@ -357,6 +363,9 @@ class ClassificationResult {
       disposalTipUr: json['disposal_tip_ur'] ?? '',
       recyclable: json['recyclable'] ?? false,
       imageUrl: json['image_url'],
+      annotatedImageUrl: json['annotated_image_url'],
+      summary: json['summary'],
+      itemCounts: Map<String, dynamic>.from(json['item_counts'] ?? {}),
       timestamp: json['timestamp'] != null
           ? DateTime.parse(json['timestamp'])
           : DateTime.now(),

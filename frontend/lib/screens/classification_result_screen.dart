@@ -12,12 +12,10 @@ class ClassificationResultScreen extends StatefulWidget {
   const ClassificationResultScreen({super.key, this.imageFile, this.imageUrl, this.preloadedResult});
 
   @override
-  State<ClassificationResultScreen> createState() =>
-      _ClassificationResultScreenState();
+  State<ClassificationResultScreen> createState() => _ClassificationResultScreenState();
 }
 
-class _ClassificationResultScreenState
-    extends State<ClassificationResultScreen> {
+class _ClassificationResultScreenState extends State<ClassificationResultScreen> {
   bool _isAnalyzing = true;
   ClassificationResult? _result;
   String? _errorMessage;
@@ -29,7 +27,6 @@ class _ClassificationResultScreenState
     if (widget.preloadedResult != null) {
       _result = widget.preloadedResult;
       _isAnalyzing = false;
-      // Get dimensions for network image if available
       if (widget.imageUrl != null) {
         final Image image = Image.network(widget.imageUrl!);
         image.image.resolve(const ImageConfiguration()).addListener(
@@ -50,7 +47,6 @@ class _ClassificationResultScreenState
   Future<void> _runClassification() async {
     if (widget.imageFile == null) return;
     try {
-      // Get image dimensions first
       final bytes = await widget.imageFile!.readAsBytes();
       final decodedImage = await decodeImageFromList(bytes);
       if (mounted) {
@@ -84,13 +80,6 @@ class _ClassificationResultScreenState
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        title: Text(
-          "Classification Result",
-          style: TextStyle(
-              color: Colors.black,
-              fontWeight: FontWeight.bold,
-              fontSize: R.fs(context, 17)),
-        ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () => Navigator.pop(context),
@@ -98,25 +87,36 @@ class _ClassificationResultScreenState
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: R.pagePadding(context),
+          padding: EdgeInsets.symmetric(horizontal: R.w(context, 8)),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              SizedBox(height: sp),
-              // ── Captured Image with Bounding Boxes
+              Text(
+                "Classification Result",
+                style: TextStyle(
+                  fontSize: R.fs(context, 26),
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+              ),
+              SizedBox(height: sp * 2),
+
+              // ── Image Card (Shadowed White Card like Tutorial)
               Container(
                 height: R.h(context, 35),
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(24),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(32),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 30,
+                      offset: const Offset(0, 15),
                     ),
                   ],
                 ),
+                padding: const EdgeInsets.all(16),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(24),
                   child: LayoutBuilder(
@@ -124,24 +124,21 @@ class _ClassificationResultScreenState
                       return Stack(
                         fit: StackFit.expand,
                         children: [
-                          // Show the AI-annotated network image if analysis is done, otherwise show local file
-                          (_result != null && _result!.imageUrl != null)
-                              ? Image.network(_result!.imageUrl!, fit: BoxFit.cover)
+                          (_result != null && (_result!.annotatedImageUrl != null || _result!.imageUrl != null))
+                              ? Image.network(_result!.annotatedImageUrl ?? _result!.imageUrl!, fit: BoxFit.cover)
                               : (widget.imageFile != null
-                                  ? Image.file(widget.imageFile!, fit: BoxFit.cover, key: const ValueKey('image'))
+                                  ? Image.file(widget.imageFile!, fit: BoxFit.cover)
                                   : (widget.imageUrl != null 
                                       ? Image.network(widget.imageUrl!, fit: BoxFit.cover) 
-                                      : Container(color: Colors.grey[200], child: const Center(child: Icon(Icons.image, color: Colors.grey, size: 50))))),
+                                      : Container(color: Colors.grey[100], child: const Icon(Icons.image, color: Colors.grey, size: 50)))),
                           
-                          // Draw YOLO Detections (Only if we don't have the AI-annotated image yet)
-                          if (_result != null && _result!.detections.isNotEmpty && _result!.imageUrl == null)
+                          if (_result != null && _result!.detections.isNotEmpty && _result!.annotatedImageUrl == null)
                             _buildDetectionsOverlay(constraints),
 
-                          // Analyzing Overlay
                           if (_isAnalyzing)
                             Container(
-                              color: Colors.black26,
-                              child: const Center(child: CircularProgressIndicator(color: Colors.white)),
+                              color: Colors.white70,
+                              child: const Center(child: CircularProgressIndicator(color: Color(0xFF2196F3))),
                             ),
                         ],
                       );
@@ -149,260 +146,92 @@ class _ClassificationResultScreenState
                   ),
                 ),
               ),
-              SizedBox(height: sp * 2),
 
-              // Loading
+              SizedBox(height: sp * 3),
+
               if (_isAnalyzing) ...[
                 const CircularProgressIndicator(color: Color(0xFF2196F3)),
                 const SizedBox(height: 16),
-                Text(
-                  "Analyzing image with GreenBin Genius AI...",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: R.fs(context, 15), color: Colors.grey),
-                ),
+                Text("Analyzing...", style: TextStyle(color: Colors.grey, fontSize: R.fs(context, 16))),
               ]
-
-              // ── Error ─────────────────────────────────────────
               else if (_errorMessage != null) ...[
-                Icon(Icons.error_outline,
-                    color: Colors.red, size: R.icon(context, 48)),
-                SizedBox(height: sp * 0.75),
-                Text(
-                  _errorMessage!,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                      fontSize: R.fs(context, 14), color: Colors.red),
-                ),
-                SizedBox(height: sp * 1.5),
-                OutlinedButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      _isAnalyzing = true;
-                      _errorMessage = null;
-                    });
-                    _runClassification();
-                  },
-                  icon: const Icon(Icons.refresh),
-                  label: Text("Retry",
-                      style: TextStyle(fontSize: R.fs(context, 14))),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF2196F3),
-                    side: const BorderSide(color: Color(0xFF2196F3)),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                  ),
-                ),
+                Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
+                TextButton(onPressed: _runClassification, child: const Text("Retry")),
               ]
-
-              // ── Results ───────────────────────────────────────
               else if (_result != null) ...[
-                // Recyclable badge
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: _result!.recyclable
-                        ? const Color(0xFF4CAF50).withOpacity(0.12)
-                        : Colors.orange.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(50),
-                    border: Border.all(
-                      color: _result!.recyclable
-                          ? const Color(0xFF4CAF50)
-                          : Colors.orange,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
+                
+                // ── Info Section (Stepper Style from Screenshot)
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: R.w(context, 4)),
+                  child: Column(
                     children: [
-                      Icon(
-                        _result!.recyclable
-                            ? Icons.recycling
-                            : Icons.delete_outline,
-                        size: 18,
-                        color: _result!.recyclable
-                            ? const Color(0xFF4CAF50)
-                            : Colors.orange,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        _result!.recyclable ? "Recyclable" : "Non-Recyclable",
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                          color: _result!.recyclable
-                              ? const Color(0xFF4CAF50)
-                              : Colors.orange,
-                        ),
-                      ),
+                      _buildInfoRow(context, "Category", _result!.category, true, false),
+                      _buildInfoRow(context, "Object", _result!.objectDetected, false, false),
+                      _buildInfoRow(context, "Material", _result!.material, false, false),
+                      _buildInfoRow(context, "Confidence", "${(_result!.confidence * 100).toStringAsFixed(0)}%", false, true),
                     ],
                   ),
                 ),
 
-                SizedBox(height: sp * 1.5),
+                SizedBox(height: sp * 3),
 
-                // ── AI Model Insights (Transparency Breakdown)
+                // ── Disposal Tip Section
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: Colors.grey[50],
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: Colors.grey[200]!),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.analytics_outlined, color: Colors.grey[700], size: 18),
-                          const SizedBox(width: 8),
-                          Text(
-                            "AI MODEL INSIGHTS",
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 1.2,
-                              color: Colors.grey[700],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      
-                      // YOLO Section
-                      _buildModelBar(
-                        modelName: "YOLO v8",
-                        taskName: "Object Detection",
-                        prediction: _result!.objectDetected,
-                        confidence: _result!.yoloConfidence,
-                        icon: Icons.filter_center_focus,
-                      ),
-                      
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 16.0),
-                        child: Divider(height: 1),
-                      ),
-                      
-                      // CNN Section
-                      _buildModelBar(
-                        modelName: "InceptionV3",
-                        taskName: "Category & Material",
-                        prediction: "${_result!.category} (${_result!.material})",
-                        confidence: _result!.cnnConfidence,
-                        icon: Icons.layers_outlined,
-                      ),
-                    ],
-                  ),
-                ),
-
-                SizedBox(height: sp * 1.75),
-
-                // Disposal tip card
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
                     color: const Color(0xFFE3F2FD),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                        color: const Color(0xFF2196F3).withOpacity(0.3)),
+                    borderRadius: BorderRadius.circular(20),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.info_outline,
-                              color: Color(0xFF2196F3), size: 18),
-                          const SizedBox(width: 8),
-                          const Text(
-                            "Disposal Tip",
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                              color: Color(0xFF2196F3),
-                            ),
-                          ),
-                        ],
+                      const Text(
+                        "DISPOSAL TIP",
+                        style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF1E88E5), fontSize: 11, letterSpacing: 1.0),
                       ),
                       const SizedBox(height: 8),
-                      Text(
-                        _result!.disposalTip,
-                        style: const TextStyle(
-                            fontSize: 13, color: Colors.black87),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        _result!.disposalTipUr,
-                        textDirection: TextDirection.rtl,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Colors.black54,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
+                      Text(_result!.disposalTip, style: const TextStyle(fontSize: 14, color: Colors.black87)),
+                      const SizedBox(height: 4),
+                      Text(_result!.disposalTipUr, textDirection: TextDirection.rtl, style: const TextStyle(fontSize: 14, color: Colors.black54, fontStyle: FontStyle.italic)),
                     ],
                   ),
                 ),
 
-                SizedBox(height: sp * 2),
+                SizedBox(height: sp * 3),
 
-                // Find Nearest Bin button
+                // ── Action Buttons
                 SizedBox(
                   width: double.infinity,
-                  height: R.buttonHeight(context),
-                  child: ElevatedButton.icon(
+                  height: R.h(context, 7.5),
+                  child: ElevatedButton(
                     onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => BinLocatorScreen(
-                            wasteCategory: _result!.category,
-                          ),
-                        ),
-                      );
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => BinLocatorScreen(wasteCategory: _result!.category)));
                     },
-                    icon: const Icon(Icons.location_on),
-                    label: Text(
-                      'FIND NEAREST BIN',
-                      style: TextStyle(
-                          fontSize: R.fs(context, 14),
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.8),
-                    ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF4CAF50),
                       foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(40)),
                       elevation: 0,
                     ),
-                  ),
-                ),
-                SizedBox(height: sp * 0.9),
-                SizedBox(
-                  width: double.infinity,
-                  height: R.buttonHeight(context),
-                  child: OutlinedButton.icon(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.camera_alt_outlined),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF2196F3),
-                      side: const BorderSide(color: Color(0xFF2196F3)),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30)),
-                    ),
-                    label: Text(
-                      'RETAKE PHOTO / SCAN NEW',
-                      style: TextStyle(
-                          fontSize: R.fs(context, 14),
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.8),
-                    ),
+                    child: Text("FIND NEAREST BIN", style: TextStyle(fontSize: R.fs(context, 14), fontWeight: FontWeight.w900, letterSpacing: 1.0)),
                   ),
                 ),
                 SizedBox(height: sp * 1.5),
+                SizedBox(
+                  width: double.infinity,
+                  height: R.h(context, 7.5),
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF2196F3),
+                      side: const BorderSide(color: Color(0xFF2196F3), width: 2),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(40)),
+                    ),
+                    child: Text("SCAN NEW", style: TextStyle(fontSize: R.fs(context, 14), fontWeight: FontWeight.w900, letterSpacing: 1.0)),
+                  ),
+                ),
+                SizedBox(height: sp * 4),
               ],
             ],
           ),
@@ -411,133 +240,92 @@ class _ClassificationResultScreenState
     );
   }
 
+  Widget _buildInfoRow(BuildContext context, String label, String value, bool isFirst, bool isLast) {
+    return SizedBox(
+      height: 50,
+      child: Row(
+        children: [
+          // Connector Line
+          SizedBox(
+            width: 30,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                if (!isLast)
+                  Positioned(
+                    top: 25, bottom: -25,
+                    child: Container(width: 1, color: Colors.grey[300]),
+                  ),
+                if (!isFirst)
+                  Positioned(
+                    top: -25, bottom: 25,
+                    child: Container(width: 1, color: Colors.grey[300]),
+                  ),
+                Container(width: 12, height: 1, color: Colors.grey[300]),
+              ],
+            ),
+          ),
+          
+          Text(
+            label,
+            style: TextStyle(fontSize: R.fs(context, 15), fontWeight: FontWeight.w500, color: Colors.black87),
+          ),
+          const Spacer(),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF2196F3),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              value,
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildDetectionsOverlay(BoxConstraints constraints) {
     if (_imageSize == null || _result == null) return const SizedBox.shrink();
-
     final viewW = constraints.maxWidth;
     final viewH = constraints.maxHeight;
     final origW = _imageSize!.width;
     final origH = _imageSize!.height;
-
-    // Calculate scale for BoxFit.cover
     final scale = (viewW / origW > viewH / origH) ? viewW / origW : viewH / origH;
-    
-    // Calculate offsets
     final dx = (viewW - origW * scale) / 2;
     final dy = (viewH - origH * scale) / 2;
 
     return Stack(
       children: _result!.detections.map((det) {
-        final box = det.box; // [x1, y1, x2, y2]
-        
+        final box = det.box;
         final left = box[0] * scale + dx;
         final top = box[1] * scale + dy;
         final width = (box[2] - box[0]) * scale;
         final height = (box[3] - box[1]) * scale;
-
+        const themeColor = Color(0xFF00FFD4);
         return Positioned(
-          left: left,
-          top: top,
-          width: width,
-          height: height,
-          child: Container(
-            decoration: BoxDecoration(
-              border: Border.all(color: const Color(0xFF00E5FF), width: 2),
-            ),
-            child: Align(
-              alignment: Alignment.topLeft,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                color: const Color(0xFF00E5FF),
-                child: Text(
-                  "${det.label} ${(det.confidence * 100).toStringAsFixed(0)}%",
-                  style: const TextStyle(
-                    color: Colors.black,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+          left: left, top: top, width: width, height: height,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(decoration: BoxDecoration(border: Border.all(color: themeColor, width: 2))),
+              Positioned(
+                top: -18, left: -1,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  color: themeColor,
+                  child: Text(
+                    "${det.label.toUpperCase()} ${det.confidence.toStringAsFixed(2)}",
+                    style: const TextStyle(color: Colors.black, fontSize: 9, fontWeight: FontWeight.bold),
                   ),
                 ),
               ),
-            ),
+            ],
           ),
         );
       }).toList(),
-    );
-  }
-
-  Widget _buildModelBar({
-    required String modelName,
-    required String taskName,
-    required String prediction,
-    required double confidence,
-    required IconData icon,
-  }) {
-    final color = confidence >= 0.8 ? const Color(0xFF4CAF50) : 
-                  confidence >= 0.6 ? Colors.orange : Colors.red;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey[200]!),
-              ),
-              child: Icon(icon, size: 16, color: Colors.black87),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    modelName,
-                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 0.5),
-                  ),
-                  Text(
-                    taskName,
-                    style: TextStyle(color: Colors.grey[600], fontSize: 11),
-                  ),
-                ],
-              ),
-            ),
-            Text(
-              "${(confidence * 100).toStringAsFixed(0)}%",
-              style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 18),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: LinearProgressIndicator(
-                  value: confidence,
-                  backgroundColor: Colors.grey[200],
-                  valueColor: AlwaysStoppedAnimation<Color>(color),
-                  minHeight: 6,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Text(
-          "PREDICTION: ${prediction.toUpperCase()}",
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
-            color: Colors.grey[500],
-            letterSpacing: 0.5,
-          ),
-        ),
-      ],
     );
   }
 }
