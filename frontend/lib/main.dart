@@ -11,20 +11,18 @@ class GreenBinGeniusApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'GreenBin Genius',
-      debugShowCheckedModeBanner: false, // Hides the 'Debug' banner in the corner
-
-      // Apply the custom theme defined in lib/utils/app_theme.dart
-      theme: AppTheme.lightTheme,
-
-      // This is Comment
-      // theme: AppTheme.light,
-      // home: ImpactScreen(),
-      // This is comment
-
-      // Start the app with the Splash Screen
-      home: const SplashScreen(),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: AppTheme.themeNotifier,
+      builder: (_, ThemeMode currentMode, __) {
+        return MaterialApp(
+          title: 'GreenBin Genius',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: currentMode,
+          home: const SplashScreen(),
+        );
+      },
     );
   }
 }

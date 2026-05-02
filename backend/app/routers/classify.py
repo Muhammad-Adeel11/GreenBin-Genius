@@ -85,7 +85,10 @@ async def classify_image(
     timestamp = datetime.utcnow()
     cnn_result = cnn_classifier.predict(image_bytes)
     yolo_result = yolo_detector.detect(image_bytes)
-    image_url = await _handle_cloudinary_upload(image_bytes)
+    
+    # Use annotated image for URL if detection succeeded
+    final_image_bytes = yolo_result.get("annotated_image") or image_bytes
+    image_url = await _handle_cloudinary_upload(final_image_bytes)
 
     result = ClassificationResult(
         category=cnn_result["category"],
@@ -112,7 +115,7 @@ async def classify_image(
         "confidence":     result.confidence,
         "cnn_confidence":  result.cnn_confidence,
         "yolo_confidence": result.yolo_confidence,
-        "detections":      result.detections,
+        "detections":      [d.model_dump() for d in result.detections],
         "recyclable":     result.recyclable,
         "disposal_tip":   result.disposal_tip,
         "image_url":      image_url,
@@ -165,7 +168,10 @@ async def classify_yolo(
     image_bytes = await file.read()
     timestamp = datetime.utcnow()
     yolo_result = yolo_detector.detect(image_bytes)
-    image_url = await _handle_cloudinary_upload(image_bytes)
+    
+    # Use annotated image for URL
+    final_image_bytes = yolo_result.get("annotated_image") or image_bytes
+    image_url = await _handle_cloudinary_upload(final_image_bytes)
 
     return YOLOClassificationResult(
         object_detected=yolo_result["object_detected"],

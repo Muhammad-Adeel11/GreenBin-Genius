@@ -58,18 +58,17 @@ def load_model_on_startup():
         _yolo_loaded = False
 
 
-def detect(image_bytes: bytes) -> dict:
+def detect(image_bytes: bytes, return_annotated: bool = True) -> dict:
     """
     Run YOLO object detection on raw image bytes.
-    Returns the top detected object label and its confidence.
-
-    Falls back to a mock if model is not loaded.
+    Returns detections and optionally the annotated image bytes.
     """
     if not _yolo_loaded or _yolo_model is None:
         return {
             "object_detected": "Bottle",
             "yolo_confidence": 0.88,
             "detections": [],
+            "annotated_image": None,
             "mock": True,
         }
 
@@ -77,18 +76,28 @@ def detect(image_bytes: bytes) -> dict:
         img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
         results = _yolo_model(img, verbose=False)
 
-        # Extract all detections
         detections = []
         top_label = "Unknown"
         top_conf = 0.0
+        annotated_bytes = None
 
         for result in results:
+            # 1. Generate annotated image
+            if return_annotated:
+                # result.plot() returns a BGR numpy array
+                import cv2
+                import numpy as np
+                plot_img = result.plot()
+                is_success, buffer = cv2.imencode(".jpg", plot_img)
+                if is_success:
+                    annotated_bytes = buffer.tobytes()
+
             if result.boxes is not None:
                 for box in result.boxes:
                     cls_id = int(box.cls[0].item())
                     conf = float(box.conf[0].item())
                     label = result.names.get(cls_id, "Unknown")
-                    xyxy = box.xyxy[0].tolist()  # [xmin, ymin, xmax, ymax]
+                    xyxy = box.xyxy[0].tolist()
                     
                     det = {
                         "label": label.capitalize(),
@@ -97,7 +106,6 @@ def detect(image_bytes: bytes) -> dict:
                     }
                     detections.append(det)
                     
-                    # Track top detection for summary fields
                     if conf > top_conf:
                         top_conf = conf
                         top_label = label
@@ -106,6 +114,7 @@ def detect(image_bytes: bytes) -> dict:
             "object_detected": top_label.capitalize(),
             "yolo_confidence": round(top_conf, 4),
             "detections": detections,
+            "annotated_image": annotated_bytes,
             "mock": False,
         }
     except Exception as exc:
@@ -114,5 +123,6 @@ def detect(image_bytes: bytes) -> dict:
             "object_detected": "Unknown",
             "yolo_confidence": 0.0,
             "detections": [],
+            "annotated_image": None,
             "mock": True,
         }

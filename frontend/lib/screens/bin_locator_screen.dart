@@ -10,6 +10,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../utils/responsive.dart';
+import '../services/api_service.dart';
 import 'profile_screen.dart';
 
 // ─── Data model ──────────────────────────────────────────────────────────────
@@ -30,6 +31,20 @@ class WasteBin {
     required this.isOpen,
     required this.address,
   });
+
+  factory WasteBin.fromMap(Map<String, dynamic> map) {
+    return WasteBin(
+      id: map['id'] ?? map['_id'] ?? '',
+      name: map['name'] ?? 'Unnamed Bin',
+      type: map['bin_type'] ?? 'General',
+      position: LatLng(
+        (map['latitude'] as num).toDouble(),
+        (map['longitude'] as num).toDouble(),
+      ),
+      isOpen: true, // Backend currently doesn't track live open/closed
+      address: map['address'] ?? 'Abbottabad, Pakistan',
+    );
+  }
 
   Color get typeColor {
     switch (type) {
@@ -153,7 +168,7 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
         _locationLoading = false;
       });
 
-      _generateNearbyBins(pos);
+      _fetchRealBins(pos);
       _buildMarkers();
       _animateToUser();
     } catch (e) {
@@ -166,10 +181,34 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
     }
   }
 
+  /// Fetch real bins from the backend via ApiService.
+  Future<void> _fetchRealBins(Position pos) async {
+    try {
+      final response = await ApiService.instance.getNearbyBins(
+        lat: pos.latitude,
+        lng: pos.longitude,
+        binType: widget.wasteCategory,
+      );
+
+      final List<dynamic> binData = response['bins'] ?? [];
+      final bins = binData.map((b) => WasteBin.fromMap(b)).toList();
+
+      if (mounted) {
+        setState(() {
+          _nearbyBins
+            ..clear()
+            ..addAll(bins);
+        });
+        _buildMarkers();
+      }
+    } catch (e) {
+      debugPrint('Error fetching bins: $e');
+      // Fallback to mock if API fails for any reason
+      _generateNearbyBins(pos);
+    }
+  }
+
   /// Generate realistic‑looking mock bins around the user's real GPS position.
-  /// Replace with a real backend call (ApiService.instance.getNearbyBins) when
-  /// the backend bins collection is populated.
-  void _generateNearbyBins(Position pos) {
     final rng = math.Random(42);
     final binTypes = ['Recycling', 'General', 'Organic', 'E-Waste', 'Glass'];
     final binNames = [
