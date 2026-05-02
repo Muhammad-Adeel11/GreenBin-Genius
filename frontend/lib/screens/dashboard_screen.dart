@@ -874,7 +874,7 @@ class ImpactTab extends StatelessWidget {
           ClipPath(
             clipper: HeaderCurveClipper(),
             child: Container(
-              height: R.h(context, 45), width: double.infinity, color: const Color(0xFF007AFF),
+              height: R.h(context, 48), width: double.infinity, color: const Color(0xFF007AFF),
               child: SafeArea(
                 child: Padding(
                   padding: R.pagePadding(context),
@@ -899,14 +899,28 @@ class ImpactTab extends StatelessWidget {
                           SizedBox(width: R.icon(context, 40)),
                         ],
                       ),
-                      SizedBox(height: sp * 2.5),
-                      Text("Total Global Litter Pickup", style: TextStyle(color: Colors.white70, fontSize: R.fs(context, 16))),
-                      SizedBox(height: sp * 0.5),
-                      Text("24,291,206", style: TextStyle(color: Colors.white, fontSize: R.fs(context, 50), fontWeight: FontWeight.w400, letterSpacing: -1.0)),
-                      SizedBox(height: sp * 2),
-                      Text("Overall Pickup For November, 2025", style: TextStyle(color: Colors.white70, fontSize: R.fs(context, 16))),
-                      SizedBox(height: sp * 0.5),
-                      Text("85,450", style: TextStyle(color: Colors.white, fontSize: R.fs(context, 50), fontWeight: FontWeight.w400, letterSpacing: -1.0)),
+                      SizedBox(height: sp * 1.5),
+                      Text("Total Global Litter Pickup", style: TextStyle(color: Colors.white70, fontSize: R.fs(context, 14))),
+                      SizedBox(height: sp * 0.25),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text("24,291,206", style: TextStyle(color: Colors.white, fontSize: R.fs(context, 44), fontWeight: FontWeight.w400, letterSpacing: -1.0)),
+                        ),
+                      ),
+                      SizedBox(height: sp * 1.25),
+                      Text("Overall Pickup For November, 2025", style: TextStyle(color: Colors.white70, fontSize: R.fs(context, 14))),
+                      SizedBox(height: sp * 0.25),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text("85,450", style: TextStyle(color: Colors.white, fontSize: R.fs(context, 44), fontWeight: FontWeight.w400, letterSpacing: -1.0)),
+                        ),
+                      ),
                     ],
                   ),
                 ),

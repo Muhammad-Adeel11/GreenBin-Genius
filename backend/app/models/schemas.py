@@ -63,6 +63,7 @@ class ClassificationResult(BaseModel):
     disposal_tip_ur: str = Field(..., example="صاف کریں اور نیلے ری سائیکلنگ ڈبے میں رکھیں۔")
     recyclable: bool = Field(..., example=True)
     image_url: Optional[str] = Field(default=None, example="https://res.cloudinary.com/...")
+    annotated_image_url: Optional[str] = Field(default=None, example="https://res.cloudinary.com/...")
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -101,6 +102,7 @@ class ClassificationHistoryEntry(BaseModel):
     recyclable: bool
     disposal_tip: str
     image_url: Optional[str] = None
+    annotated_image_url: Optional[str] = None
     timestamp: datetime
 
 

@@ -125,8 +125,8 @@ class _ClassificationResultScreenState
                         fit: StackFit.expand,
                         children: [
                           // Show the AI-annotated network image if analysis is done, otherwise show local file
-                          (_result != null && _result!.imageUrl != null)
-                              ? Image.network(_result!.imageUrl!, fit: BoxFit.cover)
+                          (_result != null && (_result!.annotatedImageUrl != null || _result!.imageUrl != null))
+                              ? Image.network(_result!.annotatedImageUrl ?? _result!.imageUrl!, fit: BoxFit.cover)
                               : (widget.imageFile != null
                                   ? Image.file(widget.imageFile!, fit: BoxFit.cover, key: const ValueKey('image'))
                                   : (widget.imageUrl != null 
@@ -134,7 +134,7 @@ class _ClassificationResultScreenState
                                       : Container(color: Colors.grey[200], child: const Center(child: Icon(Icons.image, color: Colors.grey, size: 50))))),
                           
                           // Draw YOLO Detections (Only if we don't have the AI-annotated image yet)
-                          if (_result != null && _result!.detections.isNotEmpty && _result!.imageUrl == null)
+                          if (_result != null && _result!.detections.isNotEmpty && _result!.annotatedImageUrl == null)
                             _buildDetectionsOverlay(constraints),
 
                           // Analyzing Overlay
