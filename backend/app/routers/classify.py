@@ -97,6 +97,19 @@ async def classify_image(
     else:
         annotated_image_url = image_url # Fallback
 
+    # ── Generate Summary ──────────────────────────────────────
+    detections = yolo_result.get("detections", [])
+    item_counts = {}
+    for d in detections:
+        label = d["label"]
+        item_counts[label] = item_counts.get(label, 0) + 1
+    
+    if item_counts:
+        summary_parts = [f"{count} {label}{'s' if count > 1 else ''}" for label, count in item_counts.items()]
+        summary = ", ".join(summary_parts)
+    else:
+        summary = yolo_result["object_detected"]
+
     result = ClassificationResult(
         category=cnn_result["category"],
         object_detected=yolo_result["object_detected"],
@@ -105,6 +118,8 @@ async def classify_image(
         cnn_confidence=cnn_result["confidence"],
         yolo_confidence=yolo_result["yolo_confidence"],
         detections=yolo_result["detections"],
+        summary=summary,
+        item_counts=item_counts,
         disposal_tip=cnn_result["disposal_tip"],
         disposal_tip_ur=cnn_result["disposal_tip_ur"],
         recyclable=cnn_result["recyclable"],
@@ -124,6 +139,8 @@ async def classify_image(
         "cnn_confidence":  result.cnn_confidence,
         "yolo_confidence": result.yolo_confidence,
         "detections":      [d.model_dump() for d in result.detections],
+        "summary":         summary,
+        "item_counts":     item_counts,
         "recyclable":     result.recyclable,
         "disposal_tip":   result.disposal_tip,
         "image_url":      image_url,
