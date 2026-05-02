@@ -6,6 +6,7 @@ import 'camera_tutorial_screen.dart';
 import 'dart:io';
 import 'package:image/image.dart' as img;
 import 'dart:math' as math;
+import 'package:image_picker/image_picker.dart';
 
 class AiScannerScreen extends StatefulWidget {
   const AiScannerScreen({super.key});
@@ -114,6 +115,9 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
     super.dispose();
   }
 
+    }
+  }
+
   void _captureImage() async {
     if (_cameraController != null && _cameraController!.value.isInitialized) {
       try {
@@ -128,6 +132,22 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
       } catch (e) {
         debugPrint("Error taking picture: $e");
       }
+    }
+  }
+
+  Future<void> _pickFromGallery() async {
+    final picker = ImagePicker();
+    try {
+      final XFile? pickedFile = await picker.pickImage(source: ImageSource.gallery);
+      if (pickedFile != null && mounted) {
+        setState(() {
+          _capturedImage = File(pickedFile.path);
+          _isCheckingBlur = true;
+        });
+        _checkBlur(pickedFile.path);
+      }
+    } catch (e) {
+      debugPrint("Gallery Pick Error: $e");
     }
   }
 
@@ -445,6 +465,12 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
                               Icons.flip_camera_ios, 
                               "FLIP", 
                               onTap: _toggleCamera,
+                            ),
+                            const SizedBox(height: 24),
+                            _buildSideButton(
+                              Icons.photo_library, 
+                              "GALLERY", 
+                              onTap: _pickFromGallery,
                             ),
                           ],
                         ),

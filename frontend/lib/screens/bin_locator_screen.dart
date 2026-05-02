@@ -94,6 +94,7 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
   final List<WasteBin> _nearbyBins = [];
   WasteBin? _selectedBin;
   bool _showPanel = false;
+  String? _currentFilter;
 
   // ── Animations ────────────────────────────────────────────────────────────
   late final AnimationController _pulseController;
@@ -103,7 +104,7 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
   @override
   void initState() {
     super.initState();
-
+    _currentFilter = widget.wasteCategory;
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500),
@@ -187,13 +188,13 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
   Future<void> _fetchRealBins(Position pos) async {
     try {
       debugPrint('📍 USER LOCATION: ${pos.latitude}, ${pos.longitude}');
-      debugPrint('🔍 Fetching real bins (Radius: 50km)...');
+      debugPrint('🔍 Fetching real bins (Radius: 5000km)...');
       
       final response = await ApiService.instance.getNearbyBins(
         lat: pos.latitude,
         lng: pos.longitude,
-        binType: widget.wasteCategory,
-        maxDistanceM: 50000, 
+        binType: _currentFilter,
+        maxDistanceM: 5000000, // Keep 5000km radius for testing
       );
 
       final List<dynamic> binData = response['bins'] ?? [];
@@ -209,8 +210,14 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
         });
         
         if (bins.isEmpty) {
-          debugPrint('⚠️ No real bins found within 50km of your current location.');
+          debugPrint('⚠️ No real bins found within 5000km of your current location.');
           debugPrint('💡 Falling back to mock data for UI visualization.');
+          
+          if (_currentFilter != null) {
+             debugPrint('💡 Filter is active: $_currentFilter. Trying to clear filter...');
+             // Don't fall back to mock immediately if we are filtering, maybe just clear filter?
+             // But for now, let's just let the user clear it manually via UI
+          }
           _generateNearbyBins(pos);
         } else {
           debugPrint('💎 Real bins loaded successfully!');
