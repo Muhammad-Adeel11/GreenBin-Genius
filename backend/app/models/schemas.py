@@ -44,8 +44,10 @@ class TokenResponse(BaseModel):
 # ──────────────────────────────────────────────
 
 class YOLODetection(BaseModel):
-    """Detailed YOLO detection including bounding box."""
+    """Detailed YOLO detection including bounding box and material info."""
     label: str = Field(..., example="Bottle")
+    class_name: str = Field(default="unknown", alias="class")
+    material: str = Field(default="unknown")
     confidence: float = Field(..., example=0.88)
     box: List[float] = Field(..., example=[100.0, 150.0, 300.0, 450.0])  # [xmin, ymin, xmax, ymax]
 
@@ -58,6 +60,7 @@ class ClassificationResult(BaseModel):
     confidence: float = Field(..., ge=0.0, le=1.0, example=0.94)  # Legacy / Overall
     cnn_confidence: float = Field(default=0.0, ge=0.0, le=1.0, example=0.94)
     yolo_confidence: float = Field(default=0.0, ge=0.0, le=1.0, example=0.88)
+    object_count: int = Field(default=0)
     detections: List[YOLODetection] = Field(default_factory=list)
     disposal_tip: str = Field(..., example="Rinse and place in the blue recycling bin.")
     disposal_tip_ur: str = Field(..., example="صاف کریں اور نیلے ری سائیکلنگ ڈبے میں رکھیں۔")

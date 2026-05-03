@@ -154,6 +154,7 @@ async def classify_image(
         confidence=cnn_result["confidence"],
         cnn_confidence=cnn_result["confidence"],
         yolo_confidence=yolo_result["yolo_confidence"],
+        object_count=len(detections),
         detections=yolo_result["detections"],
         summary=summary,
         item_counts=item_counts,

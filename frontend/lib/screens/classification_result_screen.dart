@@ -174,20 +174,41 @@ class _ClassificationResultScreenState extends State<ClassificationResultScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          "DETECTIONS (${_result!.detections.length})",
-                          style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.black54, fontSize: 11, letterSpacing: 1.0),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              "DETECTIONS",
+                              style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.black54, fontSize: 11, letterSpacing: 1.0),
+                            ),
+                            Text(
+                              "OBJECT COUNT: ${_result!.objectCount}",
+                              style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF2196F3), fontSize: 11, letterSpacing: 1.0),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 12),
-                        ..._result!.detections.asMap().entries.map((entry) {
-                          int idx = entry.key;
-                          var det = entry.value;
-                          return _buildInfoRow(
-                            context, 
-                            det.label, 
-                            "${(det.confidence * 100).toStringAsFixed(0)}%", 
-                            idx == 0, 
-                            idx == _result!.detections.length - 1
+                        ..._result!.detections.map((det) {
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4)),
+                              ],
+                              border: Border.all(color: Colors.grey.withOpacity(0.1)),
+                            ),
+                            child: Column(
+                              children: [
+                                _buildSimpleInfoRow("Class", det.label),
+                                const Divider(height: 16),
+                                _buildSimpleInfoRow("Material", det.material),
+                                const Divider(height: 16),
+                                _buildSimpleInfoRow("Confidence", "${(det.confidence * 100).toStringAsFixed(0)}%"),
+                              ],
+                            ),
                           );
                         }),
                       ],
@@ -199,7 +220,7 @@ class _ClassificationResultScreenState extends State<ClassificationResultScreen>
                     padding: EdgeInsets.symmetric(horizontal: R.w(context, 4)),
                     child: Column(
                       children: [
-                        _buildInfoRow(context, "Food Status", _result!.category.replaceAll('_', ' ').toUpperCase(), true, false),
+                        _buildInfoRow(context, "Food", _result!.category.replaceAll('_', ' ').toUpperCase(), true, false),
                         _buildInfoRow(context, "Confidence", "${(_result!.confidence * 100).toStringAsFixed(0)}%", false, true),
                       ],
                     ),
@@ -333,6 +354,16 @@ class _ClassificationResultScreenState extends State<ClassificationResultScreen>
     );
   }
 
+  Widget _buildSimpleInfoRow(String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: const TextStyle(color: Colors.black54, fontSize: 13, fontWeight: FontWeight.w500)),
+        Text(value, style: const TextStyle(color: Colors.black, fontSize: 13, fontWeight: FontWeight.bold)),
+      ],
+    );
+  }
+
   Widget _buildDetectionsOverlay(BoxConstraints constraints) {
     if (_imageSize == null || _result == null) return const SizedBox.shrink();
     final viewW = constraints.maxWidth;
@@ -353,22 +384,11 @@ class _ClassificationResultScreenState extends State<ClassificationResultScreen>
         const themeColor = Color(0xFF00FFD4);
         return Positioned(
           left: left, top: top, width: width, height: height,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Container(decoration: BoxDecoration(border: Border.all(color: themeColor, width: 2))),
-              Positioned(
-                top: -18, left: -1,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  color: themeColor,
-                  child: Text(
-                    "${det.label.toUpperCase()} ${det.confidence.toStringAsFixed(2)}",
-                    style: const TextStyle(color: Colors.black, fontSize: 9, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
-            ],
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: themeColor, width: 2),
+              borderRadius: BorderRadius.circular(4),
+            ),
           ),
         );
       }).toList(),
