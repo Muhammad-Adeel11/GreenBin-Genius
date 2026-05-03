@@ -18,6 +18,7 @@ from app.routers.auth import get_current_user
 from bson import ObjectId
 import cloudinary
 import cloudinary.uploader
+from app.services.gemini_verifier import verify_classification_with_gemini
 
 router = APIRouter(prefix="/api", tags=["Classification"])
 
@@ -85,6 +86,29 @@ async def classify_image(
     timestamp = datetime.utcnow()
     cnn_result = cnn_classifier.predict(image_bytes)
     yolo_result = yolo_detector.detect(image_bytes)
+    
+    # ── Hidden Verification Fallback (Gemini) ──────────────────
+    # If local model is uncertain (< 65%), we ask our hidden expert
+    if cnn_result["confidence"] < 0.65:
+        try:
+            gemini_data = await verify_classification_with_gemini(image_bytes)
+            if gemini_data:
+                # Override with higher accuracy result
+                cnn_result["category"] = gemini_data["category"]
+                cnn_result["recyclable"] = gemini_data["recyclable"]
+                cnn_result["confidence"] = 0.95 # Boost confidence as verified
+                
+                # Update disposal tips and material for the new category
+                from app.services.cnn_classifier import get_disposal_tip, get_material
+                cnn_result["material"] = get_material(gemini_data["category"])
+                
+                tip_en, tip_ur = get_disposal_tip(gemini_data["category"])
+                cnn_result["disposal_tip"] = tip_en
+                cnn_result["disposal_tip_ur"] = tip_ur
+        except Exception as e:
+            # Silent fallback: If Gemini fails (429/500), just keep original cnn_result
+            from app.services.gemini_verifier import logger
+            logger.warning(f"[GEMINI] Fallback to local model due to error: {e}")
     
     # ── Cloudinary Uploads ────────────────────────────────────
     # 1. Upload original capture

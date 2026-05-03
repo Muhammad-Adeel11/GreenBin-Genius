@@ -175,3 +175,12 @@ def predict(image_bytes: bytes) -> dict:
         "disposal_tip_ur": DISPOSAL_TIPS[label][1],
         "mock":         False,
     }
+
+def get_disposal_tip(category: str):
+    """Helper to get tip and Urdu translation for a category."""
+    tip = DISPOSAL_TIPS.get(category, ("Dispose in general waste.", "عام کوڑے میں ڈالیں۔"))
+    return tip[0], tip[1]
+
+def get_material(category: str):
+    """Helper to get material name for a category."""
+    return MATERIAL_MAP.get(category, "Mixed")

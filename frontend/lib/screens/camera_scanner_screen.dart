@@ -6,6 +6,7 @@ import 'camera_tutorial_screen.dart';
 import 'dart:io';
 import 'package:image/image.dart' as img;
 import 'dart:math' as math;
+import 'package:image_picker/image_picker.dart';
 
 class AiScannerScreen extends StatefulWidget {
   const AiScannerScreen({super.key});
@@ -128,6 +129,22 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
       } catch (e) {
         debugPrint("Error taking picture: $e");
       }
+    }
+  }
+
+  Future<void> _pickFromGallery() async {
+    final picker = ImagePicker();
+    try {
+      final XFile? pickedFile = await picker.pickImage(source: ImageSource.gallery);
+      if (pickedFile != null && mounted) {
+        setState(() {
+          _capturedImage = File(pickedFile.path);
+          _isCheckingBlur = true;
+        });
+        _checkBlur(pickedFile.path);
+      }
+    } catch (e) {
+      debugPrint("Gallery Pick Error: $e");
     }
   }
 
@@ -587,44 +604,57 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
 
                 const SizedBox(height: 16), // tighter gap
 
-                  // Shutter Button
-                  GestureDetector(
-                    onTap: _captureImage,
-                    child: AnimatedBuilder(
-                      animation: _pulseAnimation,
-                      builder: (context, child) {
-                        return Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: const Color(0xFF2196F3), width: 3),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF2196F3).withOpacity(_pulseAnimation.value * 0.5),
-                                blurRadius: 20,
-                                spreadRadius: 5,
-                              )
-                            ],
+                  // ── Bottom Control Row ──
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 30),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        // Gallery Button
+                        _buildBottomSmallButton(Icons.photo_library, "Gallery", _pickFromGallery),
+                        
+                        // Shutter Button
+                        GestureDetector(
+                          onTap: _captureImage,
+                          child: AnimatedBuilder(
+                            animation: _pulseAnimation,
+                            builder: (context, child) {
+                              return Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: const Color(0xFF2196F3), width: 3),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFF2196F3).withOpacity(_pulseAnimation.value * 0.5),
+                                      blurRadius: 20,
+                                      spreadRadius: 5,
+                                    )
+                                  ],
+                                ),
+                                child: Container(
+                                  width: 65,
+                                  height: 65,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFF2196F3),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.camera_alt,
+                                    color: Colors.black,
+                                    size: 32,
+                                  ),
+                                ),
+                              );
+                            },
                           ),
-                          child: Container(
-                            width: 56,    // slightly smaller for J5
-                            height: 56,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFF2196F3),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.camera,
-                              color: Colors.black87,
-                              size: 28,
-                            ),
-                          ),
-                        );
-                      },
+                        ),
+
+                        // Flip Camera Button
+                        _buildBottomSmallButton(Icons.flip_camera_ios, "Flip", _toggleCamera),
+                      ],
                     ),
                   ),
-
-                  const SizedBox(height: 16),  // tighter gap
                 ],
               );
             },
@@ -832,6 +862,30 @@ Widget _buildPreviewOverlay() {
               fontSize: 10,
               fontWeight: FontWeight.bold,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+  Widget _buildBottomSmallButton(IconData icon, String label, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.4),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white.withOpacity(0.2)),
+            ),
+            child: Icon(icon, color: Colors.white, size: 22),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            label.toUpperCase(),
+            style: const TextStyle(color: Colors.white70, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 0.5),
           ),
         ],
       ),

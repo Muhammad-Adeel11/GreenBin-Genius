@@ -58,10 +58,11 @@ class _SplashScreenState extends State<SplashScreen> {
                     color: Colors.white.withOpacity(0.15),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(
-                    Icons.recycling,
-                    color: Colors.white,
-                    size: R.fs(context, 56),
+                  child: Image.asset(
+                    'assets/images/logo/greenbin_logo.png',
+                    width: R.fs(context, 80),
+                    height: R.fs(context, 80),
+                    fit: BoxFit.contain,
                   ),
                 ),
                 SizedBox(height: R.sp(context) * 1.5),
