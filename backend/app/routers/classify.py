@@ -12,6 +12,9 @@ from app.models.schemas import (
     CNNClassificationResult,
     YOLOClassificationResult
 )
+import logging
+logger = logging.getLogger("greenbin")
+
 from app.services import cnn_classifier, yolo_detector
 from app.db.mongo import classifications_col, users_col
 from app.routers.auth import get_current_user

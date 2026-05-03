@@ -12,72 +12,54 @@ from PIL import Image
 
 logger = logging.getLogger(__name__)
 
-# ── Class labels (must match training order: Flask script order) ─
+# ── Class labels (must match training order: e-waste, glass, metal, plastic, textile, wood)
 CLASS_LABELS = [
-    "cardboard",      # 0
-    "clothes",        # 1
-    "e-waste",        # 2
-    "glass",          # 3
-    "medical",        # 4
-    "metal",          # 5
-    "organic",        # 6  -> triggers secondary model
-    "paper",          # 7
-    "plastic",        # 8
-    "shoes",          # 9
-    "food_waste",     # 10
-    "not_food_waste", # 11
+    "e-waste",   # 0
+    "glass",     # 1
+    "metal",     # 2
+    "plastic",   # 3
+    "textile",   # 4
+    "wood",      # 5
 ]
 
 # ── Disposal guidance per category ──────────────────────────
 DISPOSAL_TIPS = {
-    "cardboard":      ("Flatten, keep dry, and place in the recycling bin.",
-                       "چپٹا کریں، خشک رکھیں اور ری سائیکلنگ ڈبے میں ڈالیں۔"),
-    "clothes":        ("Donate if usable; otherwise place in textile bins.",
-                       "اگر قابل استعمال ہو تو عطیہ کریں، ورنہ ٹیکسٹائل ڈبے میں ڈالیں۔"),
     "e-waste":        ("Take to an authorised e-waste collection centre.",
                        "مجاز ای-ویسٹ مرکز پر لے جائیں۔"),
     "glass":          ("Rinse and place in the glass recycling bin.",
                        "صاف کریں اور شیشہ ری سائیکلنگ ڈبے میں ڈالیں۔"),
-    "medical":        ("Dispose at a pharmacy or medical waste facility.",
-                       "فارمیسی یا طبی فضلہ مرکز پر ڈالیں۔"),
     "metal":          ("Rinse and place in the metal recycling bin.",
                        "صاف کریں اور دھات ری سائیکلنگ ڈبے میں ڈالیں۔"),
-    "organic":        ("Compost or place in the organic (green) bin.",
-                       "کمپوسٹ کریں یا نامیاتی (سبز) ڈبے میں ڈالیں۔"),
-    "paper":          ("Keep dry and place in the paper recycling bin.",
-                       "خشک رکھیں اور کاغذ ری سائیکلنگ ڈبے میں ڈالیں۔"),
     "plastic":        ("Rinse and place in the plastic recycling (blue) bin.",
                        "صاف کریں اور نیلے پلاسٹک ری سائیکلنگ ڈبے میں ڈالیں۔"),
-    "shoes":          ("Donate if usable; otherwise place in textile bins.",
+    "textile":        ("Donate if usable; otherwise place in textile bins.",
                        "اگر قابل استعمال ہو تو عطیہ کریں، ورنہ ٹیکسٹائل ڈبے میں ڈالیں۔"),
+    "wood":           ("Repurpose if possible or take to a timber recycling facility.",
+                       "اگر ہو سکے تو دوبارہ استعمال کریں یا لکڑی ری سائیکلنگ مرکز پر لے جائیں۔"),
     "food_waste":     ("Compost or dispose in the organic (green) bin.",
                        "کمپوسٹ کریں یا نامیاتی (سبز) ڈبے میں ڈالیں۔"),
     "not_food_waste": ("Dispose in the general waste bin.",
                        "عام کوڑے کے ڈبے میں ڈالیں۔"),
-    "Fresh/Food":     ("Keep refrigerated or consume soon. Do not waste food.",
-                       "ریفریجریٹر میں رکھیں یا جلد استعمال کریں۔ کھانا ضائع نہ کریں۔"),
+    "Scanning...":    ("Wait for Gemini verification...",
+                       "تصدیق کا انتظار کریں..."),
 }
 
 # ── Categories considered recyclable ────────────────────────
 RECYCLABLE_CATEGORIES = {
-    "cardboard", "glass", "metal", "paper", "plastic"
+    "glass", "metal", "plastic", "e-waste", "textile"
 }
 
 # ── Material mapping ─────────────────────────────────────────
 MATERIAL_MAP = {
-    "cardboard":      "Cardboard",
-    "clothes":        "Textile",
     "e-waste":        "Electronics",
     "glass":          "Glass",
-    "medical":        "Biohazard",
     "metal":          "Metal",
-    "organic":        "Organic",
-    "paper":          "Paper",
-    "plastic":        "PET/HDPE",
-    "shoes":          "Textile",
+    "plastic":        "Plastic",
+    "textile":        "Textile",
+    "wood":           "Wood",
     "food_waste":     "Organic",
     "not_food_waste": "Mixed",
-    "Fresh/Food":     "Food",
+    "Scanning...":    "Scanning...",
 }
 
 # ── Singleton model state ────────────────────────────────────
@@ -154,62 +136,63 @@ def predict(image_bytes: bytes, mode: str = "single") -> dict:
     array = _preprocess(image_bytes)
     
     # ── FOOD Mode Branch ──────────────────────────────────────
-    if mode == "food" and _fw_loaded and _food_waste_model:
-        try:
-            # 1. Preprocess: The food model has built-in Rescaling(1./255).
-            # So we pass the raw pixel array [0-255].
-            img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-            img = img.resize((224, 224))
-            raw_array = np.expand_dims(np.array(img, dtype=np.float32), axis=0)
+    if mode == "food":
+        if _fw_loaded and _food_waste_model:
+            try:
+                # 1. Preprocess: The food model has built-in Rescaling(1./255).
+                # So we pass the raw pixel array [0-255].
+                img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+                img = img.resize((224, 224))
+                raw_array = np.expand_dims(np.array(img, dtype=np.float32), axis=0)
 
-            res = _food_waste_model.predict(raw_array, verbose=0)
-            
-            # 2. Logic: Sigmoid outputs prob of class 1.
-            # Alphabetical: 0: food_waste, 1: not_food_waste
-            if isinstance(res, dict):
-                # SavedModel logic
-                prob = list(res.values())[0][0][0]
-                label = "not_food_waste" if prob > 0.5 else "food_waste"
-                confidence = float(prob if prob > 0.5 else 1 - prob)
-            elif res.shape[-1] > 1:
-                # Softmax [prob_food, prob_not_food]
-                idx = int(np.argmax(res[0]))
-                label = "food_waste" if idx == 0 else "not_food_waste"
-                confidence = float(res[0][idx])
-            else:
-                # Sigmoid [prob_not_food]
-                prob = float(res[0][0])
-                label = "not_food_waste" if prob > 0.5 else "food_waste"
-                confidence = float(prob if prob > 0.5 else 1 - prob)
+                res = _food_waste_model.predict(raw_array, verbose=0)
+                
+                # 2. Logic: Sigmoid outputs prob of class 1.
+                # Alphabetical: 0: food_waste, 1: not_food_waste
+                if isinstance(res, dict):
+                    # SavedModel logic
+                    prob = list(res.values())[0][0][0]
+                    label = "not_food_waste" if prob > 0.5 else "food_waste"
+                    confidence = float(prob if prob > 0.5 else 1 - prob)
+                elif res.shape[-1] > 1:
+                    # Softmax [prob_food, prob_not_food]
+                    idx = int(np.argmax(res[0]))
+                    label = "food_waste" if idx == 0 else "not_food_waste"
+                    confidence = float(res[0][idx])
+                else:
+                    # Sigmoid [prob_not_food]
+                    prob = float(res[0][0])
+                    label = "not_food_waste" if prob > 0.5 else "food_waste"
+                    confidence = float(prob if prob > 0.5 else 1 - prob)
 
-            return {
-                "category":     label,
-                "material":     MATERIAL_MAP.get(label, "Organic"),
-                "confidence":   round(confidence, 4),
-                "recyclable":   False,
-                "disposal_tip":    DISPOSAL_TIPS.get(label, DISPOSAL_TIPS["organic"])[0],
-                "disposal_tip_ur": DISPOSAL_TIPS.get(label, DISPOSAL_TIPS["organic"])[1],
-                "mock":         False,
-            }
-        except Exception as e:
-            logger.error(f"Direct Food model inference failed: {e}")
+                return {
+                    "category":     label,
+                    "material":     MATERIAL_MAP.get(label, "Organic"),
+                    "confidence":   round(confidence, 4),
+                    "recyclable":   False,
+                    "disposal_tip":    DISPOSAL_TIPS.get(label, DISPOSAL_TIPS["organic"])[0],
+                    "disposal_tip_ur": DISPOSAL_TIPS.get(label, DISPOSAL_TIPS["organic"])[1],
+                    "mock":         False,
+                }
+            except Exception as e:
+                logger.error(f"Direct Food model inference failed: {e}")
+        
+        # If local model is missing or failed, return a temporary state for Gemini to fill
+        return {
+            "category":     "Scanning...",
+            "material":     "Scanning...",
+            "confidence":   0.0,
+            "recyclable":   False,
+            "disposal_tip":    "Wait for Gemini verification...",
+            "disposal_tip_ur": "تصدیق کا انتظار کریں...",
+            "mock":         True,
+        }
 
     # ── Standard Single/Multiple Mode ────────────────────────
     preds = _model.predict(array, verbose=0)
     idx = int(np.argmax(preds[0]))
     confidence = float(preds[0][idx])
     label = CLASS_LABELS[idx]
-
-    # ── Secondary Food Waste Check (for 'organic' detections) ──
-    if label == "organic" and _fw_loaded and _food_waste_model:
-        try:
-            res = _food_waste_model.predict(array, verbose=0)
-            prob = list(res.values())[0][0][0] if isinstance(res, dict) else res[0][0]
-            label = "food_waste" if prob > 0.6 else "Fresh/Food"
-            confidence = float(prob)
-            logger.info(f"Secondary model matched: {label} ({prob})")
-        except Exception as e:
-            logger.error(f"Secondary model inference failed: {e}")
 
     return {
         "category":     label,
