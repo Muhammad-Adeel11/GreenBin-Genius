@@ -12,6 +12,9 @@ from app.models.schemas import (
     CNNClassificationResult,
     YOLOClassificationResult
 )
+import logging
+logger = logging.getLogger("greenbin")
+
 from app.services import cnn_classifier, yolo_detector
 from app.db.mongo import classifications_col, users_col
 from app.routers.auth import get_current_user
@@ -65,6 +68,7 @@ async def _handle_cloudinary_upload(image_bytes: bytes) -> Optional[str]:
 )
 async def classify_image(
     file: UploadFile = File(..., description="Waste image (JPEG / PNG)"),
+    mode: str = "single",  # "single" or "multiple"
     current_user: dict = Depends(get_current_user),
 ):
     # ── Validate and Read ─────────────────────────────────────
@@ -82,44 +86,101 @@ async def classify_image(
             detail="Image too large. Maximum size is 10 MB.",
         )
 
-    # ── Inference ─────────────────────────────────────────────
+    # ── Inference Branching ───────────────────────────────────
     timestamp = datetime.utcnow()
-    cnn_result = cnn_classifier.predict(image_bytes)
-    yolo_result = yolo_detector.detect(image_bytes)
     
-    # ── Hidden Verification Fallback (Gemini) ──────────────────
-    # If local model is uncertain (< 65%), we ask our hidden expert
-    if cnn_result["confidence"] < 0.65:
+    cnn_result = None
+    yolo_result = None
+
+    if mode == "single":
+        # REQUIREMENT: Only CNN model is used for Single
+        cnn_result = cnn_classifier.predict(image_bytes, mode=mode)
+        # We run YOLO just for the "Object Detected" string, but we won't show the boxes
+        yolo_result = yolo_detector.detect(image_bytes)
+        yolo_result["annotated_image"] = None # Force original image display
+        yolo_result["detections"] = [] # Clear detections for Single mode UI
+        
+    elif mode == "food":
+        # REQUIREMENT: Only Gemini Expert is used for Food (local is secondary)
+        cnn_result = cnn_classifier.predict(image_bytes, mode=mode)
+        yolo_result = {"object_detected": "Food Item", "yolo_confidence": 0.0, "detections": [], "annotated_image": None}
+
+        # EXPERT VERIFICATION: Use Gemini for Food
+        logger.info(f"[VERIFY] Calling Gemini Expert for Food Mode...")
         try:
-            gemini_data = await verify_classification_with_gemini(image_bytes)
-            if gemini_data:
-                # Override with higher accuracy result
-                cnn_result["category"] = gemini_data["category"]
-                cnn_result["recyclable"] = gemini_data["recyclable"]
-                cnn_result["confidence"] = 0.95 # Boost confidence as verified
+            from app.services.gemini_verifier import classify_food_with_gemini
+            gemini_food = await classify_food_with_gemini(image_bytes)
+            if gemini_food and "food" in gemini_food:
+                # Prioritize Gemini for "Correct Result"
+                g_food = str(gemini_food["food"]).lower()
+                # Map Gemini labels to our internal labels
+                label = "food_waste" if "waste" in g_food else "not_food_waste"
+                cnn_result["category"] = label
+                cnn_result["confidence"] = gemini_food.get("confidence", 100) / 100.0
+                logger.info(f"[VERIFY] Gemini Result (Food): {label}")
+        except Exception as e:
+            logger.error(f"[VERIFY] Gemini Food Expert failed: {e}")
+        
+    else:
+        # REQUIREMENT: Only YOLO model is used for Multiple
+        yolo_result = yolo_detector.detect(image_bytes)
+        # Use CNN just to get a general category/material for the summary
+        cnn_result = cnn_classifier.predict(image_bytes, mode=mode)
+
+        # EXPERT VERIFICATION: Use Gemini for Multiple Objects
+        try:
+            from app.services.gemini_verifier import verify_multiple_objects_with_gemini
+            gemini_multi = await verify_multiple_objects_with_gemini(image_bytes)
+            if gemini_multi and "objects" in gemini_multi:
+                # Prioritize Gemini's labels and count for "Correct Result"
+                g_objects = gemini_multi["objects"]
+                y_detections = yolo_result.get("detections", [])
                 
-                # Update disposal tips and material for the new category
-                from app.services.cnn_classifier import get_disposal_tip, get_material
-                cnn_result["material"] = get_material(gemini_data["category"])
-                
-                tip_en, tip_ur = get_disposal_tip(gemini_data["category"])
+                # Update detections with Gemini info if they align, or replace
+                new_detections = []
+                # Simple mapping: Use Gemini labels for YOLO boxes if possible
+                for i, g_obj in enumerate(g_objects):
+                    box = [0, 0, 0, 0]
+                    if i < len(y_detections):
+                        box = y_detections[i]["box"] # Re-use local box for UI
+                    
+                    new_detections.append({
+                        "label": g_obj["class"].capitalize(),
+                        "class": g_obj["class"],
+                        "material": g_obj["material"].capitalize(),
+                        "confidence": g_obj["confidence"] / 100.0, # convert 95 to 0.95
+                        "box": box
+                    })
+                yolo_result["detections"] = new_detections
+                yolo_result["object_detected"] = f"{len(new_detections)} items"
+                yolo_result["yolo_confidence"] = sum(d["confidence"] for d in new_detections) / len(new_detections) if new_detections else 0.0
+        except Exception as e:
+            logger.warning(f"[GEMINI-MULTI] Fallback to local YOLO due to error: {e}")
+
+    # ── Expert Verification (Gemini) ──────────────────────
+    if mode == "single":
+        logger.info(f"[VERIFY] Calling Gemini Expert for Single Mode...")
+        try:
+            from app.services.gemini_verifier import classify_single_with_gemini
+            gemini_res = await classify_single_with_gemini(image_bytes)
+            if gemini_res:
+                cnn_result.update(gemini_res)
+                # Ensure tips are updated for the new category
+                from app.services.cnn_classifier import get_disposal_tip
+                tip_en, tip_ur = get_disposal_tip(gemini_res["category"])
                 cnn_result["disposal_tip"] = tip_en
                 cnn_result["disposal_tip_ur"] = tip_ur
+                logger.info(f"[VERIFY] Gemini Result: {cnn_result['category']}")
         except Exception as e:
-            # Silent fallback: If Gemini fails (429/500), just keep original cnn_result
-            from app.services.gemini_verifier import logger
-            logger.warning(f"[GEMINI] Fallback to local model due to error: {e}")
+            logger.error(f"[VERIFY] Gemini Expert failed: {e}")
     
     # ── Cloudinary Uploads ────────────────────────────────────
-    # 1. Upload original capture
     image_url = await _handle_cloudinary_upload(image_bytes)
-    
-    # 2. Upload annotated image if detection succeeded
     annotated_image_url = None
     if yolo_result.get("annotated_image"):
         annotated_image_url = await _handle_cloudinary_upload(yolo_result["annotated_image"])
     else:
-        annotated_image_url = image_url # Fallback
+        annotated_image_url = image_url
 
     # ── Generate Summary ──────────────────────────────────────
     detections = yolo_result.get("detections", [])
@@ -141,6 +202,7 @@ async def classify_image(
         confidence=cnn_result["confidence"],
         cnn_confidence=cnn_result["confidence"],
         yolo_confidence=yolo_result["yolo_confidence"],
+        object_count=len(detections),
         detections=yolo_result["detections"],
         summary=summary,
         item_counts=item_counts,

@@ -1,4 +1,4 @@
-name: frontend
+name: greenbin
 description: "A new Flutter project."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
@@ -79,6 +79,7 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
      - assets/images/
+     - assets/images/logo/
   #   - images/a_dot_burr.jpeg
   #   - images/a_dot_ham.jpeg
 
@@ -111,5 +112,5 @@ flutter:
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
-  image_path: "assets/images/logo/greenbin_logo.png"
+  image_path: "assets/images/logo/greenbin_new_logo.png"
   min_sdk_android: 21 # android min sdk min:16, default:21

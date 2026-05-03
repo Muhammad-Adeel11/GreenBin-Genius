@@ -142,7 +142,7 @@ class ApiService {
 
   /// Send an image file to the backend for AI classification.
   /// Automatically detects JPEG / PNG and sets the correct MIME type.
-  Future<ClassificationResult> classifyImage(File imageFile) async {
+  Future<ClassificationResult> classifyImage(File imageFile, {String mode = "single"}) async {
     return _wrapNetworkCall(() async {
       final token = await getToken();
       if (token == null) throw Exception('Not authenticated. Please log in first.');
@@ -153,7 +153,7 @@ class ApiService {
 
       final request = http.MultipartRequest(
         'POST',
-        Uri.parse('$baseUrl/api/classify'),
+        Uri.parse('$baseUrl/api/classify?mode=$mode'),
       )
         ..headers['Authorization'] = 'Bearer $token'
         ..files.add(await http.MultipartFile.fromPath(
@@ -295,11 +295,15 @@ class ApiService {
 
 class YOLODetection {
   final String label;
+  final String className;
+  final String material;
   final double confidence;
   final List<double> box; // [xmin, ymin, xmax, ymax]
 
   const YOLODetection({
     required this.label,
+    required this.className,
+    required this.material,
     required this.confidence,
     required this.box,
   });
@@ -307,6 +311,8 @@ class YOLODetection {
   factory YOLODetection.fromJson(Map<String, dynamic> json) {
     return YOLODetection(
       label: json['label'] ?? 'Unknown',
+      className: json['class'] ?? json['class_name'] ?? 'unknown',
+      material: json['material'] ?? 'unknown',
       confidence: (json['confidence'] as num?)?.toDouble() ?? 0.0,
       box: (json['box'] as List<dynamic>?)?.map((e) => (e as num).toDouble()).toList() ?? [0.0, 0.0, 0.0, 0.0],
     );
@@ -320,6 +326,7 @@ class ClassificationResult {
   final double confidence;
   final double cnnConfidence;
   final double yoloConfidence;
+  final int objectCount;
   final List<YOLODetection> detections;
   final String disposalTip;
   final String disposalTipUr;
@@ -337,6 +344,7 @@ class ClassificationResult {
     required this.confidence,
     this.cnnConfidence = 0.0,
     this.yoloConfidence = 0.0,
+    this.objectCount = 0,
     this.detections = const [],
     required this.disposalTip,
     required this.disposalTipUr,
@@ -356,6 +364,7 @@ class ClassificationResult {
       confidence: (json['confidence'] as num?)?.toDouble() ?? 0.0,
       cnnConfidence: (json['cnn_confidence'] as num?)?.toDouble() ?? (json['confidence'] as num?)?.toDouble() ?? 0.0,
       yoloConfidence: (json['yolo_confidence'] as num?)?.toDouble() ?? 0.0,
+      objectCount: json['object_count'] ?? 0,
       detections: (json['detections'] as List<dynamic>?)
           ?.map((e) => YOLODetection.fromJson(e as Map<String, dynamic>))
           .toList() ?? [],

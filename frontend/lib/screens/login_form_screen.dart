@@ -151,7 +151,7 @@ class _LoginFormScreenState extends State<LoginFormScreen> {
             border: Border.all(color: Colors.white.withOpacity(0.2)),
           ),
           child: Image.asset(
-            'assets/images/logo/greenbin_logo.png',
+            'assets/images/logo/greenbin_new_logo.png',
             width: 70,
             height: 70,
             fit: BoxFit.contain,
@@ -159,12 +159,12 @@ class _LoginFormScreenState extends State<LoginFormScreen> {
         ),
         const SizedBox(height: 16),
         Text(
-          'GREENBIN GENIUS',
+          'GreenBin',
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.w900,
-            fontSize: R.fs(context, 26),
-            letterSpacing: 2,
+            fontSize: R.fs(context, 32),
+            letterSpacing: 1,
           ),
         ),
         Text(

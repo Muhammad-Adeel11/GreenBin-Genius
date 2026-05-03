@@ -94,7 +94,7 @@ def detect(image_bytes: bytes, return_annotated: bool = True) -> dict:
                 # result.plot() returns a BGR numpy array
                 import cv2
                 import numpy as np
-                plot_img = result.plot()
+                plot_img = result.plot(labels=False, conf=False)
                 is_success, buffer = cv2.imencode(".jpg", plot_img)
                 if is_success:
                     annotated_bytes = buffer.tobytes()
@@ -106,8 +106,23 @@ def detect(image_bytes: bytes, return_annotated: bool = True) -> dict:
                     label = result.names.get(cls_id, "Unknown")
                     xyxy = box.xyxy[0].tolist()
                     
+                    from app.services.cnn_classifier import MATERIAL_MAP
+                    
+                    def guess_material(label):
+                        l = label.lower()
+                        for key, mat in MATERIAL_MAP.items():
+                            if key in l: return mat
+                        if "bottle" in l or "plastic" in l: return "Plastic"
+                        if "can" in l or "metal" in l: return "Metal"
+                        if "paper" in l: return "Paper"
+                        if "glass" in l: return "Glass"
+                        if "cardboard" in l: return "Cardboard"
+                        return "Mixed"
+
                     det = {
                         "label": label.capitalize(),
+                        "class": label.lower(),
+                        "material": guess_material(label),
                         "confidence": round(conf, 4),
                         "box": xyxy
                     }

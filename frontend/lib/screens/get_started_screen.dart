@@ -22,12 +22,12 @@ class GetStartedScreen extends StatelessWidget {
             Padding(
               padding: R.pagePadding(context),
               child: Text(
-                'GREENBIN',
+                'GreenBin',
                 style: TextStyle(
                   color: const Color(0xFF2196F3),
-                  fontSize: R.fs(context, 20),
+                  fontSize: R.fs(context, 24),
                   fontWeight: FontWeight.w900,
-                  letterSpacing: 1.2,
+                  letterSpacing: 0.5,
                 ),
               ),
             ),
