@@ -40,7 +40,8 @@ DISPOSAL_TIPS = {
                        "کمپوسٹ کریں یا نامیاتی (سبز) ڈبے میں ڈالیں۔"),
     "not_food_waste": ("Dispose in the general waste bin.",
                        "عام کوڑے کے ڈبے میں ڈالیں۔"),
-    "Scanning...":    ("Wait for Gemini verification...",
+    "Scanning...":    ("Refining results with expert system...",
+                        "ایکسپرٹ سسٹم سے نتائج کی تصدیق کی جا رہی ہے..."),
                        "تصدیق کا انتظار کریں..."),
 }
 
@@ -177,13 +178,13 @@ def predict(image_bytes: bytes, mode: str = "single") -> dict:
             except Exception as e:
                 logger.error(f"Direct Food model inference failed: {e}")
         
-        # If local model is missing or failed, return a temporary state for Gemini to fill
+        # If local model is missing or failed, return a temporary state for Expert System to fill
         return {
             "category":     "Scanning...",
             "material":     "Scanning...",
             "confidence":   0.0,
             "recyclable":   False,
-            "disposal_tip":    "Wait for Gemini verification...",
+            "disposal_tip":    "Refining results with expert system...",
             "disposal_tip_ur": "تصدیق کا انتظار کریں...",
             "mock":         True,
         }

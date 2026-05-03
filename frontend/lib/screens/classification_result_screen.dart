@@ -166,6 +166,10 @@ class _ClassificationResultScreenState extends State<ClassificationResultScreen>
                 TextButton(onPressed: _runClassification, child: const Text("Retry")),
               ]
               else if (_result != null) ...[
+                // ── Waste Type Heading (Badge) ──────────────────────
+                _buildWasteTypeHeading(_result!),
+
+                SizedBox(height: sp * 1.5),
                 
                 // ── Info Section (Dynamic based on Mode) ──
                 if (widget.mode == "multiple") ...[
@@ -392,6 +396,59 @@ class _ClassificationResultScreenState extends State<ClassificationResultScreen>
           ),
         );
       }).toList(),
+    );
+  }
+
+  Widget _buildWasteTypeHeading(ClassificationResult result) {
+    bool isRecyclable = result.recyclable;
+    bool isFood = widget.mode == "food";
+
+    bool isWaste = result.category == "food_waste";
+
+    Color badgeColor = isFood 
+        ? (isWaste ? const Color(0xFFE53935) : const Color(0xFF4CAF50)) // Red for Waste, Green for Fresh
+        : (isRecyclable ? const Color(0xFF4CAF50) : const Color(0xFFE53935)); // Green vs Red
+
+    String label = isFood
+        ? (isWaste ? "FOOD WASTE" : "EDIBLE / FRESH")
+        : (isRecyclable ? "RECYCLABLE" : "NON-RECYCLABLE");
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      decoration: BoxDecoration(
+        color: badgeColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(40),
+        border: Border.all(color: badgeColor.withOpacity(0.5), width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: badgeColor.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isFood 
+              ? (isWaste ? Icons.delete_outline : Icons.check_circle_outline)
+              : (isRecyclable ? Icons.recycling : Icons.delete_outline),
+            color: badgeColor,
+            size: 20,
+          ),
+          const SizedBox(width: 12),
+          Text(
+            label,
+            style: TextStyle(
+              color: badgeColor,
+              fontWeight: FontWeight.w900,
+              fontSize: 16,
+              letterSpacing: 1.2,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

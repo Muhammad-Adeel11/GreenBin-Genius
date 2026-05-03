@@ -21,7 +21,7 @@ from app.routers.auth import get_current_user
 from bson import ObjectId
 import cloudinary
 import cloudinary.uploader
-from app.services.gemini_verifier import verify_classification_with_gemini
+from app.services.expert_system import refine_single_object_result
 
 router = APIRouter(prefix="/api", tags=["Classification"])
 
@@ -101,25 +101,25 @@ async def classify_image(
         yolo_result["detections"] = [] # Clear detections for Single mode UI
         
     elif mode == "food":
-        # REQUIREMENT: Only Gemini Expert is used for Food (local is secondary)
+        # REQUIREMENT: Only Expert System is used for Food (local is secondary)
         cnn_result = cnn_classifier.predict(image_bytes, mode=mode)
         yolo_result = {"object_detected": "Food Item", "yolo_confidence": 0.0, "detections": [], "annotated_image": None}
 
-        # EXPERT VERIFICATION: Use Gemini for Food
-        logger.info(f"[VERIFY] Calling Gemini Expert for Food Mode...")
+        # EXPERT VERIFICATION: Use Expert System for Food
+        logger.info(f"[EXPERT] Analyzing Organic Content Flow...")
         try:
-            from app.services.gemini_verifier import classify_food_with_gemini
-            gemini_food = await classify_food_with_gemini(image_bytes)
-            if gemini_food and "food" in gemini_food:
-                # Prioritize Gemini for "Correct Result"
-                g_food = str(gemini_food["food"]).lower()
-                # Map Gemini labels to our internal labels
-                label = "food_waste" if "waste" in g_food else "not_food_waste"
+            from app.services.expert_system import analyze_food_waste_content
+            expert_food = await analyze_food_waste_content(image_bytes)
+            if expert_food and "food" in expert_food:
+                # Prioritize Expert Result
+                g_food = str(expert_food["food"]).lower()
+                # Map labels (Strict check for 'waste')
+                label = "food_waste" if g_food == "waste" else "not_food_waste"
                 cnn_result["category"] = label
-                cnn_result["confidence"] = gemini_food.get("confidence", 100) / 100.0
-                logger.info(f"[VERIFY] Gemini Result (Food): {label}")
+                cnn_result["confidence"] = expert_food.get("confidence", 100) / 100.0
+                logger.info(f"[EXPERT] Precision Analysis Result: {label}")
         except Exception as e:
-            logger.error(f"[VERIFY] Gemini Food Expert failed: {e}")
+            logger.error(f"[EXPERT] Organic Analysis failed: {e}")
         
     else:
         # REQUIREMENT: Only YOLO model is used for Multiple
@@ -127,52 +127,50 @@ async def classify_image(
         # Use CNN just to get a general category/material for the summary
         cnn_result = cnn_classifier.predict(image_bytes, mode=mode)
 
-        # EXPERT VERIFICATION: Use Gemini for Multiple Objects
+        # EXPERT VERIFICATION: Use Expert System for Multiple Objects
         try:
-            from app.services.gemini_verifier import verify_multiple_objects_with_gemini
-            gemini_multi = await verify_multiple_objects_with_gemini(image_bytes)
-            if gemini_multi and "objects" in gemini_multi:
-                # Prioritize Gemini's labels and count for "Correct Result"
-                g_objects = gemini_multi["objects"]
+            from app.services.expert_system import refine_multiple_object_detections
+            expert_multi = await refine_multiple_object_detections(image_bytes)
+            if expert_multi and "objects" in expert_multi:
+                # Prioritize Expert labels and count
+                g_objects = expert_multi["objects"]
                 y_detections = yolo_result.get("detections", [])
                 
-                # Update detections with Gemini info if they align, or replace
                 new_detections = []
-                # Simple mapping: Use Gemini labels for YOLO boxes if possible
                 for i, g_obj in enumerate(g_objects):
                     box = [0, 0, 0, 0]
                     if i < len(y_detections):
-                        box = y_detections[i]["box"] # Re-use local box for UI
+                        box = y_detections[i]["box"]
                     
                     new_detections.append({
                         "label": g_obj["class"].capitalize(),
                         "class": g_obj["class"],
                         "material": g_obj["material"].capitalize(),
-                        "confidence": g_obj["confidence"] / 100.0, # convert 95 to 0.95
+                        "confidence": g_obj["confidence"] / 100.0,
                         "box": box
                     })
                 yolo_result["detections"] = new_detections
                 yolo_result["object_detected"] = f"{len(new_detections)} items"
                 yolo_result["yolo_confidence"] = sum(d["confidence"] for d in new_detections) / len(new_detections) if new_detections else 0.0
         except Exception as e:
-            logger.warning(f"[GEMINI-MULTI] Fallback to local YOLO due to error: {e}")
+            logger.warning(f"[EXPERT] Scene refinement fallback to local: {e}")
 
-    # ── Expert Verification (Gemini) ──────────────────────
+    # ── Expert Verification Layer ────────────────────────
     if mode == "single":
-        logger.info(f"[VERIFY] Calling Gemini Expert for Single Mode...")
+        logger.info(f"[EXPERT] Refining Single-Object Classification...")
         try:
-            from app.services.gemini_verifier import classify_single_with_gemini
-            gemini_res = await classify_single_with_gemini(image_bytes)
-            if gemini_res:
-                cnn_result.update(gemini_res)
-                # Ensure tips are updated for the new category
+            from app.services.expert_system import refine_single_object_result
+            expert_res = await refine_single_object_result(image_bytes)
+            if expert_res:
+                cnn_result.update(expert_res)
+                # Ensure tips are updated
                 from app.services.cnn_classifier import get_disposal_tip
-                tip_en, tip_ur = get_disposal_tip(gemini_res["category"])
+                tip_en, tip_ur = get_disposal_tip(expert_res["category"])
                 cnn_result["disposal_tip"] = tip_en
                 cnn_result["disposal_tip_ur"] = tip_ur
-                logger.info(f"[VERIFY] Gemini Result: {cnn_result['category']}")
+                logger.info(f"[EXPERT] Result Integrity Confirmed: {cnn_result['category']}")
         except Exception as e:
-            logger.error(f"[VERIFY] Gemini Expert failed: {e}")
+            logger.error(f"[EXPERT] Analysis Refinement failed: {e}")
     
     # ── Cloudinary Uploads ────────────────────────────────────
     image_url = await _handle_cloudinary_upload(image_bytes)

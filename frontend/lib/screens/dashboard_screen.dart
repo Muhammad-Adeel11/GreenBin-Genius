@@ -860,13 +860,75 @@ class _ActivityTabState extends State<ActivityTab> {
 // ==========================================
 // IMPACT TAB
 // ==========================================
-class ImpactTab extends StatelessWidget {
+class ImpactTab extends StatefulWidget {
   const ImpactTab({super.key});
 
   @override
+  State<ImpactTab> createState() => _ImpactTabState();
+}
+
+class _ImpactTabState extends State<ImpactTab> {
+  bool _isLoading = true;
+  String? _error;
+  Map<String, dynamic>? _myStats;
+  Map<String, dynamic>? _globalStats;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchStats();
+  }
+
+  Future<void> _fetchStats() async {
+    try {
+      setState(() { _isLoading = true; _error = null; });
+      final personal = await ApiService.instance.getMyAnalytics();
+      final global = await ApiService.instance.getGlobalAnalytics();
+      
+      if (mounted) {
+        setState(() {
+          _myStats = personal;
+          _globalStats = global;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (_isLoading) return const Center(child: CircularProgressIndicator());
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, color: Colors.red, size: 48),
+            const SizedBox(height: 16),
+            const Text("Failed to load impact data", style: TextStyle(color: Colors.red)),
+            TextButton(onPressed: _fetchStats, child: const Text("Retry")),
+          ],
+        ),
+      );
+    }
+
     final sp = R.sp(context);
+    final globalTotal = _globalStats?['total_global_scans']?.toString() ?? "0";
+    final monthlyTotal = _globalStats?['monthly_scans']?.toString() ?? "0";
     
+    // Formatter for large numbers (adding commas)
+    String formatNum(String s) {
+      if (s.length <= 3) return s;
+      return s.replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},');
+    }
+
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -907,18 +969,18 @@ class ImpactTab extends StatelessWidget {
                         child: FittedBox(
                           fit: BoxFit.scaleDown,
                           alignment: Alignment.centerLeft,
-                          child: Text("24,291,206", style: TextStyle(color: Colors.white, fontSize: R.fs(context, 44), fontWeight: FontWeight.w400, letterSpacing: -1.0)),
+                          child: Text(formatNum(globalTotal), style: TextStyle(color: Colors.white, fontSize: R.fs(context, 44), fontWeight: FontWeight.w400, letterSpacing: -1.0)),
                         ),
                       ),
                       SizedBox(height: sp * 1.25),
-                      Text("Overall Pickup For November, 2025", style: TextStyle(color: Colors.white70, fontSize: R.fs(context, 14))),
+                      Text("Overall Pickup This Month", style: TextStyle(color: Colors.white70, fontSize: R.fs(context, 14))),
                       SizedBox(height: sp * 0.25),
                       SizedBox(
                         width: double.infinity,
                         child: FittedBox(
                           fit: BoxFit.scaleDown,
                           alignment: Alignment.centerLeft,
-                          child: Text("85,450", style: TextStyle(color: Colors.white, fontSize: R.fs(context, 44), fontWeight: FontWeight.w400, letterSpacing: -1.0)),
+                          child: Text(formatNum(monthlyTotal), style: TextStyle(color: Colors.white, fontSize: R.fs(context, 44), fontWeight: FontWeight.w400, letterSpacing: -1.0)),
                         ),
                       ),
                     ],
@@ -933,16 +995,26 @@ class ImpactTab extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                _buildBar(context, "APR", R.h(context, 8), false), 
-                _buildBar(context, "MAY", R.h(context, 10), false), 
-                _buildBar(context, "JUN", R.h(context, 5), false),
-                _buildBar(context, "JUL", R.h(context, 9), false), 
-                _buildBar(context, "AUG", R.h(context, 6), false), 
-                _buildBar(context, "SEP", R.h(context, 7.5), false),
-                _buildBar(context, "OCT", R.h(context, 5.5), false), 
-                _buildBar(context, "NOV", R.h(context, 7), true),
-              ],
+              children: (() {
+                final history = _myStats?['monthly_history'] as List? ?? [];
+                // Default months if history is empty or short
+                final defaultMonths = ["APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV"];
+                final List<Widget> bars = [];
+                
+                for (int i = 0; i < defaultMonths.length; i++) {
+                  final monthName = defaultMonths[i];
+                  // Find if we have real data for this month
+                  final record = history.firstWhere((h) => h['month'] == monthName, orElse: () => null);
+                  final count = record != null ? (record['count'] as num).toDouble() : 0.0;
+                  
+                  // Scale height: min 10, max 80. Base it on count.
+                  double h = 10 + (count * 2.0);
+                  if (h > 80) h = 80;
+
+                  bars.add(_buildBar(context, monthName, R.h(context, h / 10), i == defaultMonths.length - 1));
+                }
+                return bars;
+              })(),
             ),
           ),
           SizedBox(height: sp * 2.5),
@@ -972,9 +1044,13 @@ class ImpactTab extends StatelessWidget {
               scrollDirection: Axis.horizontal,
               padding: R.pagePadding(context),
               children: [
-                _buildDateCircle(context, "11/27"), _buildDateCircle(context, "11/28"), _buildDateCircle(context, "11/29"),
-                _buildDateCircle(context, "11/30"), _buildDateCircle(context, "12/1"), _buildDateCircle(context, "12/2"),
-                _buildDateCircle(context, "12/3", isActive: true),
+                _buildDateCircle(context, "T"), 
+                _buildDateCircle(context, "W"), 
+                _buildDateCircle(context, "T"),
+                _buildDateCircle(context, "F"), 
+                _buildDateCircle(context, "S"), 
+                _buildDateCircle(context, "S"),
+                _buildDateCircle(context, "M", isActive: true),
               ],
             ),
           ),
