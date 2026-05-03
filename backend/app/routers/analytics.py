@@ -39,6 +39,28 @@ async def my_analytics(current_user: dict = Depends(get_current_user)):
     ]
     top = await col.aggregate(pipeline).to_list(1)
 
+    # ── Monthly History (Last 8 Months) ──────────────────────
+    eight_months_ago = now - timedelta(days=240)
+    history_pipeline = [
+        {"$match": {"user_id": user_id, "timestamp": {"$gte": eight_months_ago}}},
+        {"$group": {
+            "_id": {
+                "year": {"$year": "$timestamp"},
+                "month": {"$month": "$timestamp"}
+            },
+            "count": {"$sum": 1}
+        }},
+        {"$sort": {"_id.year": 1, "_id.month": 1}}
+    ]
+    history_res = await col.aggregate(history_pipeline).to_list(12)
+    
+    # Map to format: [{"month": "JAN", "count": 10}, ...]
+    months_map = {1:"JAN", 2:"FEB", 3:"MAR", 4:"APR", 5:"MAY", 6:"JUN", 7:"JUL", 8:"AUG", 9:"SEP", 10:"OCT", 11:"NOV", 12:"DEC"}
+    monthly_history = [
+        {"month": months_map.get(h["_id"]["month"], "???"), "count": h["count"]}
+        for h in history_res
+    ]
+
     return {
         "user_id":              user_id,
         "total_scans":          total,
@@ -48,6 +70,7 @@ async def my_analytics(current_user: dict = Depends(get_current_user)):
         "scans_this_week":      scans_week,
         "scans_this_month":     scans_month,
         "streak_days":          current_user.get("streak", 0),
+        "monthly_history":      monthly_history,
     }
 
 
