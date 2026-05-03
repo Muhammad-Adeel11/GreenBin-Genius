@@ -151,7 +151,7 @@ class _LoginFormScreenState extends State<LoginFormScreen> {
             border: Border.all(color: Colors.white.withOpacity(0.2)),
           ),
           child: Image.asset(
-            'assets/images/logo/greenbin_logo.png',
+            'assets/images/logo/greenbin_new_logo.png',
             width: 70,
             height: 70,
             fit: BoxFit.contain,

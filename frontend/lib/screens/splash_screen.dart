@@ -59,7 +59,7 @@ class _SplashScreenState extends State<SplashScreen> {
                     shape: BoxShape.circle,
                   ),
                   child: Image.asset(
-                    'assets/images/logo/greenbin_logo.png',
+                    'assets/images/logo/greenbin_new_logo.png',
                     width: R.fs(context, 80),
                     height: R.fs(context, 80),
                     fit: BoxFit.contain,
