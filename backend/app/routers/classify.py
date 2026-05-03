@@ -101,30 +101,74 @@ async def classify_image(
         # REQUIREMENT: Only food_waste model is used for Food
         cnn_result = cnn_classifier.predict(image_bytes, mode=mode)
         yolo_result = {"object_detected": "Food Item", "yolo_confidence": 0.0, "detections": [], "annotated_image": None}
+
+        # EXPERT VERIFICATION: Use Gemini for Food
+        try:
+            from app.services.gemini_verifier import classify_food_with_gemini
+            gemini_food = await classify_food_with_gemini(image_bytes)
+            if gemini_food and "food" in gemini_food:
+                # Prioritize Gemini for "Correct Result"
+                g_food = str(gemini_food["food"]).lower()
+                # Map Gemini labels to our internal labels
+                label = "food_waste" if "waste" in g_food else "not_food_waste"
+                cnn_result["category"] = label
+                cnn_result["confidence"] = gemini_food.get("confidence", 100) / 100.0
+        except Exception as e:
+            logger.warning(f"[GEMINI-FOOD] Fallback to local model: {e}")
         
     else:
         # REQUIREMENT: Only YOLO model is used for Multiple
         yolo_result = yolo_detector.detect(image_bytes)
-        # Use CNN just to get a general category/material for the summary, 
-        # but YOLO is the source of truth for objects.
+        # Use CNN just to get a general category/material for the summary
         cnn_result = cnn_classifier.predict(image_bytes, mode=mode)
+
+        # EXPERT VERIFICATION: Use Gemini for Multiple Objects
+        try:
+            from app.services.gemini_verifier import verify_multiple_objects_with_gemini
+            gemini_multi = await verify_multiple_objects_with_gemini(image_bytes)
+            if gemini_multi and "objects" in gemini_multi:
+                # Prioritize Gemini's labels and count for "Correct Result"
+                g_objects = gemini_multi["objects"]
+                y_detections = yolo_result.get("detections", [])
+                
+                # Update detections with Gemini info if they align, or replace
+                new_detections = []
+                # Simple mapping: Use Gemini labels for YOLO boxes if possible
+                for i, g_obj in enumerate(g_objects):
+                    box = [0, 0, 0, 0]
+                    if i < len(y_detections):
+                        box = y_detections[i]["box"] # Re-use local box for UI
+                    
+                    new_detections.append({
+                        "label": g_obj["class"].capitalize(),
+                        "class": g_obj["class"],
+                        "material": g_obj["material"].capitalize(),
+                        "confidence": g_obj["confidence"] / 100.0, # convert 95 to 0.95
+                        "box": box
+                    })
+                yolo_result["detections"] = new_detections
+                yolo_result["object_detected"] = f"{len(new_detections)} items"
+                yolo_result["yolo_confidence"] = sum(d["confidence"] for d in new_detections) / len(new_detections) if new_detections else 0.0
+        except Exception as e:
+            logger.warning(f"[GEMINI-MULTI] Fallback to local YOLO due to error: {e}")
 
     # ── Hidden Verification Fallback (Gemini) ──────────────────
     # If single mode and confidence is low, verify
     if mode == "single" and cnn_result["confidence"] < 0.65:
+        logger.info(f"[VERIFY] Low confidence ({cnn_result['confidence']}), calling Gemini Expert...")
         try:
-            gemini_data = await verify_classification_with_gemini(image_bytes)
-            if gemini_data:
-                cnn_result["category"] = gemini_data["category"]
-                cnn_result["recyclable"] = gemini_data["recyclable"]
-                cnn_result["confidence"] = 0.95 
-                from app.services.cnn_classifier import get_disposal_tip, get_material
-                cnn_result["material"] = get_material(gemini_data["category"])
-                tip_en, tip_ur = get_disposal_tip(gemini_data["category"])
+            from app.services.gemini_verifier import classify_single_with_gemini
+            gemini_res = await classify_single_with_gemini(image_bytes)
+            if gemini_res:
+                cnn_result.update(gemini_res)
+                # Ensure tips are updated for the new category
+                from app.services.cnn_classifier import get_disposal_tip
+                tip_en, tip_ur = get_disposal_tip(gemini_res["category"])
                 cnn_result["disposal_tip"] = tip_en
                 cnn_result["disposal_tip_ur"] = tip_ur
-        except Exception:
-            pass
+                logger.info(f"[VERIFY] Gemini corrected result to: {cnn_result['category']}")
+        except Exception as e:
+            logger.error(f"[VERIFY] Gemini fallback failed: {e}")
     
     # ── Cloudinary Uploads ────────────────────────────────────
     image_url = await _handle_cloudinary_upload(image_bytes)
