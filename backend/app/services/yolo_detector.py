@@ -94,7 +94,7 @@ def detect(image_bytes: bytes, return_annotated: bool = True) -> dict:
                 # result.plot() returns a BGR numpy array
                 import cv2
                 import numpy as np
-                plot_img = result.plot()
+                plot_img = result.plot(labels=False, conf=False)
                 is_success, buffer = cv2.imencode(".jpg", plot_img)
                 if is_success:
                     annotated_bytes = buffer.tobytes()

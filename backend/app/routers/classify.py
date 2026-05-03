@@ -101,11 +101,12 @@ async def classify_image(
         yolo_result["detections"] = [] # Clear detections for Single mode UI
         
     elif mode == "food":
-        # REQUIREMENT: Only food_waste model is used for Food
+        # REQUIREMENT: Only Gemini Expert is used for Food (local is secondary)
         cnn_result = cnn_classifier.predict(image_bytes, mode=mode)
         yolo_result = {"object_detected": "Food Item", "yolo_confidence": 0.0, "detections": [], "annotated_image": None}
 
         # EXPERT VERIFICATION: Use Gemini for Food
+        logger.info(f"[VERIFY] Calling Gemini Expert for Food Mode...")
         try:
             from app.services.gemini_verifier import classify_food_with_gemini
             gemini_food = await classify_food_with_gemini(image_bytes)
@@ -116,8 +117,9 @@ async def classify_image(
                 label = "food_waste" if "waste" in g_food else "not_food_waste"
                 cnn_result["category"] = label
                 cnn_result["confidence"] = gemini_food.get("confidence", 100) / 100.0
+                logger.info(f"[VERIFY] Gemini Result (Food): {label}")
         except Exception as e:
-            logger.warning(f"[GEMINI-FOOD] Fallback to local model: {e}")
+            logger.error(f"[VERIFY] Gemini Food Expert failed: {e}")
         
     else:
         # REQUIREMENT: Only YOLO model is used for Multiple

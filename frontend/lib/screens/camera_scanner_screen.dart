@@ -253,7 +253,7 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
 
                 return Column(
                   children: [
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     // Top Bar
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -262,7 +262,7 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
                         child: BackdropFilter(
                           filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                           child: Container(
-                            height: 60,  // reduced from 70
+                            height: 52,  // tighter height
                             padding: const EdgeInsets.symmetric(horizontal: 8),
                             decoration: BoxDecoration(
                               color: Colors.white.withOpacity(0.08),
@@ -474,135 +474,7 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
 
                     const Spacer(flex: 1),
 
-                // Bottom Readout Card
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(24),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-                      child: Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.05),
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: Colors.white.withOpacity(0.1)),
-                        ),
-                        child: Column(
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withOpacity(0.3),
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  child: const Icon(Icons.smart_toy, color: Colors.white70),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        "AI Scanning",
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        "Detecting recyclable material...",
-                                        style: TextStyle(
-                                          color: Colors.white.withOpacity(0.6),
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    const Text(
-                                      "84%",
-                                      style: TextStyle(
-                                        color: Color(0xFF2196F3),
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    Text(
-                                      "CONFIDENCE",
-                                      style: TextStyle(
-                                        color: Colors.white.withOpacity(0.5),
-                                        fontSize: 9,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 20),
-                            // Progress Bar
-                            Stack(
-                              children: [
-                                Container(
-                                  height: 8,
-                                  width: double.infinity,
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withOpacity(0.3),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                ),
-                                AnimatedBuilder(
-                                  animation: _pulseAnimation,
-                                  builder: (context, child) {
-                                    return Container(
-                                      height: 8,
-                                      width: MediaQuery.of(context).size.width * 0.65,
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF2196F3),
-                                        borderRadius: BorderRadius.circular(4),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: const Color(0xFF2196F3).withOpacity(_pulseAnimation.value * 0.8),
-                                            blurRadius: 10,
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.info, color: Colors.white.withOpacity(0.5), size: 14),
-                                const SizedBox(width: 8),
-                                Text(
-                                  "HOLD STEADY FOR BETTER ACCURACY",
-                                  style: TextStyle(
-                                    color: Colors.white.withOpacity(0.5),
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 1.1,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+                // Removed dummy AI Scanning card
 
                 // ── Mode Selector (Single / Multiple / Food) ──
                 Padding(
@@ -631,18 +503,17 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
                   ),
                 ),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 8),
 
                   // ── Bottom Control Row ──
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 30),
+                    padding: const EdgeInsets.only(bottom: 12), // tighter bottom padding
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
                         // Gallery Button
                         _buildBottomSmallButton(Icons.photo_library, "Gallery", _pickFromGallery),
-                        
-                        // Shutter Button
+                               // Shutter Button
                         GestureDetector(
                           onTap: _captureImage,
                           child: AnimatedBuilder(
@@ -679,8 +550,8 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
                           ),
                         ),
 
-                        // Flip Camera Button
-                        _buildBottomSmallButton(Icons.flip_camera_ios, "Flip", _toggleCamera),
+                        // Empty space to maintain balance in the row since we removed Flip
+                        const SizedBox(width: 48), 
                       ],
                     ),
                   ),
