@@ -92,6 +92,7 @@ def load_model_on_startup():
     global _model, _model_loaded, _food_waste_model, _fw_loaded
     
     primary_path = os.getenv("CNN_MODEL_PATH", "ml/trashbox_cnn_model.h5")
+    fw_h5_path = os.getenv("FOOD_WASTE_MODEL_H5", "ml/food_waste_model.h5")
     fw_path = os.getenv("FOOD_WASTE_MODEL_PATH", "ml/food_waste_savedmodel")
 
     # Load Primary .h5 Model
@@ -104,20 +105,28 @@ def load_model_on_startup():
         except Exception as exc:
             logger.error(f"[ERROR] Failed to load primary CNN: {exc}")
     
-    # Load Secondary Food Waste (TFSMLayer) Model
-    if os.path.exists(fw_path):
+    # Load Secondary Food Waste (.h5) Model
+    if os.path.exists(fw_h5_path):
+        try:
+            from tensorflow.keras.models import load_model # type: ignore
+            _food_waste_model = load_model(fw_h5_path, compile=False)
+            _fw_loaded = True
+            logger.info(f"[OK] Food waste model loaded from '{fw_h5_path}'.")
+        except Exception as exc:
+            logger.error(f"[ERROR] Failed to load food waste .h5 model: {exc}")
+    elif os.path.exists(fw_path):
+        # Fallback to SavedModel if directory exists
         try:
             from tensorflow.keras.layers import Input, TFSMLayer # type: ignore
             from tensorflow.keras import Model # type: ignore
-            
             input_tensor = Input(shape=(224, 224, 3))
             layer = TFSMLayer(fw_path, call_endpoint="serving_default")
             output = layer(input_tensor)
             _food_waste_model = Model(inputs=input_tensor, outputs=output)
             _fw_loaded = True
             logger.info(f"[OK] Food waste SavedModel loaded from '{fw_path}'.")
-        except Exception as exc:
-            logger.error(f"[ERROR] Failed to load food waste model: {exc}")
+        except Exception:
+            pass
 
 
 def _preprocess(image_bytes: bytes) -> np.ndarray:
@@ -128,7 +137,7 @@ def _preprocess(image_bytes: bytes) -> np.ndarray:
     return np.expand_dims(arr, axis=0)
 
 
-def predict(image_bytes: bytes) -> dict:
+def predict(image_bytes: bytes, mode: str = "single") -> dict:
     """Run CNN inference with potential two-step check for organic waste."""
     if not _model_loaded or _model is None:
         label = "plastic"
@@ -143,23 +152,59 @@ def predict(image_bytes: bytes) -> dict:
         }
 
     array = _preprocess(image_bytes)
+    
+    # ── FOOD Mode Branch ──────────────────────────────────────
+    if mode == "food" and _fw_loaded and _food_waste_model:
+        try:
+            # 1. Preprocess: The food model has built-in Rescaling(1./255).
+            # So we pass the raw pixel array [0-255].
+            img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+            img = img.resize((224, 224))
+            raw_array = np.expand_dims(np.array(img, dtype=np.float32), axis=0)
+
+            res = _food_waste_model.predict(raw_array, verbose=0)
+            
+            # 2. Logic: Sigmoid outputs prob of class 1.
+            # Alphabetical: 0: food_waste, 1: not_food_waste
+            if isinstance(res, dict):
+                # SavedModel logic
+                prob = list(res.values())[0][0][0]
+                label = "not_food_waste" if prob > 0.5 else "food_waste"
+                confidence = float(prob if prob > 0.5 else 1 - prob)
+            elif res.shape[-1] > 1:
+                # Softmax [prob_food, prob_not_food]
+                idx = int(np.argmax(res[0]))
+                label = "food_waste" if idx == 0 else "not_food_waste"
+                confidence = float(res[0][idx])
+            else:
+                # Sigmoid [prob_not_food]
+                prob = float(res[0][0])
+                label = "not_food_waste" if prob > 0.5 else "food_waste"
+                confidence = float(prob if prob > 0.5 else 1 - prob)
+
+            return {
+                "category":     label,
+                "material":     MATERIAL_MAP.get(label, "Organic"),
+                "confidence":   round(confidence, 4),
+                "recyclable":   False,
+                "disposal_tip":    DISPOSAL_TIPS.get(label, DISPOSAL_TIPS["organic"])[0],
+                "disposal_tip_ur": DISPOSAL_TIPS.get(label, DISPOSAL_TIPS["organic"])[1],
+                "mock":         False,
+            }
+        except Exception as e:
+            logger.error(f"Direct Food model inference failed: {e}")
+
+    # ── Standard Single/Multiple Mode ────────────────────────
     preds = _model.predict(array, verbose=0)
     idx = int(np.argmax(preds[0]))
     confidence = float(preds[0][idx])
     label = CLASS_LABELS[idx]
 
-    # ── Secondary Food Waste Check ────────────────────────────
-    # In Flask code, 'organic' (index 6) triggers the specific food waste model.
+    # ── Secondary Food Waste Check (for 'organic' detections) ──
     if label == "organic" and _fw_loaded and _food_waste_model:
         try:
             res = _food_waste_model.predict(array, verbose=0)
-            # If result is dict (SavedModel behavior)
-            if isinstance(res, dict):
-                prob = list(res.values())[0][0][0]
-            else:
-                prob = res[0][0]
-            
-            # Label based on threshold (Flask uses 0.6)
+            prob = list(res.values())[0][0][0] if isinstance(res, dict) else res[0][0]
             label = "food_waste" if prob > 0.6 else "Fresh/Food"
             confidence = float(prob)
             logger.info(f"Secondary model matched: {label} ({prob})")

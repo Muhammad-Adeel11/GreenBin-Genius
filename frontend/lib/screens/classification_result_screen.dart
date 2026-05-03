@@ -167,18 +167,57 @@ class _ClassificationResultScreenState extends State<ClassificationResultScreen>
               ]
               else if (_result != null) ...[
                 
-                // ── Info Section (Stepper Style from Screenshot)
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: R.w(context, 4)),
-                  child: Column(
-                    children: [
-                      _buildInfoRow(context, "Category", _result!.category, true, false),
-                      _buildInfoRow(context, "Object", _result!.objectDetected, false, false),
-                      _buildInfoRow(context, "Material", _result!.material, false, false),
-                      _buildInfoRow(context, "Confidence", "${(_result!.confidence * 100).toStringAsFixed(0)}%", false, true),
-                    ],
+                // ── Info Section (Dynamic based on Mode) ──
+                if (widget.mode == "multiple") ...[
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: R.w(context, 4)),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "DETECTIONS (${_result!.detections.length})",
+                          style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.black54, fontSize: 11, letterSpacing: 1.0),
+                        ),
+                        const SizedBox(height: 12),
+                        ..._result!.detections.asMap().entries.map((entry) {
+                          int idx = entry.key;
+                          var det = entry.value;
+                          return _buildInfoRow(
+                            context, 
+                            det.label, 
+                            "${(det.confidence * 100).toStringAsFixed(0)}%", 
+                            idx == 0, 
+                            idx == _result!.detections.length - 1
+                          );
+                        }),
+                      ],
+                    ),
                   ),
-                ),
+                ]
+                else if (widget.mode == "food") ...[
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: R.w(context, 4)),
+                    child: Column(
+                      children: [
+                        _buildInfoRow(context, "Food Status", _result!.category.replaceAll('_', ' ').toUpperCase(), true, false),
+                        _buildInfoRow(context, "Confidence", "${(_result!.confidence * 100).toStringAsFixed(0)}%", false, true),
+                      ],
+                    ),
+                  ),
+                ]
+                else ...[
+                  // Single Mode
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: R.w(context, 4)),
+                    child: Column(
+                      children: [
+                        _buildInfoRow(context, "Class", _result!.category.toUpperCase(), true, false),
+                        _buildInfoRow(context, "Material", _result!.material, false, false),
+                        _buildInfoRow(context, "Confidence", "${(_result!.confidence * 100).toStringAsFixed(0)}%", false, true),
+                      ],
+                    ),
+                  ),
+                ],
 
                 SizedBox(height: sp * 3),
 

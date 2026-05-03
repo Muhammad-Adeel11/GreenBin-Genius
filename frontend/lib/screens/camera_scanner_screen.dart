@@ -604,9 +604,9 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
                   ),
                 ),
 
-                // ── Mode Selector (Single vs Multiple) ──
+                // ── Mode Selector (Single / Multiple / Food) ──
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 40),
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(30),
                     child: BackdropFilter(
@@ -621,48 +621,9 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
                         ),
                         child: Row(
                           children: [
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: () => setState(() => _scanMode = "single"),
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: _scanMode == "single" ? const Color(0xFF2196F3) : Colors.transparent,
-                                    borderRadius: BorderRadius.circular(25),
-                                  ),
-                                  alignment: Alignment.center,
-                                  child: Text(
-                                    "SINGLE",
-                                    style: TextStyle(
-                                      color: _scanMode == "single" ? Colors.black : Colors.white70,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w900,
-                                      letterSpacing: 1,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: () => setState(() => _scanMode = "multiple"),
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: _scanMode == "multiple" ? const Color(0xFF2196F3) : Colors.transparent,
-                                    borderRadius: BorderRadius.circular(25),
-                                  ),
-                                  alignment: Alignment.center,
-                                  child: Text(
-                                    "MULTIPLE",
-                                    style: TextStyle(
-                                      color: _scanMode == "multiple" ? Colors.black : Colors.white70,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w900,
-                                      letterSpacing: 1,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
+                            _buildModeTab("SINGLE", "single"),
+                            _buildModeTab("MULTIPLE", "multiple"),
+                            _buildModeTab("FOOD", "food"),
                           ],
                         ),
                       ),
@@ -956,6 +917,31 @@ Widget _buildPreviewOverlay() {
             style: const TextStyle(color: Colors.white70, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 0.5),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildModeTab(String label, String mode) {
+    bool isActive = _scanMode == mode;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _scanMode = mode),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isActive ? const Color(0xFF2196F3) : Colors.transparent,
+            borderRadius: BorderRadius.circular(25),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: TextStyle(
+              color: isActive ? Colors.black : Colors.white70,
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ),
       ),
     );
   }
