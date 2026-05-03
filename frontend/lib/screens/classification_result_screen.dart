@@ -7,9 +7,16 @@ import 'bin_locator_screen.dart';
 class ClassificationResultScreen extends StatefulWidget {
   final File? imageFile;
   final String? imageUrl;
+  final String mode; // "single" or "multiple"
   final ClassificationResult? preloadedResult;
 
-  const ClassificationResultScreen({super.key, this.imageFile, this.imageUrl, this.preloadedResult});
+  const ClassificationResultScreen({
+    super.key, 
+    this.imageFile, 
+    this.imageUrl, 
+    this.mode = "single", 
+    this.preloadedResult
+  });
 
   @override
   State<ClassificationResultScreen> createState() => _ClassificationResultScreenState();
@@ -55,7 +62,7 @@ class _ClassificationResultScreenState extends State<ClassificationResultScreen>
         });
       }
 
-      final result = await ApiService.instance.classifyImage(widget.imageFile!);
+      final result = await ApiService.instance.classifyImage(widget.imageFile!, mode: widget.mode);
       if (mounted) {
         setState(() {
           _result = result;

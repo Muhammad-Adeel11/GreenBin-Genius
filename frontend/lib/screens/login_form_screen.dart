@@ -159,12 +159,12 @@ class _LoginFormScreenState extends State<LoginFormScreen> {
         ),
         const SizedBox(height: 16),
         Text(
-          'GREENBIN GENIUS',
+          'GreenBin',
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.w900,
-            fontSize: R.fs(context, 26),
-            letterSpacing: 2,
+            fontSize: R.fs(context, 32),
+            letterSpacing: 1,
           ),
         ),
         Text(

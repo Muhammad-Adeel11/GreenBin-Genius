@@ -18,11 +18,13 @@ async def verify_classification_with_gemini(image_bytes: bytes) -> Optional[Dict
         return None
 
     try:
-        # Prompt to ensure we get a category compatible with our system
+        # Prompt to ensure we get a category strictly compatible with our 6 core classes
         prompt = (
-            "Classify this waste item. Return ONLY the category name from this list: "
-            "plastic, metal, paper, glass, organic, e-waste, cardboard, textile, wood, other. "
-            "If it is recyclable, also mention that. Return format: category: <name>, recyclable: <true/false>"
+            "Identify the object in this image and determine which material it is primarily made of. "
+            "You MUST classify it into exactly ONE of these categories: "
+            "e-waste, glass, metal, plastic, textile, wood. "
+            "Return ONLY the category name and if it is recyclable. "
+            "Return format: category: <name>, recyclable: <true/false>"
         )
 
         headers = {
@@ -68,9 +70,10 @@ async def verify_classification_with_gemini(image_bytes: bytes) -> Optional[Dict
 def _parse_gemini_response(text: str) -> Optional[Dict]:
     """Helper to extract category and recyclability from Gemini's text response."""
     text = text.lower()
-    categories = ['plastic', 'metal', 'paper', 'glass', 'organic', 'e-waste', 'cardboard', 'textile', 'wood']
+    # Updated to match exactly the requested 6 core classes
+    categories = ['e-waste', 'glass', 'metal', 'plastic', 'textile', 'wood']
     
-    found_category = "other"
+    found_category = "plastic" # Default fallback
     for cat in categories:
         if cat in text:
             found_category = cat

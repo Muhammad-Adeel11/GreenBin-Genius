@@ -27,6 +27,7 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
   int _cameraIndex = 0;
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
+  String _scanMode = "single"; // "single" or "multiple"
 
   @override
   void initState() {
@@ -211,6 +212,7 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
         MaterialPageRoute(
           builder: (context) => ClassificationResultScreen(
             imageFile: _capturedImage!,
+            mode: _scanMode,
           ),
         ),
       );
@@ -602,7 +604,73 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
                   ),
                 ),
 
-                const SizedBox(height: 16), // tighter gap
+                // ── Mode Selector (Single vs Multiple) ──
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 40),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(30),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                      child: Container(
+                        height: 50,
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(30),
+                          border: Border.all(color: Colors.white.withOpacity(0.1)),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () => setState(() => _scanMode = "single"),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: _scanMode == "single" ? const Color(0xFF2196F3) : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(25),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    "SINGLE",
+                                    style: TextStyle(
+                                      color: _scanMode == "single" ? Colors.black : Colors.white70,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 1,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () => setState(() => _scanMode = "multiple"),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: _scanMode == "multiple" ? const Color(0xFF2196F3) : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(25),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    "MULTIPLE",
+                                    style: TextStyle(
+                                      color: _scanMode == "multiple" ? Colors.black : Colors.white70,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 1,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
 
                   // ── Bottom Control Row ──
                   Padding(

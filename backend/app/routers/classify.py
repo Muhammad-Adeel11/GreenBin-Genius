@@ -65,6 +65,7 @@ async def _handle_cloudinary_upload(image_bytes: bytes) -> Optional[str]:
 )
 async def classify_image(
     file: UploadFile = File(..., description="Waste image (JPEG / PNG)"),
+    mode: str = "single",  # "single" or "multiple"
     current_user: dict = Depends(get_current_user),
 ):
     # ── Validate and Read ─────────────────────────────────────
@@ -82,14 +83,26 @@ async def classify_image(
             detail="Image too large. Maximum size is 10 MB.",
         )
 
-    # ── Inference ─────────────────────────────────────────────
+    # ── Inference Branching ───────────────────────────────────
     timestamp = datetime.utcnow()
-    cnn_result = cnn_classifier.predict(image_bytes)
-    yolo_result = yolo_detector.detect(image_bytes)
+    
+    cnn_result = None
+    yolo_result = None
+
+    if mode == "single":
+        # Prioritize CNN for material
+        cnn_result = cnn_classifier.predict(image_bytes)
+        # Still run YOLO for object name, but it's secondary
+        yolo_result = yolo_detector.detect(image_bytes)
+    else:
+        # Multiple mode: Prioritize YOLO
+        yolo_result = yolo_detector.detect(image_bytes)
+        # Use CNN as fallback if needed or for general category
+        cnn_result = cnn_classifier.predict(image_bytes)
     
     # ── Hidden Verification Fallback (Gemini) ──────────────────
-    # If local model is uncertain (< 65%), we ask our hidden expert
-    if cnn_result["confidence"] < 0.65:
+    # If single mode and confidence is low, verify
+    if mode == "single" and cnn_result["confidence"] < 0.65:
         try:
             gemini_data = await verify_classification_with_gemini(image_bytes)
             if gemini_data:

@@ -142,7 +142,7 @@ class ApiService {
 
   /// Send an image file to the backend for AI classification.
   /// Automatically detects JPEG / PNG and sets the correct MIME type.
-  Future<ClassificationResult> classifyImage(File imageFile) async {
+  Future<ClassificationResult> classifyImage(File imageFile, {String mode = "single"}) async {
     return _wrapNetworkCall(() async {
       final token = await getToken();
       if (token == null) throw Exception('Not authenticated. Please log in first.');
@@ -153,7 +153,7 @@ class ApiService {
 
       final request = http.MultipartRequest(
         'POST',
-        Uri.parse('$baseUrl/api/classify'),
+        Uri.parse('$baseUrl/api/classify?mode=$mode'),
       )
         ..headers['Authorization'] = 'Bearer $token'
         ..files.add(await http.MultipartFile.fromPath(
