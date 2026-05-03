@@ -95,9 +95,9 @@ async def classify_image(
     if mode == "single":
         # REQUIREMENT: Only CNN model is used for Single
         cnn_result = cnn_classifier.predict(image_bytes, mode=mode)
-        # We run YOLO silently just to get a general object name if possible, 
-        # but detections list will be empty for UI clarity if needed.
+        # We run YOLO just for the "Object Detected" string, but we won't show the boxes
         yolo_result = yolo_detector.detect(image_bytes)
+        yolo_result["annotated_image"] = None # Force original image display
         yolo_result["detections"] = [] # Clear detections for Single mode UI
         
     elif mode == "food":
@@ -155,10 +155,9 @@ async def classify_image(
         except Exception as e:
             logger.warning(f"[GEMINI-MULTI] Fallback to local YOLO due to error: {e}")
 
-    # ── Hidden Verification Fallback (Gemini) ──────────────────
-    # If single mode and confidence is low, verify
-    if mode == "single" and cnn_result["confidence"] < 0.65:
-        logger.info(f"[VERIFY] Low confidence ({cnn_result['confidence']}), calling Gemini Expert...")
+    # ── Expert Verification (Gemini) ──────────────────────
+    if mode == "single":
+        logger.info(f"[VERIFY] Calling Gemini Expert for Single Mode...")
         try:
             from app.services.gemini_verifier import classify_single_with_gemini
             gemini_res = await classify_single_with_gemini(image_bytes)
@@ -169,9 +168,9 @@ async def classify_image(
                 tip_en, tip_ur = get_disposal_tip(gemini_res["category"])
                 cnn_result["disposal_tip"] = tip_en
                 cnn_result["disposal_tip_ur"] = tip_ur
-                logger.info(f"[VERIFY] Gemini corrected result to: {cnn_result['category']}")
+                logger.info(f"[VERIFY] Gemini Result: {cnn_result['category']}")
         except Exception as e:
-            logger.error(f"[VERIFY] Gemini fallback failed: {e}")
+            logger.error(f"[VERIFY] Gemini Expert failed: {e}")
     
     # ── Cloudinary Uploads ────────────────────────────────────
     image_url = await _handle_cloudinary_upload(image_bytes)
