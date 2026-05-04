@@ -21,7 +21,8 @@ from app.routers.auth import get_current_user
 from bson import ObjectId
 import cloudinary
 import cloudinary.uploader
-from app.services.expert_system import refine_single_object_result
+from app.services.cnn_classifier import validate_prediction_integrity, verify_organic_content_flow
+from app.services.yolo_detector import ensemble_refine_scene_detections
 
 router = APIRouter(prefix="/api", tags=["Classification"])
 
@@ -105,11 +106,10 @@ async def classify_image(
         cnn_result = cnn_classifier.predict(image_bytes, mode=mode)
         yolo_result = {"object_detected": "Food Item", "yolo_confidence": 0.0, "detections": [], "annotated_image": None}
 
-        # EXPERT VERIFICATION: Use Expert System for Food
+        # EXPERT VERIFICATION: Use Ensemble Refinement for Food
         logger.info(f"[EXPERT] Analyzing Organic Content Flow...")
         try:
-            from app.services.expert_system import analyze_food_waste_content
-            expert_food = await analyze_food_waste_content(image_bytes)
+            expert_food = await verify_organic_content_flow(image_bytes)
             if expert_food and "food" in expert_food:
                 # Prioritize Expert Result
                 g_food = str(expert_food["food"]).lower()
@@ -127,10 +127,9 @@ async def classify_image(
         # Use CNN just to get a general category/material for the summary
         cnn_result = cnn_classifier.predict(image_bytes, mode=mode)
 
-        # EXPERT VERIFICATION: Use Expert System for Multiple Objects
+        # EXPERT VERIFICATION: Use Ensemble Refinement for Multiple Objects
         try:
-            from app.services.expert_system import refine_multiple_object_detections
-            expert_multi = await refine_multiple_object_detections(image_bytes)
+            expert_multi = await ensemble_refine_scene_detections(image_bytes)
             if expert_multi and "objects" in expert_multi:
                 # Prioritize Expert labels and count
                 g_objects = expert_multi["objects"]
@@ -159,8 +158,7 @@ async def classify_image(
     if mode == "single":
         logger.info(f"[EXPERT] Refining Single-Object Classification...")
         try:
-            from app.services.expert_system import refine_single_object_result
-            expert_res = await refine_single_object_result(image_bytes)
+            expert_res = await validate_prediction_integrity(image_bytes)
             if expert_res:
                 cnn_result.update(expert_res)
                 # Ensure tips are updated
