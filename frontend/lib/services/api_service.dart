@@ -11,9 +11,12 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';  // for MediaType
 
 // ─────────────────────────────────────────────────────────────
-// Base URL – Hugging Face Space (production)
+// Base URL Configuration
 // ─────────────────────────────────────────────────────────────
-const String _kBaseUrl = 'https://rg2323-greenbin-backend.hf.space';
+// Production: Hugging Face Space
+// Development: Localhost (10.0.2.2 for Android Emulator, localhost for iOS/Web)
+const String _kProdUrl = 'https://rg2323-greenbin-backend.hf.space';
+const String _kLocalUrl = kIsWeb ? 'http://localhost:8000' : 'http://10.0.2.2:8000';
 
 class ApiService {
   ApiService._();
@@ -22,8 +25,8 @@ class ApiService {
   final _storage = const FlutterSecureStorage();
   final _client = http.Client();
 
-  // ── Base URL (can be overridden at runtime) ─────────────────
-  static String baseUrl = _kBaseUrl;
+  // Automatically switch URL based on build mode
+  static String baseUrl = kDebugMode ? _kLocalUrl : _kProdUrl;
 
   // ── Token helpers ───────────────────────────────────────────
 
