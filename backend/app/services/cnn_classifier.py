@@ -125,12 +125,12 @@ def _preprocess(image_bytes: bytes) -> np.ndarray:
 def predict(image_bytes: bytes, mode: str = "single") -> dict:
     """Run CNN inference with potential two-step check for organic waste."""
     if not _model_loaded or _model is None:
-        label = "plastic"
+        label = "Scanning..."
         return {
             "category":     label,
             "material":     MATERIAL_MAP[label],
-            "confidence":   0.91,
-            "recyclable":   label in RECYCLABLE_CATEGORIES,
+            "confidence":   0.0,
+            "recyclable":   False,
             "disposal_tip":    DISPOSAL_TIPS[label][0],
             "disposal_tip_ur": DISPOSAL_TIPS[label][1],
             "mock":         True,
