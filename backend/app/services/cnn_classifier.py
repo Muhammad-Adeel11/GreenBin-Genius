@@ -62,8 +62,11 @@ MATERIAL_MAP = {
     "wood":           "Wood",
     "food_waste":     "Organic",
     "not_food_waste": "Mixed",
-    "Scanning...":    "Scanning...",
+    "Unknown":        "Unknown",
 }
+
+# ── Base Directory ───────────────────────────────────────────
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # ── Singleton model state ────────────────────────────────────
 _model = None
@@ -79,6 +82,14 @@ def load_model_on_startup():
     primary_path = os.getenv("CNN_MODEL_PATH", "ml/trashbox_cnn_model.h5")
     fw_h5_path = os.getenv("FOOD_WASTE_MODEL_H5", "ml/food_waste_model.h5")
     fw_path = os.getenv("FOOD_WASTE_MODEL_PATH", "ml/food_waste_savedmodel")
+
+    # Resolve absolute paths
+    if not os.path.isabs(primary_path):
+        primary_path = os.path.join(BASE_DIR, primary_path)
+    if not os.path.isabs(fw_h5_path):
+        fw_h5_path = os.path.join(BASE_DIR, fw_h5_path)
+    if not os.path.isabs(fw_path):
+        fw_path = os.path.join(BASE_DIR, fw_path)
 
     # Load Primary .h5 Model
     if os.path.exists(primary_path):
@@ -99,8 +110,9 @@ def load_model_on_startup():
             logger.info(f"[OK] Food waste model loaded from '{fw_h5_path}'.")
         except Exception as exc:
             logger.error(f"[ERROR] Failed to load food waste .h5 model: {exc}")
-    elif os.path.exists(fw_path):
-        # Fallback to SavedModel if directory exists
+    
+    # Fallback to SavedModel if .h5 is missing or failed to load
+    if not _fw_loaded and os.path.exists(fw_path):
         try:
             from tensorflow.keras.layers import Input, TFSMLayer # type: ignore
             from tensorflow.keras import Model # type: ignore
@@ -110,8 +122,8 @@ def load_model_on_startup():
             _food_waste_model = Model(inputs=input_tensor, outputs=output)
             _fw_loaded = True
             logger.info(f"[OK] Food waste SavedModel loaded from '{fw_path}'.")
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.error(f"[ERROR] Failed to load food waste SavedModel: {exc}")
 
 
 def _preprocess(image_bytes: bytes) -> np.ndarray:
@@ -125,12 +137,16 @@ def _preprocess(image_bytes: bytes) -> np.ndarray:
 def predict(image_bytes: bytes, mode: str = "single") -> dict:
     """Run CNN inference with potential two-step check for organic waste."""
     if not _model_loaded or _model is None:
-        label = "Scanning..."
+        logger.warning("[CNN] Model not loaded, attempting Just-In-Time load...")
+        load_model_on_startup()
+        
+    if not _model_loaded or _model is None:
+        label = "plastic"  # Fallback to a valid category instead of Scanning
         return {
             "category":     label,
             "material":     MATERIAL_MAP[label],
             "confidence":   0.0,
-            "recyclable":   False,
+            "recyclable":   label in RECYCLABLE_CATEGORIES,
             "disposal_tip":    DISPOSAL_TIPS[label][0],
             "disposal_tip_ur": DISPOSAL_TIPS[label][1],
             "mock":         True,
@@ -181,13 +197,14 @@ def predict(image_bytes: bytes, mode: str = "single") -> dict:
                 logger.error(f"Direct Food model inference failed: {e}")
         
         # If local model is missing or failed, return a temporary state for Expert System to fill
+        label = "not_food_waste"
         return {
-            "category":     "Scanning...",
-            "material":     "Scanning...",
+            "category":     label,
+            "material":     MATERIAL_MAP.get(label, "Mixed"),
             "confidence":   0.0,
             "recyclable":   False,
-            "disposal_tip":    "Refining results with expert system...",
-            "disposal_tip_ur": "تصدیق کا انتظار کریں...",
+            "disposal_tip":    DISPOSAL_TIPS.get(label, DISPOSAL_TIPS["not_food_waste"])[0],
+            "disposal_tip_ur": DISPOSAL_TIPS.get(label, DISPOSAL_TIPS["not_food_waste"])[1],
             "mock":         True,
         }
 
