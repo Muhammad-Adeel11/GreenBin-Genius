@@ -731,6 +731,17 @@ class _ActivityTabState extends State<ActivityTab> {
         final item = _history[index];
         final isSelected = _selectedIndices.contains(index);
         final bool isRecyclable = item['recyclable'] == true;
+        final String mode = item['mode'] ?? (() {
+          final category = item['category'] ?? '';
+          if (category == 'food_waste' || category == 'not_food_waste') {
+            return 'food';
+          } else if ((item['yolo_confidence'] as num?) != null && (item['yolo_confidence'] as num)! > 0.0) {
+            return 'multiple';
+          } else if (item['detections'] is List && (item['detections'] as List).isNotEmpty) {
+            return 'multiple';
+          }
+          return 'single';
+        })();
         
         return GestureDetector(
           onTap: () {
@@ -738,24 +749,13 @@ class _ActivityTabState extends State<ActivityTab> {
               _toggleSelection(index);
             } else {
               // Parse to ClassificationResult
-              final resultObj = ClassificationResult(
-                category: item['category'] ?? 'Unknown',
-                objectDetected: item['object_detected'] ?? 'Unknown',
-                material: item['material'] ?? 'Unknown',
-                confidence: (item['confidence'] as num?)?.toDouble() ?? 0.0,
-                cnnConfidence: (item['cnn_confidence'] as num?)?.toDouble() ?? (item['confidence'] as num?)?.toDouble() ?? 0.0,
-                yoloConfidence: (item['yolo_confidence'] as num?)?.toDouble() ?? 0.0,
-                disposalTip: item['disposal_tip'] ?? '',
-                disposalTipUr: item['disposal_tip_ur'] ?? '',
-                recyclable: isRecyclable,
-                imageUrl: item['image_url'],
-                timestamp: item['timestamp'] != null ? DateTime.parse(item['timestamp']) : DateTime.now(),
-              );
+              final resultObj = ClassificationResult.fromJson(Map<String, dynamic>.from(item));
               
               Navigator.push(context, MaterialPageRoute(
                 builder: (_) => ClassificationResultScreen(
                   preloadedResult: resultObj,
                   imageUrl: item['image_url'],
+                  mode: resultObj.mode,
                 )
               ));
             }
@@ -797,9 +797,10 @@ class _ActivityTabState extends State<ActivityTab> {
                       const SizedBox(height: 6),
                       Row(
                         children: [
-                          _buildMiniConfBadge("CNN", (item['cnn_confidence'] as num?)?.toDouble() ?? 0.0),
-                          const SizedBox(width: 8),
-                          _buildMiniConfBadge("YOLO", (item['yolo_confidence'] as num?)?.toDouble() ?? 0.0),
+                          if (mode == 'single' || mode == 'food')
+                            _buildMiniConfBadge("CNN", (item['cnn_confidence'] as num?)?.toDouble() ?? (item['confidence'] as num?)?.toDouble() ?? 0.0),
+                          if (mode == 'multiple')
+                            _buildMiniConfBadge("YOLO", (item['yolo_confidence'] as num?)?.toDouble() ?? 0.0),
                         ],
                       ),
                       const SizedBox(height: 6),

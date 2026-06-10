@@ -108,6 +108,7 @@ class ClassificationHistoryEntry(BaseModel):
     disposal_tip: str
     image_url: Optional[str] = None
     annotated_image_url: Optional[str] = None
+    mode: Optional[str] = "single"
     timestamp: datetime
 
 

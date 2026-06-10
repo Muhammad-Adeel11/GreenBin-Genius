@@ -268,6 +268,7 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
           ..clear()
           ..addAll(bins);
       });
+      _buildMarkers();
     }
   }
 
