@@ -183,3 +183,68 @@ class ErrorResponse(BaseModel):
     success: bool = False
     error: str
     detail: Optional[str] = None
+
+
+# ──────────────────────────────────────────────
+# Eco-Tips Schemas
+# ──────────────────────────────────────────────
+
+class EcoTipCreate(BaseModel):
+    waste_category: str = Field(..., example="PLASTIC")
+    tip_english:    str = Field(..., example="Rinse and place in the blue recycling bin.")
+    tip_urdu:       str = Field(..., example="صاف کریں اور نیلے ڈبے میں ڈالیں۔")
+    bin_color:      Optional[str] = Field(default="Black", example="Blue")
+    icon:           Optional[str] = Field(default="♻️", example="🧴")
+    steps:          Optional[List[str]] = Field(default_factory=list)
+    steps_ur:       Optional[List[str]] = Field(default_factory=list)
+    do_list:        Optional[List[str]] = Field(default_factory=list)
+    dont_list:      Optional[List[str]] = Field(default_factory=list)
+    is_active:      Optional[bool] = Field(default=True)
+
+
+class EcoTipUpdate(BaseModel):
+    waste_category: Optional[str] = None
+    tip_english:    Optional[str] = None
+    tip_urdu:       Optional[str] = None
+    bin_color:      Optional[str] = None
+    icon:           Optional[str] = None
+    steps:          Optional[List[str]] = None
+    steps_ur:       Optional[List[str]] = None
+    do_list:        Optional[List[str]] = None
+    dont_list:      Optional[List[str]] = None
+    is_active:      Optional[bool] = None
+
+
+class EcoTipResponse(BaseModel):
+    id:             str
+    waste_category: str
+    tip_english:    str
+    tip_urdu:       str
+    bin_color:      Optional[str] = "Black"
+    icon:           Optional[str] = "♻️"
+    steps:          List[str] = []
+    steps_ur:       List[str] = []
+    do_list:        List[str] = []
+    dont_list:      List[str] = []
+    is_active:      bool = True
+    created_at:     Optional[datetime] = None
+    updated_at:     Optional[datetime] = None
+
+
+class EcoTipListResponse(BaseModel):
+    total: int
+    data:  List[EcoTipResponse]
+
+
+class EcoTipFeedbackRequest(BaseModel):
+    classification_id:  str = Field(..., example="665a1b2c3d4e5f6789012345")
+    corrected_category: str = Field(..., example="metal")
+
+
+class EcoTipFeedbackResponse(BaseModel):
+    success:            bool
+    message:            str
+    points_awarded:     int
+    total_points:       int
+    corrected_category: str
+    updated_guidance:   Optional[dict] = None

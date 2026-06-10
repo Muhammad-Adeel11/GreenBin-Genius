@@ -206,6 +206,38 @@ class ApiService {
     });
   }
 
+  /// Submit a category correction for a classification.
+  /// Returns the full live disposal guidance for the corrected category.
+  Future<Map<String, dynamic>> submitFeedback({
+    required String classificationId,
+    required String correctedCategory,
+  }) async {
+    return _wrapNetworkCall(() async {
+      final res = await _client.post(
+        Uri.parse('$baseUrl/api/tips/feedback'),
+        headers: await _authHeaders(),
+        body: jsonEncode({
+          'classification_id':  classificationId,
+          'corrected_category': correctedCategory,
+        }),
+      );
+      if (res.statusCode == 200) return jsonDecode(res.body) as Map<String, dynamic>;
+      throw _handleError(res);
+    });
+  }
+
+  /// Fetch full disposal guidance for a category from the server (live DB).
+  Future<Map<String, dynamic>> getDisposalGuidance(String category) async {
+    return _wrapNetworkCall(() async {
+      final res = await _client.get(
+        Uri.parse('$baseUrl/api/tips/category/$category'),
+        headers: await _authHeaders(),
+      );
+      if (res.statusCode == 200) return jsonDecode(res.body) as Map<String, dynamic>;
+      throw _handleError(res);
+    });
+  }
+
   // ═══════════════════════════════════════════════════════════
   // BINS
   // ═══════════════════════════════════════════════════════════

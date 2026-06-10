@@ -37,11 +37,14 @@ export const userApi = {
 
 export const tipsApi = {
   getAll:       (params)          => api.get('/tips', { params }),
-  getByCategory:(cat, params)     => api.get(`/tips/category/${cat}`, { params }),
+  getByCategory:(cat)             => api.get(`/tips/category/${cat}`),
   getDisposal:  (cat, lang)       => api.get(`/tips/disposal/${cat}`, { params: { language: lang } }),
   create:       (data)            => api.post('/tips', data),
   update:       (id, data)        => api.put(`/tips/${id}`, data),
   delete:       (id)              => api.delete(`/tips/${id}`),
+  seed:         ()                => api.post('/tips/seed'),
+  submitFeedback: (classificationId, correctedCategory) =>
+    api.post('/tips/feedback', { classification_id: classificationId, corrected_category: correctedCategory }),
 }
 
 export const binsApi = {

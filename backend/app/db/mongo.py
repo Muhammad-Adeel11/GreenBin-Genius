@@ -45,6 +45,10 @@ def analytics_col():
     return get_db()["analytics"]
 
 
+def eco_tips_col():
+    return get_db()["eco_tips"]
+
+
 async def ping():
     """Check connectivity – called at startup."""
     try:
