@@ -227,6 +227,7 @@ async def classify_image(
         "disposal_tip":   result.disposal_tip,
         "image_url":      image_url,
         "annotated_image_url": annotated_image_url,
+        "mode":           mode,
         "timestamp":      timestamp,
         "filename":       file.filename,
     })

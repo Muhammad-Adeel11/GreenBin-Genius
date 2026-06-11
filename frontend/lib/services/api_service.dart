@@ -16,17 +16,20 @@ import 'package:http_parser/http_parser.dart';  // for MediaType
 // Production: Hugging Face Space
 // Development: Localhost (10.0.2.2 for Android Emulator, localhost for iOS/Web)
 const String _kProdUrl = 'https://rg2323-greenbin-backend.hf.space';
-const String _kLocalUrl = kIsWeb ? 'http://localhost:8000' : 'http://10.0.2.2:8000';
+// Use your PC's IP address (192.168.1.36) so the physical Android device can reach it
+const String _kLocalUrl = kIsWeb ? 'http://localhost:8000' : 'http://192.168.1.36:8000';
 
 class ApiService {
   ApiService._();
   static final ApiService instance = ApiService._();
-
+ 
   final _storage = const FlutterSecureStorage();
   final _client = http.Client();
 
   // Automatically switch URL based on build mode
-  static String baseUrl = kDebugMode ? _kLocalUrl : _kProdUrl;
+  static String baseUrl = _kProdUrl;   //  kDebugMode ? _kLocalUrl : _kProdUrl;
+  
+
 
   // ── Token helpers ───────────────────────────────────────────
 
@@ -203,6 +206,38 @@ class ApiService {
     });
   }
 
+  /// Submit a category correction for a classification.
+  /// Returns the full live disposal guidance for the corrected category.
+  Future<Map<String, dynamic>> submitFeedback({
+    required String classificationId,
+    required String correctedCategory,
+  }) async {
+    return _wrapNetworkCall(() async {
+      final res = await _client.post(
+        Uri.parse('$baseUrl/api/tips/feedback'),
+        headers: await _authHeaders(),
+        body: jsonEncode({
+          'classification_id':  classificationId,
+          'corrected_category': correctedCategory,
+        }),
+      );
+      if (res.statusCode == 200) return jsonDecode(res.body) as Map<String, dynamic>;
+      throw _handleError(res);
+    });
+  }
+
+  /// Fetch full disposal guidance for a category from the server (live DB).
+  Future<Map<String, dynamic>> getDisposalGuidance(String category) async {
+    return _wrapNetworkCall(() async {
+      final res = await _client.get(
+        Uri.parse('$baseUrl/api/tips/category/$category'),
+        headers: await _authHeaders(),
+      );
+      if (res.statusCode == 200) return jsonDecode(res.body) as Map<String, dynamic>;
+      throw _handleError(res);
+    });
+  }
+
   // ═══════════════════════════════════════════════════════════
   // BINS
   // ═══════════════════════════════════════════════════════════
@@ -279,6 +314,34 @@ class ApiService {
     });
   }
 
+  Future<List<dynamic>> getFAQs() async {
+    return _wrapNetworkCall(() async {
+      final res = await _client.get(
+        Uri.parse('$baseUrl/api/faqs?limit=100'),
+        headers: await _authHeaders(),
+      );
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        return body['data'] as List<dynamic>;
+      }
+      throw _handleError(res);
+    });
+  }
+
+  Future<List<dynamic>> getResources() async {
+    return _wrapNetworkCall(() async {
+      final res = await _client.get(
+        Uri.parse('$baseUrl/api/resources?limit=100'),
+        headers: await _authHeaders(),
+      );
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        return body['data'] as List<dynamic>;
+      }
+      throw _handleError(res);
+    });
+  }
+
   // ═══════════════════════════════════════════════════════════
   // HEALTH CHECK
   // ═══════════════════════════════════════════════════════════
@@ -323,6 +386,7 @@ class YOLODetection {
 }
 
 class ClassificationResult {
+  final String mode;
   final String category;
   final String objectDetected;
   final String material;
@@ -341,6 +405,7 @@ class ClassificationResult {
   final DateTime timestamp;
 
   const ClassificationResult({
+    this.mode = 'single',
     required this.category,
     required this.objectDetected,
     required this.material,
@@ -360,7 +425,20 @@ class ClassificationResult {
   });
 
   factory ClassificationResult.fromJson(Map<String, dynamic> json) {
+    String deducedMode = json['mode'] ?? 'single';
+    if (json['mode'] == null) {
+      final category = json['category'] ?? '';
+      if (category == 'food_waste' || category == 'not_food_waste') {
+        deducedMode = 'food';
+      } else if ((json['yolo_confidence'] as num?) != null && (json['yolo_confidence'] as num)! > 0.0) {
+        deducedMode = 'multiple';
+      } else if (json['detections'] is List && (json['detections'] as List).isNotEmpty) {
+        deducedMode = 'multiple';
+      }
+    }
+
     return ClassificationResult(
+      mode: deducedMode,
       category: json['category'] ?? 'Unknown',
       objectDetected: json['object_detected'] ?? 'Unknown',
       material: json['material'] ?? 'Unknown',
