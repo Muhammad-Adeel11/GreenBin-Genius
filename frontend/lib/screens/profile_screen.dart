@@ -5,6 +5,7 @@ import 'settings_screen.dart';
 import 'notifications_screen.dart';
 import 'claim_account_flow.dart';
 import 'login_selection_screen.dart';
+import 'faqs_resources_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -146,7 +147,9 @@ class ProfileScreen extends StatelessWidget {
             _buildListOption(context, Icons.notifications_none_rounded, "Notifications", onTap: () {
               Navigator.push(context, MaterialPageRoute(builder: (context) => const NotificationsScreen()));
             }),
-            _buildListOption(context, Icons.help_outline_rounded, "FAQs & Resources", isBlue: true),
+            _buildListOption(context, Icons.help_outline_rounded, "FAQs & Resources", isBlue: true, onTap: () {
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const FAQsResourcesScreen()));
+            }),
             _buildListOption(context, Icons.settings_outlined, "Settings", onTap: () {
               Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsScreen()));
             }),

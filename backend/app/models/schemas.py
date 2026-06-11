@@ -248,3 +248,77 @@ class EcoTipFeedbackResponse(BaseModel):
     total_points:       int
     corrected_category: str
     updated_guidance:   Optional[dict] = None
+
+
+# ──────────────────────────────────────────────
+# FAQs & Resources Schemas
+# ──────────────────────────────────────────────
+
+class FAQCreate(BaseModel):
+    question_en: str = Field(..., example="What is GreenBin Genius?")
+    question_ur: str = Field(..., example="گرین بن جینیئس کیا ہے؟")
+    answer_en: str = Field(..., example="An AI waste classification assistant.")
+    answer_ur: str = Field(..., example="ایک اے آئی کوڑا کرکٹ کی درجہ بندی کا معاون۔")
+    category: str = Field(default="general", example="general")
+    is_active: Optional[bool] = Field(default=True)
+
+
+class FAQUpdate(BaseModel):
+    question_en: Optional[str] = None
+    question_ur: Optional[str] = None
+    answer_en: Optional[str] = None
+    answer_ur: Optional[str] = None
+    category: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class FAQResponse(BaseModel):
+    id: str
+    question_en: str
+    question_ur: str
+    answer_en: str
+    answer_ur: str
+    category: str
+    is_active: bool
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class FAQListResponse(BaseModel):
+    total: int
+    data: List[FAQResponse]
+
+
+class ResourceCreate(BaseModel):
+    title: str = Field(..., example="EPA Recycling Guide")
+    url: str = Field(..., example="https://www.epa.gov/recycle")
+    category: str = Field(..., example="Education")
+    icon: Optional[str] = Field(default="🔗", example="📖")
+    description: Optional[str] = Field(default=None, example="General tips for recycling.")
+    is_active: Optional[bool] = Field(default=True)
+
+
+class ResourceUpdate(BaseModel):
+    title: Optional[str] = None
+    url: Optional[str] = None
+    category: Optional[str] = None
+    icon: Optional[str] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class ResourceResponse(BaseModel):
+    id: str
+    title: str
+    url: str
+    category: str
+    icon: str
+    description: Optional[str] = None
+    is_active: bool
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class ResourceListResponse(BaseModel):
+    total: int
+    data: List[ResourceResponse]

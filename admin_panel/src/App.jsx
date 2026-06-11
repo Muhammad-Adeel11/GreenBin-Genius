@@ -11,6 +11,7 @@ const Analytics       = React.lazy(() => import('./pages/Analytics'))
 const EcoTips         = React.lazy(() => import('./pages/EcoTips'))
 const BinLocations    = React.lazy(() => import('./pages/BinLocations'))
 const AIModel         = React.lazy(() => import('./pages/AIModel'))
+const FaqsResources   = React.lazy(() => import('./pages/FaqsResources'))
 const Settings        = React.lazy(() => import('./pages/Settings'))
 
 function RequireAuth({ children }) {
@@ -73,6 +74,11 @@ export default function App() {
         <Route path="/eco-tips" element={
           <RequireAuth>
             <React.Suspense fallback={<PageFallback />}><EcoTips /></React.Suspense>
+          </RequireAuth>
+        } />
+        <Route path="/faqs" element={
+          <RequireAuth>
+            <React.Suspense fallback={<PageFallback />}><FaqsResources /></React.Suspense>
           </RequireAuth>
         } />
         <Route path="/bins" element={

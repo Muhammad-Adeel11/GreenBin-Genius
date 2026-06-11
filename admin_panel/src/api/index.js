@@ -47,6 +47,23 @@ export const tipsApi = {
     api.post('/tips/feedback', { classification_id: classificationId, corrected_category: correctedCategory }),
 }
 
+export const faqsApi = {
+  getAll:       (params)          => api.get('/faqs', { params }),
+  getDetail:    (id)              => api.get(`/faqs/${id}`),
+  create:       (data)            => api.post('/faqs', data),
+  update:       (id, data)        => api.put(`/faqs/${id}`, data),
+  delete:       (id)              => api.delete(`/faqs/${id}`),
+  seed:         ()                => api.post('/faqs/seed'),
+}
+
+export const resourcesApi = {
+  getAll:       (params)          => api.get('/resources', { params }),
+  getDetail:    (id)              => api.get(`/resources/${id}`),
+  create:       (data)            => api.post('/resources', data),
+  update:       (id, data)        => api.put(`/resources/${id}`, data),
+  delete:       (id)              => api.delete(`/resources/${id}`),
+}
+
 export const binsApi = {
   getNearby:    (params)          => api.get('/bins/nearby', { params }),
   getAll:       (params)          => api.get('/bins', { params }),

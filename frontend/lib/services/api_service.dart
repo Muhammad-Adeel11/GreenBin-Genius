@@ -314,6 +314,34 @@ class ApiService {
     });
   }
 
+  Future<List<dynamic>> getFAQs() async {
+    return _wrapNetworkCall(() async {
+      final res = await _client.get(
+        Uri.parse('$baseUrl/api/faqs?limit=100'),
+        headers: await _authHeaders(),
+      );
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        return body['data'] as List<dynamic>;
+      }
+      throw _handleError(res);
+    });
+  }
+
+  Future<List<dynamic>> getResources() async {
+    return _wrapNetworkCall(() async {
+      final res = await _client.get(
+        Uri.parse('$baseUrl/api/resources?limit=100'),
+        headers: await _authHeaders(),
+      );
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        return body['data'] as List<dynamic>;
+      }
+      throw _handleError(res);
+    });
+  }
+
   // ═══════════════════════════════════════════════════════════
   // HEALTH CHECK
   // ═══════════════════════════════════════════════════════════
