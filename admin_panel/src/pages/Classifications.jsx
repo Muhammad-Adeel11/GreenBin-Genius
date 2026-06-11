@@ -182,7 +182,16 @@ export default function Classifications() {
                         <p className="text-[0.88rem] font-bold text-ink leading-tight">
                           {item.label || LABEL_MAP[cat] || cat}
                         </p>
-                        <p className="text-[0.7rem] text-ink-muted mt-0.5">Detected: {cat.charAt(0)+cat.slice(1).toLowerCase()}</p>
+                        <div className="flex flex-col gap-0.5 mt-1.5">
+                          <div className="flex items-center justify-between text-[0.68rem]">
+                            <span className="text-ink-muted">Object:</span>
+                            <span className="text-ink font-semibold">{item.object_detected || 'Unknown'}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[0.68rem]">
+                            <span className="text-ink-muted">Type:</span>
+                            <span className="text-eco font-bold ml-2 lowercase first-letter:uppercase">{cat}</span>
+                          </div>
+                        </div>
                       </div>
                       <div className="flex items-center gap-1 text-[0.68rem] text-ink-muted">
                         <Clock size={10}/> {timeAgo(item.timestamp)}
@@ -272,14 +281,14 @@ export default function Classifications() {
 }
 
 const MOCK_ITEMS = [
-  {id:'1',predicted_category:'PLASTIC', confidence_score:0.94,timestamp:new Date(Date.now()-120000).toISOString()},
-  {id:'2',predicted_category:'METAL',   confidence_score:0.88,timestamp:new Date(Date.now()-900000).toISOString()},
-  {id:'3',predicted_category:'PAPER',   confidence_score:0.91,timestamp:new Date(Date.now()-3600000).toISOString()},
-  {id:'4',predicted_category:'UNKNOWN', confidence_score:0.45,timestamp:new Date(Date.now()-7200000).toISOString()},
-  {id:'5',predicted_category:'GLASS',   confidence_score:0.76,timestamp:new Date(Date.now()-10800000).toISOString()},
-  {id:'6',predicted_category:'PAPER',   confidence_score:0.65,timestamp:new Date(Date.now()-14400000).toISOString()},
-  {id:'7',predicted_category:'PLASTIC', confidence_score:0.95,timestamp:new Date(Date.now()-18000000).toISOString()},
-  {id:'8',predicted_category:'METAL',   confidence_score:0.82,timestamp:new Date(Date.now()-86400000).toISOString()},
+  {id:'1',predicted_category:'PLASTIC', object_detected:'Bottle', material:'PET', confidence_score:0.94,timestamp:new Date(Date.now()-120000).toISOString()},
+  {id:'2',predicted_category:'METAL',   object_detected:'Can', material:'Aluminium', confidence_score:0.88,timestamp:new Date(Date.now()-900000).toISOString()},
+  {id:'3',predicted_category:'PAPER',   object_detected:'Box', material:'Cardboard', confidence_score:0.91,timestamp:new Date(Date.now()-3600000).toISOString()},
+  {id:'4',predicted_category:'UNKNOWN', object_detected:'Unknown', material:'N/A', confidence_score:0.45,timestamp:new Date(Date.now()-7200000).toISOString()},
+  {id:'5',predicted_category:'GLASS',   object_detected:'Jar', material:'Glass', confidence_score:0.76,timestamp:new Date(Date.now()-10800000).toISOString()},
+  {id:'6',predicted_category:'PAPER',   object_detected:'Newspaper', material:'Paper', confidence_score:0.65,timestamp:new Date(Date.now()-14400000).toISOString()},
+  {id:'7',predicted_category:'PLASTIC', object_detected:'Cup', material:'PP', confidence_score:0.95,timestamp:new Date(Date.now()-18000000).toISOString()},
+  {id:'8',predicted_category:'METAL',   object_detected:'Foil', material:'Aluminium', confidence_score:0.82,timestamp:new Date(Date.now()-86400000).toISOString()},
 ]
 const MOCK_DIST = [
   {name:'Plastic (PET/HDPE)',value:40},{name:'Paper & Card',value:25},

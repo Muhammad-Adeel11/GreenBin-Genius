@@ -2,7 +2,7 @@ import React from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, ListChecks, BarChart2, Users,
-  Lightbulb, MapPin, BrainCircuit, Settings, LogOut, Recycle,
+  Lightbulb, MapPin, BrainCircuit, Settings, LogOut, Recycle, HelpCircle,
 } from 'lucide-react'
 import useAuthStore from '../../store/authStore'
 
@@ -14,6 +14,7 @@ const NAV = [
   { to: '/eco-tips',        icon: Lightbulb,       label: 'Eco Tips'       },
   { to: '/bins',            icon: MapPin,          label: 'Bin Locations'  },
   { to: '/ai-model',        icon: BrainCircuit,    label: 'AI Model'       },
+  { to: '/faqs',            icon: HelpCircle,      label: 'FAQs & Resources' },
   { to: '/settings',        icon: Settings,        label: 'Settings'       },
 ]
 

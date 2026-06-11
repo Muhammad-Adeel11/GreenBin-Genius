@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../utils/responsive.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'camera_scanner_screen.dart';
 import 'camera_tutorial_screen.dart';
 import 'profile_screen.dart';
 import 'bin_locator_screen.dart';
@@ -54,11 +56,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
       backgroundColor: Colors.white,
       body: pages[_selectedIndex],
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const TutorialStep1()),
-          );
+        onPressed: () async {
+          final prefs = await SharedPreferences.getInstance();
+          final bool hasSeenTutorial = prefs.getBool('has_seen_camera_tutorial') ?? false;
+
+          if (context.mounted) {
+            if (hasSeenTutorial) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const AiScannerScreen()),
+              );
+            } else {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const TutorialStep1()),
+              );
+            }
+          }
         },
         backgroundColor: const Color(0xFF007AFF),
         shape: const CircleBorder(),
@@ -226,24 +240,42 @@ class LeaderboardTab extends StatefulWidget {
 class _LeaderboardTabState extends State<LeaderboardTab> {
   bool _isMembersActive = true;
   String _selectedTimeFilter = 'Last 24 Hours';
+  bool _isLoading = true;
+  String? _error;
+  List<dynamic> _leaderboardData = [];
 
-  final List<Map<String, dynamic>> membersData = [
-    {'rank': '999+', 'name': 'Red Pioneer', 'score': '0 PIECE', 'isMe': true},
-    {'rank': '1', 'name': 'World Litter Run', 'score': '898 PIECES', 'avatar': 'https://picsum.photos/100?random=1'},
-    {'rank': '2', 'name': 'Joel Hibshman', 'score': '315 PIECES', 'avatar': 'https://picsum.photos/100?random=2'},
-    {'rank': '3', 'name': 'JobPriem', 'score': '238 PIECES', 'avatar': 'https://picsum.photos/100?random=3'},
-    {'rank': '4', 'name': 'Riemke Visser', 'score': '204 PIECES', 'avatar': 'https://picsum.photos/100?random=4'},
-    {'rank': '5', 'name': 'Lekjutter', 'score': '195 PIECES', 'avatar': 'https://picsum.photos/100?random=5'},
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _fetchLeaderboard();
+  }
 
-  final List<Map<String, dynamic>> countriesData = [
-    {'rank': '1', 'name': 'Canada', 'score': '898 PIECES', 'avatar': 'https://flagcdn.com/w160/ca.png'},
-    {'rank': '2', 'name': 'Netherlands', 'score': '886 PIECES', 'avatar': 'https://flagcdn.com/w160/nl.png'},
-    {'rank': '3', 'name': 'United States of America', 'score': '445 PIECES', 'avatar': 'https://flagcdn.com/w160/us.png'},
-    {'rank': '4', 'name': 'Bulgaria', 'score': '188 PIECES', 'avatar': 'https://flagcdn.com/w160/bg.png'},
-    {'rank': '5', 'name': 'Japan', 'score': '158 PIECES', 'avatar': 'https://flagcdn.com/w160/jp.png'},
-    {'rank': '6', 'name': 'Spain', 'score': '158 PIECES', 'avatar': 'https://flagcdn.com/w160/es.png'},
-  ];
+  Future<void> _fetchLeaderboard() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+
+      final data = _isMembersActive
+          ? await ApiService.instance.getMemberLeaderboard()
+          : await ApiService.instance.getCountryLeaderboard();
+
+      if (mounted) {
+        setState(() {
+          _leaderboardData = data;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
+  }
 
   void _showTimeFilterSheet() {
     showModalBottomSheet(
@@ -285,7 +317,6 @@ class _LeaderboardTabState extends State<LeaderboardTab> {
 
   @override
   Widget build(BuildContext context) {
-    final currentData = _isMembersActive ? membersData : countriesData;
     final sp = R.sp(context);
 
     return Column(
@@ -344,7 +375,10 @@ class _LeaderboardTabState extends State<LeaderboardTab> {
                 children: [
                   Expanded(
                     child: GestureDetector(
-                      onTap: () => setState(() => _isMembersActive = true),
+                      onTap: () {
+                        setState(() => _isMembersActive = true);
+                        _fetchLeaderboard();
+                      },
                       child: Container(
                         padding: EdgeInsets.only(bottom: R.h(context, 1.5)),
                         decoration: BoxDecoration(border: Border(bottom: BorderSide(color: _isMembersActive ? const Color(0xFF007AFF) : Colors.transparent, width: 2))),
@@ -354,7 +388,10 @@ class _LeaderboardTabState extends State<LeaderboardTab> {
                   ),
                   Expanded(
                     child: GestureDetector(
-                      onTap: () => setState(() => _isMembersActive = false),
+                      onTap: () {
+                        setState(() => _isMembersActive = false);
+                        _fetchLeaderboard();
+                      },
                       child: Container(
                         padding: EdgeInsets.only(bottom: R.h(context, 1.5)),
                         decoration: BoxDecoration(border: Border(bottom: BorderSide(color: !_isMembersActive ? const Color(0xFF007AFF) : Colors.transparent, width: 2))),
@@ -369,13 +406,29 @@ class _LeaderboardTabState extends State<LeaderboardTab> {
         ),
         const Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
         Expanded(
-          child: ListView.builder(
-            padding: EdgeInsets.only(bottom: R.h(context, 12)),
-            itemCount: currentData.length,
-            itemBuilder: (context, index) {
-              return _buildLeaderboardItem(currentData[index]);
-            },
-          ),
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _error != null
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.error_outline, color: Colors.red, size: sp * 2),
+                          SizedBox(height: sp),
+                          Text("Failed to load leaderboard", style: TextStyle(color: Colors.red, fontSize: R.fs(context, 14))),
+                          TextButton(onPressed: _fetchLeaderboard, child: const Text("Retry")),
+                        ],
+                      ),
+                    )
+                  : _leaderboardData.isEmpty
+                      ? Center(child: Text("No records found", style: TextStyle(color: Colors.grey, fontSize: R.fs(context, 14))))
+                      : ListView.builder(
+                          padding: EdgeInsets.only(bottom: R.h(context, 12)),
+                          itemCount: _leaderboardData.length,
+                          itemBuilder: (context, index) {
+                            return _buildLeaderboardItem(_leaderboardData[index]);
+                          },
+                        ),
         ),
       ],
     );
@@ -678,6 +731,17 @@ class _ActivityTabState extends State<ActivityTab> {
         final item = _history[index];
         final isSelected = _selectedIndices.contains(index);
         final bool isRecyclable = item['recyclable'] == true;
+        final String mode = item['mode'] ?? (() {
+          final category = item['category'] ?? '';
+          if (category == 'food_waste' || category == 'not_food_waste') {
+            return 'food';
+          } else if ((item['yolo_confidence'] as num?) != null && (item['yolo_confidence'] as num)! > 0.0) {
+            return 'multiple';
+          } else if (item['detections'] is List && (item['detections'] as List).isNotEmpty) {
+            return 'multiple';
+          }
+          return 'single';
+        })();
         
         return GestureDetector(
           onTap: () {
@@ -685,22 +749,13 @@ class _ActivityTabState extends State<ActivityTab> {
               _toggleSelection(index);
             } else {
               // Parse to ClassificationResult
-              final resultObj = ClassificationResult(
-                category: item['category'] ?? 'Unknown',
-                objectDetected: item['object_detected'] ?? 'Unknown',
-                material: item['material'] ?? 'Unknown',
-                confidence: (item['confidence'] as num?)?.toDouble() ?? 0.0,
-                disposalTip: item['disposal_tip'] ?? '',
-                disposalTipUr: item['disposal_tip_ur'] ?? '',
-                recyclable: isRecyclable,
-                imageUrl: item['image_url'],
-                timestamp: item['timestamp'] != null ? DateTime.parse(item['timestamp']) : DateTime.now(),
-              );
+              final resultObj = ClassificationResult.fromJson(Map<String, dynamic>.from(item));
               
               Navigator.push(context, MaterialPageRoute(
                 builder: (_) => ClassificationResultScreen(
                   preloadedResult: resultObj,
                   imageUrl: item['image_url'],
+                  mode: resultObj.mode,
                 )
               ));
             }
@@ -739,9 +794,16 @@ class _ActivityTabState extends State<ActivityTab> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(item['object_detected'] ?? 'Unknown Object', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      const SizedBox(height: 4),
-                      Text("Category: ${item['category']}", style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          if (mode == 'single' || mode == 'food')
+                            _buildMiniConfBadge("CNN", (item['cnn_confidence'] as num?)?.toDouble() ?? (item['confidence'] as num?)?.toDouble() ?? 0.0),
+                          if (mode == 'multiple')
+                            _buildMiniConfBadge("YOLO", (item['yolo_confidence'] as num?)?.toDouble() ?? 0.0),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
                       Text(item['timestamp']?.toString().substring(0, 10) ?? '', style: TextStyle(color: Colors.grey[400], fontSize: 11)),
                     ],
                   ),
@@ -767,18 +829,107 @@ class _ActivityTabState extends State<ActivityTab> {
       },
     );
   }
+
+  Widget _buildMiniConfBadge(String label, double confidence) {
+    final color = confidence >= 0.8 ? const Color(0xFF4CAF50) : 
+                  confidence >= 0.6 ? Colors.orange : Colors.red;
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            "$label: ",
+            style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.bold),
+          ),
+          Text(
+            "${(confidence * 100).toStringAsFixed(0)}%",
+            style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w900),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // ==========================================
 // IMPACT TAB
 // ==========================================
-class ImpactTab extends StatelessWidget {
+class ImpactTab extends StatefulWidget {
   const ImpactTab({super.key});
 
   @override
+  State<ImpactTab> createState() => _ImpactTabState();
+}
+
+class _ImpactTabState extends State<ImpactTab> {
+  bool _isLoading = true;
+  String? _error;
+  Map<String, dynamic>? _myStats;
+  Map<String, dynamic>? _globalStats;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchStats();
+  }
+
+  Future<void> _fetchStats() async {
+    try {
+      setState(() { _isLoading = true; _error = null; });
+      final personal = await ApiService.instance.getMyAnalytics();
+      final global = await ApiService.instance.getGlobalAnalytics();
+      
+      if (mounted) {
+        setState(() {
+          _myStats = personal;
+          _globalStats = global;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (_isLoading) return const Center(child: CircularProgressIndicator());
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, color: Colors.red, size: 48),
+            const SizedBox(height: 16),
+            const Text("Failed to load impact data", style: TextStyle(color: Colors.red)),
+            TextButton(onPressed: _fetchStats, child: const Text("Retry")),
+          ],
+        ),
+      );
+    }
+
     final sp = R.sp(context);
+    final globalTotal = _globalStats?['total_global_scans']?.toString() ?? "0";
+    final monthlyTotal = _globalStats?['monthly_scans']?.toString() ?? "0";
     
+    // Formatter for large numbers (adding commas)
+    String formatNum(String s) {
+      if (s.length <= 3) return s;
+      return s.replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},');
+    }
+
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -786,7 +937,7 @@ class ImpactTab extends StatelessWidget {
           ClipPath(
             clipper: HeaderCurveClipper(),
             child: Container(
-              height: R.h(context, 45), width: double.infinity, color: const Color(0xFF007AFF),
+              height: R.h(context, 48), width: double.infinity, color: const Color(0xFF007AFF),
               child: SafeArea(
                 child: Padding(
                   padding: R.pagePadding(context),
@@ -811,14 +962,28 @@ class ImpactTab extends StatelessWidget {
                           SizedBox(width: R.icon(context, 40)),
                         ],
                       ),
-                      SizedBox(height: sp * 2.5),
-                      Text("Total Global Litter Pickup", style: TextStyle(color: Colors.white70, fontSize: R.fs(context, 16))),
-                      SizedBox(height: sp * 0.5),
-                      Text("24,291,206", style: TextStyle(color: Colors.white, fontSize: R.fs(context, 50), fontWeight: FontWeight.w400, letterSpacing: -1.0)),
-                      SizedBox(height: sp * 2),
-                      Text("Overall Pickup For November, 2025", style: TextStyle(color: Colors.white70, fontSize: R.fs(context, 16))),
-                      SizedBox(height: sp * 0.5),
-                      Text("85,450", style: TextStyle(color: Colors.white, fontSize: R.fs(context, 50), fontWeight: FontWeight.w400, letterSpacing: -1.0)),
+                      SizedBox(height: sp * 1.5),
+                      Text("Total Global Litter Pickup", style: TextStyle(color: Colors.white70, fontSize: R.fs(context, 14))),
+                      SizedBox(height: sp * 0.25),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(formatNum(globalTotal), style: TextStyle(color: Colors.white, fontSize: R.fs(context, 44), fontWeight: FontWeight.w400, letterSpacing: -1.0)),
+                        ),
+                      ),
+                      SizedBox(height: sp * 1.25),
+                      Text("Overall Pickup This Month", style: TextStyle(color: Colors.white70, fontSize: R.fs(context, 14))),
+                      SizedBox(height: sp * 0.25),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(formatNum(monthlyTotal), style: TextStyle(color: Colors.white, fontSize: R.fs(context, 44), fontWeight: FontWeight.w400, letterSpacing: -1.0)),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -831,16 +996,26 @@ class ImpactTab extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                _buildBar(context, "APR", R.h(context, 8), false), 
-                _buildBar(context, "MAY", R.h(context, 10), false), 
-                _buildBar(context, "JUN", R.h(context, 5), false),
-                _buildBar(context, "JUL", R.h(context, 9), false), 
-                _buildBar(context, "AUG", R.h(context, 6), false), 
-                _buildBar(context, "SEP", R.h(context, 7.5), false),
-                _buildBar(context, "OCT", R.h(context, 5.5), false), 
-                _buildBar(context, "NOV", R.h(context, 7), true),
-              ],
+              children: (() {
+                final history = _myStats?['monthly_history'] as List? ?? [];
+                // Default months if history is empty or short
+                final defaultMonths = ["APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV"];
+                final List<Widget> bars = [];
+                
+                for (int i = 0; i < defaultMonths.length; i++) {
+                  final monthName = defaultMonths[i];
+                  // Find if we have real data for this month
+                  final record = history.firstWhere((h) => h['month'] == monthName, orElse: () => null);
+                  final count = record != null ? (record['count'] as num).toDouble() : 0.0;
+                  
+                  // Scale height: min 10, max 80. Base it on count.
+                  double h = 10 + (count * 2.0);
+                  if (h > 80) h = 80;
+
+                  bars.add(_buildBar(context, monthName, R.h(context, h / 10), i == defaultMonths.length - 1));
+                }
+                return bars;
+              })(),
             ),
           ),
           SizedBox(height: sp * 2.5),
@@ -870,9 +1045,13 @@ class ImpactTab extends StatelessWidget {
               scrollDirection: Axis.horizontal,
               padding: R.pagePadding(context),
               children: [
-                _buildDateCircle(context, "11/27"), _buildDateCircle(context, "11/28"), _buildDateCircle(context, "11/29"),
-                _buildDateCircle(context, "11/30"), _buildDateCircle(context, "12/1"), _buildDateCircle(context, "12/2"),
-                _buildDateCircle(context, "12/3", isActive: true),
+                _buildDateCircle(context, "T"), 
+                _buildDateCircle(context, "W"), 
+                _buildDateCircle(context, "T"),
+                _buildDateCircle(context, "F"), 
+                _buildDateCircle(context, "S"), 
+                _buildDateCircle(context, "S"),
+                _buildDateCircle(context, "M", isActive: true),
               ],
             ),
           ),

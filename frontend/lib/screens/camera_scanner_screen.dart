@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'dart:ui';
 import 'classification_result_screen.dart';
+import 'camera_tutorial_screen.dart';
 import 'dart:io';
+import 'package:image/image.dart' as img;
+import 'dart:math' as math;
+import 'package:image_picker/image_picker.dart';
 
 class AiScannerScreen extends StatefulWidget {
   const AiScannerScreen({super.key});
@@ -15,8 +19,15 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
   CameraController? _cameraController;
   List<CameraDescription>? _cameras;
   bool _isInit = false;
+  File? _capturedImage;
+  bool _isBlurry = false;
+  double _blurScore = 0.0;
+  bool _isCheckingBlur = false;
+  FlashMode _flashMode = FlashMode.off;
+  int _cameraIndex = 0;
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
+  String _scanMode = "single"; // "single" or "multiple"
 
   @override
   void initState() {
@@ -39,12 +50,14 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
       _cameras = await availableCameras();
       if (_cameras != null && _cameras!.isNotEmpty) {
         _cameraController = CameraController(
-          _cameras![0],
+          _cameras![_cameraIndex],
           ResolutionPreset.high,
           enableAudio: false,
         );
 
         await _cameraController!.initialize();
+        await _cameraController!.setFlashMode(_flashMode);
+        
         if (mounted) {
           setState(() {
             _isInit = true;
@@ -54,6 +67,46 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
     } catch (e) {
       debugPrint("Camera Error: $e");
     }
+  }
+
+  Future<void> _toggleFlash() async {
+    if (_cameraController == null || !_cameraController!.value.isInitialized) return;
+
+    FlashMode nextMode;
+    switch (_flashMode) {
+      case FlashMode.off:
+        nextMode = FlashMode.always;
+        break;
+      case FlashMode.always:
+        nextMode = FlashMode.auto;
+        break;
+      case FlashMode.auto:
+        nextMode = FlashMode.off;
+        break;
+      default:
+        nextMode = FlashMode.off;
+    }
+
+    try {
+      await _cameraController!.setFlashMode(nextMode);
+      setState(() {
+        _flashMode = nextMode;
+      });
+    } catch (e) {
+      debugPrint("Error setting flash mode: $e");
+    }
+  }
+
+  Future<void> _toggleCamera() async {
+    if (_cameras == null || _cameras!.length < 2) return;
+
+    setState(() {
+      _isInit = false;
+      _cameraIndex = (_cameraIndex + 1) % _cameras!.length;
+    });
+
+    await _cameraController?.dispose();
+    _initCamera();
   }
 
   @override
@@ -68,19 +121,108 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
       try {
         final image = await _cameraController!.takePicture();
         if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ClassificationResultScreen(
-                imageFile: File(image.path),
-              ),
-            ),
-          );
+          setState(() {
+            _capturedImage = File(image.path);
+            _isCheckingBlur = true;
+          });
+          _checkBlur(image.path);
         }
       } catch (e) {
         debugPrint("Error taking picture: $e");
       }
     }
+  }
+
+  Future<void> _pickFromGallery() async {
+    final picker = ImagePicker();
+    try {
+      final XFile? pickedFile = await picker.pickImage(source: ImageSource.gallery);
+      if (pickedFile != null && mounted) {
+        setState(() {
+          _capturedImage = File(pickedFile.path);
+          _isCheckingBlur = true;
+        });
+        _checkBlur(pickedFile.path);
+      }
+    } catch (e) {
+      debugPrint("Gallery Pick Error: $e");
+    }
+  }
+
+  Future<void> _checkBlur(String path) async {
+    try {
+      final bytes = await File(path).readAsBytes();
+      final image = img.decodeImage(bytes);
+      
+      if (image == null) return;
+
+      // 1. Downsample for performance (approx 300px)
+      final thumbnail = img.copyResize(image, width: 300);
+      
+      // 2. Grayscale
+      final grayscale = img.grayscale(thumbnail);
+      
+      // 3. Laplacian Variance calculation
+      // Kernel: [0, 1, 0, 1, -4, 1, 0, 1, 0]
+      double mean = 0;
+      List<double> laplacianValues = [];
+
+      for (int y = 1; y < grayscale.height - 1; y++) {
+        for (int x = 1; x < grayscale.width - 1; x++) {
+          final p1 = img.getLuminance(grayscale.getPixel(x, y - 1));
+          final p2 = img.getLuminance(grayscale.getPixel(x - 1, y));
+          final p3 = img.getLuminance(grayscale.getPixel(x, y));
+          final p4 = img.getLuminance(grayscale.getPixel(x + 1, y));
+          final p5 = img.getLuminance(grayscale.getPixel(x, y + 1));
+
+          double lap = (p1 + p2 + p4 + p5 - 4 * p3).toDouble();
+          laplacianValues.add(lap);
+          mean += lap;
+        }
+      }
+
+      mean /= laplacianValues.length;
+      double variance = 0;
+      for (var val in laplacianValues) {
+        variance += math.pow(val - mean, 2);
+      }
+      variance /= laplacianValues.length;
+
+      if (mounted) {
+        setState(() {
+          _blurScore = variance;
+          // Threshold of 100-200 is typical for Laplacian variance blur detection
+          // We'll be conservative and use 150.
+          _isBlurry = variance < 150.0;
+          _isCheckingBlur = false;
+        });
+      }
+    } catch (e) {
+      debugPrint("Blur check error: $e");
+      if (mounted) {
+        setState(() => _isCheckingBlur = false);
+      }
+    }
+  }
+
+  void _onContinue() {
+    if (_capturedImage != null) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ClassificationResultScreen(
+            imageFile: _capturedImage!,
+            mode: _scanMode,
+          ),
+        ),
+      );
+    }
+  }
+
+  void _onRecapture() {
+    setState(() {
+      _capturedImage = null;
+    });
   }
 
   @override
@@ -111,7 +253,7 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
 
                 return Column(
                   children: [
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     // Top Bar
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -120,7 +262,7 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
                         child: BackdropFilter(
                           filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                           child: Container(
-                            height: 60,  // reduced from 70
+                            height: 52,  // tighter height
                             padding: const EdgeInsets.symmetric(horizontal: 8),
                             decoration: BoxDecoration(
                               color: Colors.white.withOpacity(0.08),
@@ -158,7 +300,12 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
                             ),
                             IconButton(
                               icon: const Icon(Icons.help_outline, color: Colors.white),
-                              onPressed: () {},
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => const TutorialStep1()),
+                                );
+                              },
                             ),
                           ],
                         ),
@@ -306,9 +453,18 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
                         top: 100,
                         child: Column(
                           children: [
-                            _buildSideButton(Icons.flash_on, "FLASH"),
+                            _buildSideButton(
+                              _getFlashIcon(), 
+                              "FLASH", 
+                              onTap: _toggleFlash,
+                              isActive: _flashMode != FlashMode.off,
+                            ),
                             const SizedBox(height: 24),
-                            _buildSideButton(Icons.flip_camera_ios, "FLIP"),
+                            _buildSideButton(
+                              Icons.flip_camera_ios, 
+                              "FLIP", 
+                              onTap: _toggleCamera,
+                            ),
                           ],
                         ),
                       ),
@@ -318,129 +474,28 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
 
                     const Spacer(flex: 1),
 
-                // Bottom Readout Card
+                // Removed dummy AI Scanning card
+
+                // ── Mode Selector (Single / Multiple / Food) ──
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(24),
+                    borderRadius: BorderRadius.circular(30),
                     child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                       child: Container(
-                        padding: const EdgeInsets.all(20),
+                        height: 50,
+                        padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.05),
-                          borderRadius: BorderRadius.circular(24),
+                          color: Colors.white.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(30),
                           border: Border.all(color: Colors.white.withOpacity(0.1)),
                         ),
-                        child: Column(
+                        child: Row(
                           children: [
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withOpacity(0.3),
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  child: const Icon(Icons.smart_toy, color: Colors.white70),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        "AI Scanning",
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        "Detecting recyclable material...",
-                                        style: TextStyle(
-                                          color: Colors.white.withOpacity(0.6),
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    const Text(
-                                      "84%",
-                                      style: TextStyle(
-                                        color: Color(0xFF2196F3),
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    Text(
-                                      "CONFIDENCE",
-                                      style: TextStyle(
-                                        color: Colors.white.withOpacity(0.5),
-                                        fontSize: 9,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 20),
-                            // Progress Bar
-                            Stack(
-                              children: [
-                                Container(
-                                  height: 8,
-                                  width: double.infinity,
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withOpacity(0.3),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                ),
-                                AnimatedBuilder(
-                                  animation: _pulseAnimation,
-                                  builder: (context, child) {
-                                    return Container(
-                                      height: 8,
-                                      width: MediaQuery.of(context).size.width * 0.65,
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF2196F3),
-                                        borderRadius: BorderRadius.circular(4),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: const Color(0xFF2196F3).withOpacity(_pulseAnimation.value * 0.8),
-                                            blurRadius: 10,
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.info, color: Colors.white.withOpacity(0.5), size: 14),
-                                const SizedBox(width: 8),
-                                Text(
-                                  "HOLD STEADY FOR BETTER ACCURACY",
-                                  style: TextStyle(
-                                    color: Colors.white.withOpacity(0.5),
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 1.1,
-                                  ),
-                                ),
-                              ],
-                            ),
+                            _buildModeTab("SINGLE", "single"),
+                            _buildModeTab("MULTIPLE", "multiple"),
+                            _buildModeTab("FOOD", "food"),
                           ],
                         ),
                       ),
@@ -448,49 +503,227 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
                   ),
                 ),
 
-                const SizedBox(height: 16), // tighter gap
+                const SizedBox(height: 8),
 
-                  // Shutter Button
-                  GestureDetector(
-                    onTap: _captureImage,
-                    child: AnimatedBuilder(
-                      animation: _pulseAnimation,
-                      builder: (context, child) {
-                        return Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: const Color(0xFF2196F3), width: 3),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF2196F3).withOpacity(_pulseAnimation.value * 0.5),
-                                blurRadius: 20,
-                                spreadRadius: 5,
-                              )
-                            ],
+                  // ── Bottom Control Row ──
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12), // tighter bottom padding
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        // Gallery Button
+                        _buildBottomSmallButton(Icons.photo_library, "Gallery", _pickFromGallery),
+                               // Shutter Button
+                        GestureDetector(
+                          onTap: _captureImage,
+                          child: AnimatedBuilder(
+                            animation: _pulseAnimation,
+                            builder: (context, child) {
+                              return Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: const Color(0xFF2196F3), width: 3),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFF2196F3).withOpacity(_pulseAnimation.value * 0.5),
+                                      blurRadius: 20,
+                                      spreadRadius: 5,
+                                    )
+                                  ],
+                                ),
+                                child: Container(
+                                  width: 65,
+                                  height: 65,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFF2196F3),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.camera_alt,
+                                    color: Colors.black,
+                                    size: 32,
+                                  ),
+                                ),
+                              );
+                            },
                           ),
-                          child: Container(
-                            width: 56,    // slightly smaller for J5
-                            height: 56,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFF2196F3),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.camera,
-                              color: Colors.black87,
-                              size: 28,
-                            ),
-                          ),
-                        );
-                      },
+                        ),
+
+                        // Empty space to maintain balance in the row since we removed Flip
+                        const SizedBox(width: 48), 
+                      ],
                     ),
                   ),
-
-                  const SizedBox(height: 16),  // tighter gap
                 ],
               );
             },
+          ),
+        ),
+        
+        // 4. Post-Capture Preview Overlay
+        if (_capturedImage != null)
+          _buildPreviewOverlay(),
+      ],
+    ),
+  );
+}
+
+Widget _buildPreviewOverlay() {
+  return Container(
+    color: Colors.black,
+    child: Stack(
+      fit: StackFit.expand,
+      children: [
+        // The Captured Image
+        Image.file(_capturedImage!, fit: BoxFit.cover),
+        
+        // Darkened bottom for buttons
+        Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.black.withOpacity(0.1),
+                Colors.black.withOpacity(0.8),
+              ],
+            ),
+          ),
+        ),
+
+        SafeArea(
+          child: Column(
+            children: [
+              const SizedBox(height: 20),
+              // Top Message
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.5),
+                  borderRadius: BorderRadius.circular(30),
+                  border: Border.all(color: Colors.white.withOpacity(0.2)),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.check_circle_outline, color: Colors.greenAccent, size: 18),
+                    SizedBox(width: 8),
+                    Text(
+                      "IMAGE CAPTURED",
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+              
+              const Spacer(),
+              
+              // Hint if blurry
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 40.0),
+                child: Column(
+                  children: [
+                    if (_isCheckingBlur)
+                      const CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
+                    else if (_isBlurry)
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.redAccent.withOpacity(0.5)),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 20),
+                            SizedBox(width: 8),
+                            Text(
+                              "BLUR DETECTED!",
+                              style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.greenAccent.withOpacity(0.5)),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.verified_outlined, color: Colors.greenAccent, size: 20),
+                            SizedBox(width: 8),
+                            Text(
+                              "SHARP IMAGE",
+                              style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                          ],
+                        ),
+                      ),
+                    const SizedBox(height: 16),
+                    Text(
+                      _isBlurry 
+                        ? "This photo looks a bit blurry. For best AI results, we recommend retaking it."
+                        : "Is the photo clear? If it's blurry, tap Recapture.",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.8),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              const SizedBox(height: 32),
+              
+              // Action Buttons
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24),
+                child: Row(
+                  children: [
+                    // Recapture Button
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _onRecapture,
+                        icon: const Icon(Icons.refresh, color: Colors.white),
+                        label: const Text("RECAPTURE"),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          side: const BorderSide(color: Colors.white30, width: 2),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    // Continue Button
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _onContinue,
+                        icon: const Icon(Icons.analytics, color: Colors.black87),
+                        label: const Text("ANALYZE"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF2196F3),
+                          foregroundColor: Colors.black87,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                          elevation: 8,
+                          shadowColor: const Color(0xFF2196F3).withOpacity(0.5),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -498,28 +731,89 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
   );
 }
 
-  Widget _buildSideButton(IconData icon, String label) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(12),
+  IconData _getFlashIcon() {
+    switch (_flashMode) {
+      case FlashMode.off: return Icons.flash_off;
+      case FlashMode.always: return Icons.flash_on;
+      case FlashMode.auto: return Icons.flash_auto;
+      default: return Icons.flash_off;
+    }
+  }
+
+  Widget _buildSideButton(IconData icon, String label, {VoidCallback? onTap, bool isActive = false}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isActive ? const Color(0xFF2196F3).withOpacity(0.3) : Colors.black.withOpacity(0.5),
+              shape: BoxShape.circle,
+              border: Border.all(color: isActive ? const Color(0xFF2196F3) : Colors.white.withOpacity(0.1)),
+            ),
+            child: Icon(icon, color: isActive ? const Color(0xFF2196F3) : Colors.white, size: 24),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: isActive ? const Color(0xFF2196F3) : Colors.white.withOpacity(0.8),
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  Widget _buildBottomSmallButton(IconData icon, String label, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.4),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white.withOpacity(0.2)),
+            ),
+            child: Icon(icon, color: Colors.white, size: 22),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            label.toUpperCase(),
+            style: const TextStyle(color: Colors.white70, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildModeTab(String label, String mode) {
+    bool isActive = _scanMode == mode;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _scanMode = mode),
+        child: Container(
           decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.5),
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.white.withOpacity(0.1)),
+            color: isActive ? const Color(0xFF2196F3) : Colors.transparent,
+            borderRadius: BorderRadius.circular(25),
           ),
-          child: Icon(icon, color: Colors.white, size: 24),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          label,
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.8),
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: TextStyle(
+              color: isActive ? Colors.black : Colors.white70,
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.5,
+            ),
           ),
         ),
-      ],
+      ),
     );
   }
 }

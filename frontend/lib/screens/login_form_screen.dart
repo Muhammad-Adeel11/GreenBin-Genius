@@ -144,26 +144,27 @@ class _LoginFormScreenState extends State<LoginFormScreen> {
     return Column(
       children: [
         Container(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(0.15),
             shape: BoxShape.circle,
             border: Border.all(color: Colors.white.withOpacity(0.2)),
           ),
-          child: const Icon(
-            Icons.recycling,
-            color: Colors.white,
-            size: 50,
+          child: Image.asset(
+            'assets/images/logo/greenbin_new_logo.png',
+            width: 70,
+            height: 70,
+            fit: BoxFit.contain,
           ),
         ),
         const SizedBox(height: 16),
         Text(
-          'GREENBIN GENIUS',
+          'GreenBin',
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.w900,
-            fontSize: R.fs(context, 26),
-            letterSpacing: 2,
+            fontSize: R.fs(context, 32),
+            letterSpacing: 1,
           ),
         ),
         Text(

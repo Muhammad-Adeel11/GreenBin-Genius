@@ -6,9 +6,12 @@ GET /api/analytics/dashboard – admin dashboard (real aggregated data)
 """
 
 from fastapi import APIRouter, Depends
+from fastapi.responses import StreamingResponse
 from app.db.mongo import classifications_col, users_col
 from app.routers.auth import get_current_user
 from datetime import datetime, timedelta
+import csv
+import io
 
 router = APIRouter(prefix="/api/analytics", tags=["Analytics"])
 
@@ -36,6 +39,28 @@ async def my_analytics(current_user: dict = Depends(get_current_user)):
     ]
     top = await col.aggregate(pipeline).to_list(1)
 
+    # ── Monthly History (Last 8 Months) ──────────────────────
+    eight_months_ago = now - timedelta(days=240)
+    history_pipeline = [
+        {"$match": {"user_id": user_id, "timestamp": {"$gte": eight_months_ago}}},
+        {"$group": {
+            "_id": {
+                "year": {"$year": "$timestamp"},
+                "month": {"$month": "$timestamp"}
+            },
+            "count": {"$sum": 1}
+        }},
+        {"$sort": {"_id.year": 1, "_id.month": 1}}
+    ]
+    history_res = await col.aggregate(history_pipeline).to_list(12)
+    
+    # Map to format: [{"month": "JAN", "count": 10}, ...]
+    months_map = {1:"JAN", 2:"FEB", 3:"MAR", 4:"APR", 5:"MAY", 6:"JUN", 7:"JUL", 8:"AUG", 9:"SEP", 10:"OCT", 11:"NOV", 12:"DEC"}
+    monthly_history = [
+        {"month": months_map.get(h["_id"]["month"], "???"), "count": h["count"]}
+        for h in history_res
+    ]
+
     return {
         "user_id":              user_id,
         "total_scans":          total,
@@ -45,6 +70,7 @@ async def my_analytics(current_user: dict = Depends(get_current_user)):
         "scans_this_week":      scans_week,
         "scans_this_month":     scans_month,
         "streak_days":          current_user.get("streak", 0),
+        "monthly_history":      monthly_history,
     }
 
 
@@ -152,3 +178,48 @@ async def low_confidence_analytics(_ = Depends(get_current_user)):
 @router.get("/corrections", summary="Classification corrections history")
 async def corrections_analytics(_ = Depends(get_current_user)):
     return []
+
+
+@router.get("/export/classifications", summary="Export classifications as CSV")
+async def export_classifications_csv(_ = Depends(get_current_user)):
+    """
+    Fetches all classification records and streams them as a CSV file.
+    """
+    col = classifications_col()
+    # Sort by most recent first
+    cursor = col.find({}).sort("timestamp", -1)
+
+    async def csv_generator():
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # Header row
+        writer.writerow([
+            "ID", "Timestamp", "Category", "Object Detected", 
+            "Confidence", "Recyclable", "User ID", "Image URL"
+        ])
+        yield output.getvalue()
+        output.truncate(0)
+        output.seek(0)
+        
+        async for item in cursor:
+            writer.writerow([
+                str(item.get("_id", "")),
+                item.get("timestamp", ""),
+                item.get("category", ""),
+                item.get("object_detected", ""),
+                item.get("confidence", ""),
+                item.get("recyclable", ""),
+                item.get("user_id", ""),
+                item.get("image_url", "")
+            ])
+            yield output.getvalue()
+            output.truncate(0)
+            output.seek(0)
+
+    filename = f"classifications_export_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.csv"
+    return StreamingResponse(
+        csv_generator(),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
