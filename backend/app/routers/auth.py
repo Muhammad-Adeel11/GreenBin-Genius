@@ -212,3 +212,28 @@ async def get_me(current_user: dict = Depends(get_current_user)):
         "total_scans": current_user.get("total_scans", 0),
         "streak": current_user.get("streak", 0),
     }
+
+
+@router.post(
+    "/fcm-token",
+    summary="Save or update the device's FCM push token",
+)
+async def save_fcm_token(
+    body: dict,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Called by the Flutter app on startup (after Firebase.initializeApp).
+    Stores the FCM token in the user's MongoDB document so the backend
+    can send push notifications to this specific device.
+    Body: { "fcm_token": "<device_token_string>" }
+    """
+    token = body.get("fcm_token", "").strip()
+    if not token:
+        raise HTTPException(status_code=400, detail="fcm_token is required.")
+
+    await users_col().update_one(
+        {"_id": current_user["_id"]},
+        {"$set": {"fcm_token": token, "fcm_token_updated_at": datetime.utcnow()}},
+    )
+    return {"success": True, "message": "FCM token saved."}

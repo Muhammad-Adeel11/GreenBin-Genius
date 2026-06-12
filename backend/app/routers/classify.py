@@ -18,6 +18,7 @@ logger = logging.getLogger("greenbin")
 from app.services import cnn_classifier, yolo_detector
 from app.db.mongo import classifications_col, users_col
 from app.routers.auth import get_current_user
+from app.routers.notifications import create_notification
 from bson import ObjectId
 import cloudinary
 import cloudinary.uploader
@@ -234,6 +235,19 @@ async def classify_image(
 
     await users_col().update_one(
         {"_id": ObjectId(user_id)}, {"$inc": {"total_scans": 1}}
+    )
+
+    # ── Auto Notification: scan complete ─────────────────────
+    category_label = result.category.replace("_", " ").title()
+    recyclable_note = "♻️ This item is recyclable!" if result.recyclable else "🗑️ Dispose of this responsibly."
+    recyclable_note_ur = "♻️ یہ چیز ری سائیکل کی جا سکتی ہے!" if result.recyclable else "🗑️ اسے ذمہ داری سے ٹھکانے لگائیں۔"
+    await create_notification(
+        user_id    = user_id,
+        title_en   = f"Scan Complete – {category_label}",
+        title_ur   = f"اسکین مکمل – {category_label}",
+        message_en = f"{result.object_detected} identified. {recyclable_note} {result.disposal_tip}",
+        message_ur = f"{result.object_detected} شناخت ہوا۔ {recyclable_note_ur} {result.disposal_tip_ur}",
+        notif_type = "scan",
     )
 
     return result

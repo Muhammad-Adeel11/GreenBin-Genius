@@ -239,6 +239,55 @@ class ApiService {
   }
 
   // ═══════════════════════════════════════════════════════════
+  // NOTIFICATIONS
+  // ═══════════════════════════════════════════════════════════
+
+  Future<Map<String, dynamic>> getNotifications({int limit = 30, int skip = 0}) async {
+    return _wrapNetworkCall(() async {
+      final res = await _client.get(
+        Uri.parse('$baseUrl/api/notifications/?limit=$limit&skip=$skip'),
+        headers: await _authHeaders(),
+      );
+      if (res.statusCode == 200) return jsonDecode(res.body) as Map<String, dynamic>;
+      throw _handleError(res);
+    });
+  }
+
+  Future<int> getNotificationUnreadCount() async {
+    return _wrapNetworkCall(() async {
+      final res = await _client.get(
+        Uri.parse('$baseUrl/api/notifications/unread-count'),
+        headers: await _authHeaders(),
+      );
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body) as Map<String, dynamic>;
+        return body['count'] as int? ?? 0;
+      }
+      throw _handleError(res);
+    });
+  }
+
+  Future<void> markNotificationRead(String id) async {
+    return _wrapNetworkCall(() async {
+      final res = await _client.patch(
+        Uri.parse('$baseUrl/api/notifications/$id/read'),
+        headers: await _authHeaders(),
+      );
+      if (res.statusCode != 200) throw _handleError(res);
+    });
+  }
+
+  Future<void> markAllNotificationsRead() async {
+    return _wrapNetworkCall(() async {
+      final res = await _client.patch(
+        Uri.parse('$baseUrl/api/notifications/read-all'),
+        headers: await _authHeaders(),
+      );
+      if (res.statusCode != 200) throw _handleError(res);
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════
   // BINS
   // ═══════════════════════════════════════════════════════════
 

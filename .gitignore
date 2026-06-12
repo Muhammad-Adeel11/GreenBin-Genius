@@ -1,6 +1,65 @@
-frontend/android/java_pid13804.hprof
+# ─── Java / Gradle ────────────────────────────────────────────
 *.hprof
 *.class
 build/
 .gradle/
-*.hprof
+frontend/android/java_pid*.hprof
+
+# ─── Flutter / Dart ───────────────────────────────────────────
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+frontend/.dart_tool/
+frontend/build/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+frontend/pubspec.lock
+
+# ─── Firebase Credentials (NEVER commit these) ────────────────
+# Service Account key (backend)
+backend/*-firebase-adminsdk-*.json
+backend/firebase_service_account.json
+
+# Android google-services config
+frontend/android/app/google-services.json
+
+# iOS GoogleService-Info.plist
+frontend/ios/Runner/GoogleService-Info.plist
+
+# ─── Python / Backend ─────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg
+*.egg-info/
+dist/
+.eggs/
+.venv/
+venv/
+env/
+.env
+backend/.env
+
+# ML model files (too large for git)
+# backend/ml/*.h5
+# backend/ml/*.pt
+# backend/ml/*.tflite
+
+# ─── Node / Admin Panel ───────────────────────────────────────
+node_modules/
+admin_panel/node_modules/
+admin_panel/dist/
+admin_panel/.env
+
+# ─── IDEs & OS ────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini

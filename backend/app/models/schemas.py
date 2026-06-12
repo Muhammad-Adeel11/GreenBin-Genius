@@ -322,3 +322,49 @@ class ResourceResponse(BaseModel):
 class ResourceListResponse(BaseModel):
     total: int
     data: List[ResourceResponse]
+
+
+# ──────────────────────────────────────────────
+# Notification & Campaign Schemas
+# ──────────────────────────────────────────────
+
+class NotificationResponse(BaseModel):
+    id: str
+    user_id: str
+    title_en: str
+    title_ur: str
+    message_en: str
+    message_ur: str
+    type: str                       # "scan", "points", "campaign", "system"
+    is_read: bool
+    created_at: Optional[datetime] = None
+
+
+class NotificationListResponse(BaseModel):
+    total: int
+    unread: int
+    data: List[NotificationResponse]
+
+
+class CampaignCreate(BaseModel):
+    title_english:   str  = Field(..., example="Recycling Drive This Weekend!")
+    title_urdu:      str  = Field(..., example="اس ہفتے کے آخر میں ری سائیکلنگ مہم!")
+    message_english: str  = Field(..., example="Join us for a community clean-up drive.")
+    message_urdu:    str  = Field(..., example="کمیونٹی صفائی مہم میں شامل ہوں۔")
+    target_audience: str  = Field(default="ALL", example="ALL")  # "ALL" or "ACTIVE_USERS"
+
+
+class CampaignResponse(BaseModel):
+    id: str
+    title_english: str
+    title_urdu: str
+    message_english: str
+    message_urdu: str
+    target_audience: str
+    recipients_count: int
+    created_at: Optional[datetime] = None
+
+
+class CampaignListResponse(BaseModel):
+    total: int
+    data: List[CampaignResponse]
