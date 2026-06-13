@@ -391,6 +391,20 @@ class ApiService {
     });
   }
 
+  Future<List<dynamic>> getImpactStories() async {
+    return _wrapNetworkCall(() async {
+      final res = await _client.get(
+        Uri.parse('$baseUrl/api/stories?active=true&limit=50'),
+        headers: await _authHeaders(),
+      );
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        return body['data'] as List<dynamic>;
+      }
+      throw _handleError(res);
+    });
+  }
+
   // ═══════════════════════════════════════════════════════════
   // HEALTH CHECK
   // ═══════════════════════════════════════════════════════════

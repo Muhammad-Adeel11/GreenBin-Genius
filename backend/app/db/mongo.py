@@ -64,6 +64,10 @@ def campaigns_col():
     return get_db()["campaigns"]
 
 
+def stories_col():
+    return get_db()["stories"]
+
+
 async def ping():
     """Check connectivity – called at startup."""
     try:

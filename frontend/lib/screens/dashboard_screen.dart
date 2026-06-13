@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../utils/responsive.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'camera_scanner_screen.dart';
@@ -7,6 +8,8 @@ import 'profile_screen.dart';
 import 'bin_locator_screen.dart';
 import '../services/api_service.dart';
 import 'classification_result_screen.dart';
+import 'impact_stories_screen.dart';
+import 'impact_story_detail_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final int initialTabIndex;
@@ -873,6 +876,7 @@ class _ImpactTabState extends State<ImpactTab> {
   String? _error;
   Map<String, dynamic>? _myStats;
   Map<String, dynamic>? _globalStats;
+  List<dynamic> _stories = [];
 
   @override
   void initState() {
@@ -885,11 +889,13 @@ class _ImpactTabState extends State<ImpactTab> {
       setState(() { _isLoading = true; _error = null; });
       final personal = await ApiService.instance.getMyAnalytics();
       final global = await ApiService.instance.getGlobalAnalytics();
+      final stories = await ApiService.instance.getImpactStories();
       
       if (mounted) {
         setState(() {
           _myStats = personal;
           _globalStats = global;
+          _stories = stories;
           _isLoading = false;
         });
       }
@@ -1063,21 +1069,40 @@ class _ImpactTabState extends State<ImpactTab> {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text("Stories of\nImpact", style: TextStyle(fontSize: R.fs(context, 26), fontWeight: FontWeight.bold)),
-                Text("View All", style: TextStyle(color: Colors.pink[400], fontWeight: FontWeight.bold)),
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const ImpactStoriesScreen()),
+                    );
+                  },
+                  child: Text("View All", style: TextStyle(color: Colors.pink[400], fontWeight: FontWeight.bold)),
+                ),
               ],
             ),
           ),
           SizedBox(height: sp),
           SizedBox(
             height: R.h(context, 30),
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: R.pagePadding(context),
-              children: [
-                _buildStoryCard(context, "Litter Data Helps San Francisco Win Court Case", "assets/images/cup_example.png"),
-                _buildStoryCard(context, "How Lodi brought together its local businesses", "assets/images/fgfg.png"),
-              ],
-            ),
+            child: _stories.isEmpty
+                ? Center(
+                    child: Text(
+                      "No stories available",
+                      style: TextStyle(color: Colors.grey, fontSize: R.fs(context, 13)),
+                    ),
+                  )
+                : ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    padding: R.pagePadding(context),
+                    itemCount: _stories.length,
+                    itemBuilder: (context, index) {
+                      final item = _stories[index];
+                      return _buildStoryCard(
+                        context,
+                        item,
+                      );
+                    },
+                  ),
           ),
           SizedBox(height: R.h(context, 12)),
         ],
@@ -1106,7 +1131,9 @@ class _ImpactTabState extends State<ImpactTab> {
     );
   }
 
-  Widget _buildStoryCard(BuildContext context, String title, String imagePath) {
+  Widget _buildStoryCard(BuildContext context, Map<String, dynamic> item) {
+    final title = item['title'] ?? '';
+    final imageUrl = item['image_url'] ?? '';
     final sp = R.sp(context);
     return Container(
       width: R.w(context, 56), margin: const EdgeInsets.only(right: 16),
@@ -1114,12 +1141,27 @@ class _ImpactTabState extends State<ImpactTab> {
         color: Colors.white, borderRadius: BorderRadius.circular(16),
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 15, offset: const Offset(0, 5))],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ClipRRect(borderRadius: const BorderRadius.vertical(top: Radius.circular(16)), child: Image.asset(imagePath, height: R.h(context, 14), width: double.infinity, fit: BoxFit.cover)),
-          Padding(padding: EdgeInsets.all(sp), child: Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: R.fs(context, 13), height: 1.2), maxLines: 3, overflow: TextOverflow.ellipsis)),
-        ],
+      child: GestureDetector(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ImpactStoryDetailScreen(story: item),
+            ),
+          );
+        },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              child: imageUrl.startsWith('http')
+                  ? Image.network(imageUrl, height: R.h(context, 14), width: double.infinity, fit: BoxFit.cover)
+                  : Image.asset(imageUrl, height: R.h(context, 14), width: double.infinity, fit: BoxFit.cover),
+            ),
+            Padding(padding: EdgeInsets.all(sp), child: Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: R.fs(context, 13), height: 1.2), maxLines: 3, overflow: TextOverflow.ellipsis)),
+          ],
+        ),
       ),
     );
   }

@@ -1,18 +1,48 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../services/api_service.dart';
 import '../utils/responsive.dart';
 import 'start_with_photo_screen.dart';
+import 'impact_story_detail_screen.dart';
 
-class ImpactStoriesScreen extends StatelessWidget {
+class ImpactStoriesScreen extends StatefulWidget {
   const ImpactStoriesScreen({super.key});
+
+  @override
+  State<ImpactStoriesScreen> createState() => _ImpactStoriesScreenState();
+}
+
+class _ImpactStoriesScreenState extends State<ImpactStoriesScreen> {
+  late Future<List<dynamic>> _storiesFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _storiesFuture = ApiService.instance.getImpactStories();
+  }
+
+  Future<void> _launchUrl(String urlString) async {
+    final Uri url = Uri.parse(urlString);
+    try {
+      if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not open page: $urlString')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Invalid link or unsupported scheme: $urlString')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final sp = R.sp(context);
-    final List<Map<String, String>> stories = [
-      {'title': 'Cleaning the Golden Gate', 'image': 'https://picsum.photos/300/200?random=1'},
-      {'title': 'School Project in Spain',  'image': 'https://picsum.photos/300/200?random=2'},
-      {'title': 'Ocean Cleanup Initiative',  'image': 'https://picsum.photos/300/200?random=3'},
-    ];
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -25,8 +55,10 @@ class ImpactStoriesScreen extends StatelessWidget {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.push(context,
-                MaterialPageRoute(builder: (context) => const StartWithPhotoScreen())),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const StartWithPhotoScreen()),
+            ),
             child: Text(
               'Next',
               style: TextStyle(
@@ -136,62 +168,118 @@ class ImpactStoriesScreen extends StatelessWidget {
 
             SizedBox(height: sp),
 
-            SizedBox(
-              height: R.h(context, 20),
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: stories.length,
-                itemBuilder: (context, index) {
-                  return Container(
-                    width: R.w(context, 50),
-                    margin: EdgeInsets.only(right: sp),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      color: Colors.grey[200],
-                      image: DecorationImage(
-                        image: NetworkImage(stories[index]['image']!),
-                        fit: BoxFit.cover,
+            FutureBuilder<List<dynamic>>(
+              future: _storiesFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return SizedBox(
+                    height: R.h(context, 20),
+                    child: const Center(child: CircularProgressIndicator()),
+                  );
+                } else if (snapshot.hasError) {
+                  return SizedBox(
+                    height: R.h(context, 20),
+                    child: Center(
+                      child: Text(
+                        'Failed to load stories.',
+                        style: TextStyle(color: Colors.red, fontSize: R.fs(context, 13)),
                       ),
                     ),
-                    child: Stack(
-                      children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(16),
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Colors.transparent,
-                                Colors.black.withOpacity(0.7),
-                              ],
-                            ),
-                          ),
-                        ),
-                        Center(
-                          child: Icon(Icons.play_circle_fill,
-                              color: Colors.white, size: R.icon(context, 40)),
-                        ),
-                        Positioned(
-                          bottom: sp * 0.75,
-                          left: sp * 0.75,
-                          right: sp * 0.75,
-                          child: Text(
-                            stories[index]['title']!,
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: R.fs(context, 13),
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
+                  );
+                }
+
+                final stories = snapshot.data ?? [];
+                if (stories.isEmpty) {
+                  return SizedBox(
+                    height: R.h(context, 20),
+                    child: Center(
+                      child: Text(
+                        'No stories found.',
+                        style: TextStyle(color: Colors.grey, fontSize: R.fs(context, 13)),
+                      ),
                     ),
                   );
-                },
-              ),
+                }
+
+                return SizedBox(
+                  height: R.h(context, 20),
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: stories.length,
+                    itemBuilder: (context, index) {
+                      final item = stories[index];
+                      final title = item['title'] ?? '';
+                      final imageUrl = item['image_url'] ?? '';
+                      final videoUrl = item['video_url'] ?? '';
+
+                      return GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ImpactStoryDetailScreen(story: item),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          width: R.w(context, 50),
+                          margin: EdgeInsets.only(right: sp),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(16),
+                            color: Colors.grey[200],
+                            image: imageUrl.isNotEmpty
+                                ? DecorationImage(
+                                    image: NetworkImage(imageUrl),
+                                    fit: BoxFit.cover,
+                                  )
+                                : null,
+                          ),
+                          child: Stack(
+                            children: [
+                              Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(16),
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      Colors.transparent,
+                                      Colors.black.withOpacity(0.7),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              if (videoUrl.isNotEmpty)
+                                Center(
+                                  child: Icon(
+                                    Icons.play_circle_fill,
+                                    color: Colors.white,
+                                    size: R.icon(context, 40),
+                                  ),
+                                ),
+                              Positioned(
+                                bottom: sp * 0.75,
+                                left: sp * 0.75,
+                                right: sp * 0.75,
+                                child: Text(
+                                  title,
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: R.fs(context, 13),
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                );
+              },
             ),
             SizedBox(height: sp * 1.5),
           ],

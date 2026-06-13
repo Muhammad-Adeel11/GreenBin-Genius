@@ -89,3 +89,14 @@ export const adminApi = {
   getModelStatus: ()              => api.get('/admin/model/status'),
   reloadModels:   ()              => api.post('/admin/model/reload'),
 }
+
+export const storiesApi = {
+  getAll:       (params)          => api.get('/stories', { params }),
+  getDetail:    (id)              => api.get(`/stories/${id}`),
+  create:       (data)            => api.post('/stories', data),
+  update:       (id, data)        => api.put(`/stories/${id}`, data),
+  delete:       (id)              => api.delete(`/stories/${id}`),
+  uploadImage:  (formData)        => api.post('/stories/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+}

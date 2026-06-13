@@ -14,6 +14,7 @@ const AIModel         = React.lazy(() => import('./pages/AIModel'))
 const FaqsResources   = React.lazy(() => import('./pages/FaqsResources'))
 const Settings        = React.lazy(() => import('./pages/Settings'))
 const Campaigns       = React.lazy(() => import('./pages/Campaigns'))
+const ImpactStories   = React.lazy(() => import('./pages/ImpactStories'))
 
 function RequireAuth({ children }) {
   const { token } = useAuthStore()
@@ -100,6 +101,11 @@ export default function App() {
         <Route path="/campaigns" element={
           <RequireAuth>
             <React.Suspense fallback={<PageFallback />}><Campaigns /></React.Suspense>
+          </RequireAuth>
+        } />
+        <Route path="/stories" element={
+          <RequireAuth>
+            <React.Suspense fallback={<PageFallback />}><ImpactStories /></React.Suspense>
           </RequireAuth>
         } />
 

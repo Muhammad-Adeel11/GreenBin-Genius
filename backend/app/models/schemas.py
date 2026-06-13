@@ -368,3 +368,38 @@ class CampaignResponse(BaseModel):
 class CampaignListResponse(BaseModel):
     total: int
     data: List[CampaignResponse]
+
+
+# ──────────────────────────────────────────────
+# Impact Story Schemas
+# ──────────────────────────────────────────────
+
+class StoryCreate(BaseModel):
+    title: str = Field(..., example="School Project in Spain")
+    image_url: str = Field(..., example="https://res.cloudinary.com/...")
+    video_url: Optional[str] = Field(default=None, example="https://youtube.com/...")
+    description: str = Field(default="", example="This school project taught children to recycle plastic.")
+    is_active: bool = Field(default=True)
+
+
+class StoryUpdate(BaseModel):
+    title: Optional[str] = None
+    image_url: Optional[str] = None
+    video_url: Optional[str] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class StoryResponse(BaseModel):
+    id: str
+    title: str
+    image_url: str
+    video_url: Optional[str] = None
+    description: str = ""
+    is_active: bool
+    created_at: Optional[datetime] = None
+
+
+class StoryListResponse(BaseModel):
+    total: int
+    data: List[StoryResponse]
