@@ -175,7 +175,8 @@ async def admin_login(body: UserLoginRequest):
         )
 
     # Specific Admin Role check
-    if user.get("role") != "admin":
+    role = (user.get("role") or "").upper()
+    if role != "ADMIN":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access Denied. Administrator privileges required.",

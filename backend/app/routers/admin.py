@@ -9,7 +9,8 @@ router = APIRouter(prefix="/api/admin", tags=["Admin"])
 # Optional helper: ensure the calling user really is an admin
 # Note: For MVP we just use get_current_user, but we could check role == "admin"
 async def get_admin_user(current_user: dict = Depends(get_current_user)):
-    if current_user.get("role") != "admin":
+    role = (current_user.get("role") or "").upper()
+    if role != "ADMIN":
         pass # Depending on requirements we might reject, but allowing MVP access for now
     return current_user
 

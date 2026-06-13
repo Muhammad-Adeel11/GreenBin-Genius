@@ -13,6 +13,7 @@ const BinLocations    = React.lazy(() => import('./pages/BinLocations'))
 const AIModel         = React.lazy(() => import('./pages/AIModel'))
 const FaqsResources   = React.lazy(() => import('./pages/FaqsResources'))
 const Settings        = React.lazy(() => import('./pages/Settings'))
+const Campaigns       = React.lazy(() => import('./pages/Campaigns'))
 
 function RequireAuth({ children }) {
   const { token } = useAuthStore()
@@ -94,6 +95,11 @@ export default function App() {
         <Route path="/settings" element={
           <RequireAuth>
             <React.Suspense fallback={<PageFallback />}><Settings /></React.Suspense>
+          </RequireAuth>
+        } />
+        <Route path="/campaigns" element={
+          <RequireAuth>
+            <React.Suspense fallback={<PageFallback />}><Campaigns /></React.Suspense>
           </RequireAuth>
         } />
 
