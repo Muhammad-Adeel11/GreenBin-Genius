@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import '../utils/responsive.dart';
 import '../services/api_service.dart';
+import '../services/translation_service.dart';
 import 'settings_screen.dart';
 import 'notifications_screen.dart';
 import 'claim_account_flow.dart';
 import 'login_selection_screen.dart';
 import 'faqs_resources_screen.dart';
+import 'privacy_policy_screen.dart';
+import 'help_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -14,162 +17,171 @@ class ProfileScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final sp = R.sp(context);
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF2196F3), // Match app theme
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          "Profile",
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: R.fs(context, 18),
-            fontWeight: FontWeight.bold,
+    return ValueListenableBuilder<String>(
+      valueListenable: TranslationService.instance.languageNotifier,
+      builder: (context, lang, child) {
+        return Scaffold(
+          backgroundColor: Colors.white,
+          appBar: AppBar(
+            backgroundColor: const Color(0xFF2196F3), // Match app theme
+            elevation: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
+              onPressed: () => Navigator.pop(context),
+            ),
+            title: Text(
+              TranslationService.translate('tab_profile'),
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: R.fs(context, 18),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            centerTitle: true,
           ),
-        ),
-        centerTitle: true,
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // 1. Custom Wavy Header with Avatar
-            SizedBox(
-              height: R.h(context, 32),
-              child: Stack(
-                alignment: Alignment.topCenter,
-                children: [
-                  // Blue Wave Background
-                  ClipPath(
-                    clipper: ProfileWaveClipper(),
-                    child: Container(
-                      height: R.h(context, 24),
-                      width: double.infinity,
-                      color: const Color(0xFF2196F3),
-                    ),
-                  ),
-                  // Avatar overlapping the wave
-                  Positioned(
-                    bottom: 0,
-                    child: Container(
-                      width: R.icon(context, 110),
-                      height: R.icon(context, 110),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 10,
-                            offset: const Offset(0, 5),
-                          ),
-                        ],
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(4.0),
+          body: SingleChildScrollView(
+            child: Column(
+              children: [
+                // 1. Custom Wavy Header with Avatar
+                SizedBox(
+                  height: R.h(context, 32),
+                  child: Stack(
+                    alignment: Alignment.topCenter,
+                    children: [
+                      // Blue Wave Background
+                      ClipPath(
+                        clipper: ProfileWaveClipper(),
                         child: Container(
-                          decoration: const BoxDecoration(
+                          height: R.h(context, 24),
+                          width: double.infinity,
+                          color: const Color(0xFF2196F3),
+                        ),
+                      ),
+                      // Avatar overlapping the wave
+                      Positioned(
+                        bottom: 0,
+                        child: Container(
+                          width: R.icon(context, 110),
+                          height: R.icon(context, 110),
+                          decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            gradient: LinearGradient(
-                              colors: [Colors.cyanAccent, Colors.blue],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                          ),
-                          child: const Icon(
-                            Icons.person,
                             color: Colors.white,
-                            size: 60,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 10,
+                                offset: const Offset(0, 5),
+                              ),
+                            ],
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(4.0),
+                            child: Container(
+                              decoration: const BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: LinearGradient(
+                                  colors: [Colors.cyanAccent, Colors.blue],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.person,
+                                color: Colors.white,
+                                size: 60,
+                              ),
+                            ),
                           ),
                         ),
                       ),
+                    ],
+                  ),
+                ),
+
+                // 2. User Info
+                SizedBox(height: sp),
+                Text(
+                  TranslationService.translate('profile_member_title'),
+                  style: TextStyle(
+                    fontSize: R.fs(context, 28),
+                    fontWeight: FontWeight.w900,
+                    color: Colors.black,
+                  ),
+                ),
+                SizedBox(height: sp * 0.5),
+                Text(
+                  TranslationService.translate('profile_member_since'),
+                  style: TextStyle(
+                    fontSize: R.fs(context, 12),
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black54,
+                  ),
+                ),
+
+                SizedBox(height: sp * 2),
+
+                // 3. Claim Account Button
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const ClaimDisplayNameScreen()),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFE3F2FD),
+                    foregroundColor: const Color(0xFF2196F3),
+                    elevation: 0,
+                    padding: EdgeInsets.symmetric(horizontal: R.w(context, 10), vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
                     ),
                   ),
-                ],
-              ),
-            ),
-
-            // 2. User Info
-            SizedBox(height: sp),
-            Text(
-              "GreenBin Member",
-              style: TextStyle(
-                fontSize: R.fs(context, 28),
-                fontWeight: FontWeight.w900,
-                color: Colors.black,
-              ),
-            ),
-            SizedBox(height: sp * 0.5),
-            Text(
-              "Member Since APRIL, 2026",
-              style: TextStyle(
-                fontSize: R.fs(context, 12),
-                fontWeight: FontWeight.bold,
-                color: Colors.black54,
-              ),
-            ),
-
-            SizedBox(height: sp * 2),
-
-            // 3. Claim Account Button
-            ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const ClaimDisplayNameScreen()),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFE3F2FD),
-                foregroundColor: const Color(0xFF2196F3),
-                elevation: 0,
-                padding: EdgeInsets.symmetric(horizontal: R.w(context, 10), vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
+                  child: Text(
+                    TranslationService.translate('claim_account'),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: R.fs(context, 13),
+                      letterSpacing: 0.5,
+                    ),
+                  ),
                 ),
-              ),
-              child: Text(
-                "CLAIM YOUR ACCOUNT",
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: R.fs(context, 13),
-                  letterSpacing: 0.5,
-                ),
-              ),
+
+                SizedBox(height: sp * 3),
+
+                // 4. Options List
+                _buildListOption(context, Icons.notifications_none_rounded, TranslationService.translate('notifications'), onTap: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const NotificationsScreen()));
+                }),
+                _buildListOption(context, Icons.help_outline_rounded, TranslationService.translate('faqs_resources'), isBlue: true, onTap: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const FAQsResourcesScreen()));
+                }),
+                _buildListOption(context, Icons.settings_outlined, TranslationService.translate('settings'), onTap: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsScreen()));
+                }),
+                _buildListOption(context, Icons.privacy_tip_outlined, TranslationService.translate('privacy_policy'), onTap: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const PrivacyPolicyScreen()));
+                }),
+                _buildListOption(context, Icons.help_outline_rounded, TranslationService.translate('help'), onTap: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const HelpScreen()));
+                }),
+                _buildListOption(context, Icons.logout_rounded, TranslationService.translate('log_out'), isLast: true, onTap: () async {
+                  await ApiService.instance.clearToken();
+                  if (context.mounted) {
+                    Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(builder: (_) => const LoginSelectionScreen()),
+                      (route) => false,
+                    );
+                  }
+                }),
+
+                SizedBox(height: R.h(context, 5)),
+              ],
             ),
-
-            SizedBox(height: sp * 3),
-
-            // 4. Options List
-            _buildListOption(context, Icons.notifications_none_rounded, "Notifications", onTap: () {
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const NotificationsScreen()));
-            }),
-            _buildListOption(context, Icons.help_outline_rounded, "FAQs & Resources", isBlue: true, onTap: () {
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const FAQsResourcesScreen()));
-            }),
-            _buildListOption(context, Icons.settings_outlined, "Settings", onTap: () {
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsScreen()));
-            }),
-            _buildListOption(context, Icons.privacy_tip_outlined, "Privacy Policy"),
-            _buildListOption(context, Icons.help_outline_rounded, "Help"),
-            _buildListOption(context, Icons.logout_rounded, "Log Out", isLast: true, onTap: () async {
-              await ApiService.instance.clearToken();
-              if (context.mounted) {
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (_) => const LoginSelectionScreen()),
-                  (route) => false,
-                );
-              }
-            }),
-
-            SizedBox(height: R.h(context, 5)),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 

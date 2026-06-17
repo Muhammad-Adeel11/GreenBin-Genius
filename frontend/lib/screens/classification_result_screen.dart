@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../utils/responsive.dart';
 import '../utils/disposal_data.dart';
 import '../services/api_service.dart';
+import '../services/translation_service.dart';
 import 'bin_locator_screen.dart';
 
 class ClassificationResultScreen extends StatefulWidget {
@@ -32,7 +33,6 @@ class _ClassificationResultScreenState extends State<ClassificationResultScreen>
 
   // Guidance card state
   DisposalGuidance? _guidance;
-  bool _showUrdu = false;
   bool _feedbackSubmitted = false;
   bool _submittingFeedback = false;
   String? _feedbackCategory;     // selected corrected category
@@ -488,7 +488,7 @@ class _ClassificationResultScreenState extends State<ClassificationResultScreen>
   Widget _buildGuidanceCard(DisposalGuidance g, double sp) {
     final binHex   = g.binColorHex;
     final binColor = _hexColor(binHex);
-    final steps    = _showUrdu ? g.stepsUr : g.steps;
+    final steps    = TranslationService.isUrdu ? g.stepsUr : g.steps;
 
     return Container(
       width: double.infinity,
@@ -541,17 +541,20 @@ class _ClassificationResultScreenState extends State<ClassificationResultScreen>
                 ),
                 // Language toggle
                 GestureDetector(
-                  onTap: () => setState(() => _showUrdu = !_showUrdu),
+                  onTap: () async {
+                    await TranslationService.instance.toggleLanguage();
+                    setState(() {});
+                  },
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: _showUrdu ? binColor : Colors.white12,
+                      color: TranslationService.isUrdu ? binColor : Colors.white12,
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      _showUrdu ? 'اردو' : 'EN',
+                      TranslationService.isUrdu ? 'اردو' : 'EN',
                       style: TextStyle(
-                        color: _showUrdu ? Colors.white : Colors.white70,
+                        color: TranslationService.isUrdu ? Colors.white : Colors.white70,
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                       ),
@@ -569,8 +572,8 @@ class _ClassificationResultScreenState extends State<ClassificationResultScreen>
               children: [
                 // Short tip
                 Text(
-                  _showUrdu ? g.tipUr : g.tipEn,
-                  textDirection: _showUrdu ? TextDirection.rtl : TextDirection.ltr,
+                  TranslationService.isUrdu ? g.tipUr : g.tipEn,
+                  textDirection: TranslationService.isUrdu ? TextDirection.rtl : TextDirection.ltr,
                   style: const TextStyle(color: Colors.white70, fontSize: 14, fontStyle: FontStyle.italic),
                 ),
                 const SizedBox(height: 20),
@@ -579,7 +582,7 @@ class _ClassificationResultScreenState extends State<ClassificationResultScreen>
                 Text('Step-by-Step Guide',
                   style: TextStyle(color: binColor, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1.0)),
                 const SizedBox(height: 12),
-                ...steps.asMap().entries.map((e) => _buildStep(e.key + 1, e.value, binColor, _showUrdu)),
+                ...steps.asMap().entries.map((e) => _buildStep(e.key + 1, e.value, binColor, TranslationService.isUrdu)),
 
                 if (g.doList.isNotEmpty || g.dontList.isNotEmpty) ...[
                   const SizedBox(height: 20),

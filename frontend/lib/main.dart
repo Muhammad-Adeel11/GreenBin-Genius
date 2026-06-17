@@ -8,6 +8,7 @@ import 'utils/app_theme.dart';
 import 'screens/splash_screen.dart';
 import 'screens/notifications_screen.dart';
 import 'services/api_service.dart';
+import 'services/translation_service.dart';
 
 // ── Background message handler (must be top-level function) ──
 @pragma('vm:entry-point')
@@ -27,6 +28,9 @@ void main() async {
 
   // Register background handler
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+  // Initialize Translation Service
+  await TranslationService.instance.init();
 
   runApp(const GreenBinGeniusApp());
 }
@@ -142,14 +146,26 @@ class _GreenBinGeniusAppState extends State<GreenBinGeniusApp> {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: AppTheme.themeNotifier,
       builder: (_, ThemeMode currentMode, __) {
-        return MaterialApp(
-          title: 'GreenBin Genius',
-          debugShowCheckedModeBanner: false,
-          theme: AppTheme.lightTheme,
-          darkTheme: AppTheme.darkTheme,
-          themeMode: currentMode,
-          navigatorKey: navigatorKey,
-          home: const SplashScreen(),
+        return ValueListenableBuilder<String>(
+          valueListenable: TranslationService.instance.languageNotifier,
+          builder: (_, String lang, __) {
+            return MaterialApp(
+              title: 'GreenBin Genius',
+              debugShowCheckedModeBanner: false,
+              theme: AppTheme.lightTheme,
+              darkTheme: AppTheme.darkTheme,
+              themeMode: currentMode,
+              navigatorKey: navigatorKey,
+              locale: Locale(lang),
+              builder: (context, child) {
+                return Directionality(
+                  textDirection: lang == 'ur' ? TextDirection.rtl : TextDirection.ltr,
+                  child: child!,
+                );
+              },
+              home: const SplashScreen(),
+            );
+          },
         );
       },
     );

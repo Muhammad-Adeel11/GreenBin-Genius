@@ -7,6 +7,7 @@ import 'camera_tutorial_screen.dart';
 import 'profile_screen.dart';
 import 'bin_locator_screen.dart';
 import '../services/api_service.dart';
+import '../services/translation_service.dart';
 import 'classification_result_screen.dart';
 import 'impact_stories_screen.dart';
 import 'impact_story_detail_screen.dart';
@@ -44,59 +45,79 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final List<Widget> pages = [
-      ActivityTab(
-        photos: DashboardScreen.globalActivityPhotos,
-        justUploaded: widget.justUploaded,
-      ),
-      const BinLocatorScreen(isTabMode: true),
-      const ImpactTab(),
-      const LeaderboardTab(),
-      const TasksTab(),
-    ];
+    return ValueListenableBuilder<String>(
+      valueListenable: TranslationService.instance.languageNotifier,
+      builder: (context, lang, child) {
+        final List<Widget> pages = [
+          ActivityTab(
+            photos: DashboardScreen.globalActivityPhotos,
+            justUploaded: widget.justUploaded,
+          ),
+          const BinLocatorScreen(isTabMode: true),
+          const ImpactTab(),
+          const LeaderboardTab(),
+          const TasksTab(),
+        ];
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: pages[_selectedIndex],
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final prefs = await SharedPreferences.getInstance();
-          final bool hasSeenTutorial = prefs.getBool('has_seen_camera_tutorial') ?? false;
+        return Scaffold(
+          backgroundColor: Colors.white,
+          body: pages[_selectedIndex],
+          floatingActionButton: FloatingActionButton(
+            onPressed: () async {
+              final prefs = await SharedPreferences.getInstance();
+              final bool hasSeenTutorial = prefs.getBool('has_seen_camera_tutorial') ?? false;
 
-          if (context.mounted) {
-            if (hasSeenTutorial) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const AiScannerScreen()),
-              );
-            } else {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const TutorialStep1()),
-              );
-            }
-          }
-        },
-        backgroundColor: const Color(0xFF007AFF),
-        shape: const CircleBorder(),
-        child: Icon(Icons.camera_alt, color: Colors.white, size: R.icon(context, 28)),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        currentIndex: _selectedIndex,
-        selectedItemColor: const Color(0xFF007AFF),
-        unselectedItemColor: Colors.grey,
-        selectedLabelStyle: TextStyle(fontSize: R.fs(context, 11), fontWeight: FontWeight.bold),
-        unselectedLabelStyle: TextStyle(fontSize: R.fs(context, 11)),
-        onTap: _onItemTapped,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.bubble_chart_outlined), label: 'Activity'),
-          BottomNavigationBarItem(icon: Icon(Icons.map_outlined), label: 'Map'),
-          BottomNavigationBarItem(icon: Icon(Icons.language), label: 'Impact'),
-          BottomNavigationBarItem(icon: Icon(Icons.emoji_events_outlined), label: 'Leaderboard'),
-          BottomNavigationBarItem(icon: Icon(Icons.assignment_outlined), label: 'Tasks'),
-        ],
-      ),
+              if (context.mounted) {
+                if (hasSeenTutorial) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const AiScannerScreen()),
+                  );
+                } else {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const TutorialStep1()),
+                  );
+                }
+              }
+            },
+            backgroundColor: const Color(0xFF007AFF),
+            shape: const CircleBorder(),
+            child: Icon(Icons.camera_alt, color: Colors.white, size: R.icon(context, 28)),
+          ),
+          bottomNavigationBar: BottomNavigationBar(
+            type: BottomNavigationBarType.fixed,
+            currentIndex: _selectedIndex,
+            selectedItemColor: const Color(0xFF007AFF),
+            unselectedItemColor: Colors.grey,
+            selectedLabelStyle: TextStyle(fontSize: R.fs(context, 11), fontWeight: FontWeight.bold),
+            unselectedLabelStyle: TextStyle(fontSize: R.fs(context, 11)),
+            onTap: _onItemTapped,
+            items: [
+              BottomNavigationBarItem(
+                icon: const Icon(Icons.bubble_chart_outlined),
+                label: TranslationService.translate('tab_activity'),
+              ),
+              BottomNavigationBarItem(
+                icon: const Icon(Icons.map_outlined),
+                label: TranslationService.translate('tab_map'),
+              ),
+              BottomNavigationBarItem(
+                icon: const Icon(Icons.language),
+                label: TranslationService.translate('tab_impact'),
+              ),
+              BottomNavigationBarItem(
+                icon: const Icon(Icons.emoji_events_outlined),
+                label: TranslationService.translate('tab_leaderboard'),
+              ),
+              BottomNavigationBarItem(
+                icon: const Icon(Icons.assignment_outlined),
+                label: TranslationService.translate('tab_tasks'),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -158,7 +179,7 @@ class TasksTab extends StatelessWidget {
                       ),
                     ),
                   ),
-                  Text("Tasks", style: TextStyle(color: Colors.white, fontSize: R.fs(context, 18), fontWeight: FontWeight.bold)),
+                  Text(TranslationService.translate('tab_tasks'), style: TextStyle(color: Colors.white, fontSize: R.fs(context, 18), fontWeight: FontWeight.bold)),
                   SizedBox(width: R.icon(context, 36)),
                 ],
               ),
@@ -188,13 +209,13 @@ class TasksTab extends StatelessWidget {
                   child: Column(
                     children: [
                       Text(
-                        "Want To Collect More Detailed Litter Data?",
+                        TranslationService.translate('litter_data_desc'),
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: R.fs(context, 15), fontWeight: FontWeight.bold, color: Colors.black87),
                       ),
                       SizedBox(height: sp),
                       Text(
-                        "APPLY TO BECOME A GREENBIN\nRESEARCHER NOW",
+                        TranslationService.translate('apply_researcher'),
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: R.fs(context, 18), fontWeight: FontWeight.w900, color: const Color(0xFF007AFF), letterSpacing: 0.5, height: 1.4),
                       ),
@@ -214,7 +235,7 @@ class TasksTab extends StatelessWidget {
                             elevation: 0,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                           ),
-                          child: Text("APPLY NOW!", style: TextStyle(fontSize: R.fs(context, 13), fontWeight: FontWeight.w800, letterSpacing: 1.5)),
+                          child: Text(TranslationService.translate('apply_now'), style: TextStyle(fontSize: R.fs(context, 13), fontWeight: FontWeight.w800, letterSpacing: 1.5)),
                         ),
                       ),
                       SizedBox(height: R.h(context, 10)),
@@ -347,7 +368,7 @@ class _LeaderboardTabState extends State<LeaderboardTab> {
                         ),
                       ),
                     ),
-                    Text("Leaderboard", style: TextStyle(color: Colors.white, fontSize: R.fs(context, 18), fontWeight: FontWeight.bold)),
+                    Text(TranslationService.translate('tab_leaderboard'), style: TextStyle(color: Colors.white, fontSize: R.fs(context, 18), fontWeight: FontWeight.bold)),
                     SizedBox(width: R.icon(context, 36)),
                   ],
                 ),
@@ -367,7 +388,13 @@ class _LeaderboardTabState extends State<LeaderboardTab> {
                   children: [
                     Icon(Icons.access_time, size: R.icon(context, 22), color: Colors.black87),
                     SizedBox(width: R.w(context, 2)),
-                    Text(_selectedTimeFilter, style: TextStyle(fontWeight: FontWeight.bold, fontSize: R.fs(context, 15))),
+                    Text(
+                      _selectedTimeFilter == 'Last 24 Hours' ? (TranslationService.isUrdu ? 'پچھلے 24 گھنٹے' : 'Last 24 Hours') :
+                      _selectedTimeFilter == 'Last 7 Days' ? (TranslationService.isUrdu ? 'پچھلے 7 دن' : 'Last 7 Days') :
+                      _selectedTimeFilter == 'Last 15 Days' ? (TranslationService.isUrdu ? 'پچھلے 15 دن' : 'Last 15 Days') :
+                      _selectedTimeFilter == 'Last 30 Days' ? (TranslationService.isUrdu ? 'پچھلے 30 دن' : 'Last 30 Days') : _selectedTimeFilter,
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: R.fs(context, 15)),
+                    ),
                     SizedBox(width: R.w(context, 1)),
                     Icon(Icons.keyboard_arrow_down, size: R.icon(context, 22), color: Colors.black87),
                   ],
@@ -385,7 +412,7 @@ class _LeaderboardTabState extends State<LeaderboardTab> {
                       child: Container(
                         padding: EdgeInsets.only(bottom: R.h(context, 1.5)),
                         decoration: BoxDecoration(border: Border(bottom: BorderSide(color: _isMembersActive ? const Color(0xFF007AFF) : Colors.transparent, width: 2))),
-                        child: Center(child: Text("Members", style: TextStyle(color: _isMembersActive ? const Color(0xFF007AFF) : Colors.grey, fontWeight: FontWeight.bold, fontSize: R.fs(context, 14)))),
+                        child: Center(child: Text(TranslationService.translate('leaderboard_members'), style: TextStyle(color: _isMembersActive ? const Color(0xFF007AFF) : Colors.grey, fontWeight: FontWeight.bold, fontSize: R.fs(context, 14)))),
                       ),
                     ),
                   ),
@@ -398,7 +425,7 @@ class _LeaderboardTabState extends State<LeaderboardTab> {
                       child: Container(
                         padding: EdgeInsets.only(bottom: R.h(context, 1.5)),
                         decoration: BoxDecoration(border: Border(bottom: BorderSide(color: !_isMembersActive ? const Color(0xFF007AFF) : Colors.transparent, width: 2))),
-                        child: Center(child: Text("Countries", style: TextStyle(color: !_isMembersActive ? const Color(0xFF007AFF) : Colors.grey, fontWeight: FontWeight.bold, fontSize: R.fs(context, 14)))),
+                        child: Center(child: Text(TranslationService.translate('leaderboard_countries'), style: TextStyle(color: !_isMembersActive ? const Color(0xFF007AFF) : Colors.grey, fontWeight: FontWeight.bold, fontSize: R.fs(context, 14)))),
                       ),
                     ),
                   ),
@@ -418,13 +445,13 @@ class _LeaderboardTabState extends State<LeaderboardTab> {
                         children: [
                           Icon(Icons.error_outline, color: Colors.red, size: sp * 2),
                           SizedBox(height: sp),
-                          Text("Failed to load leaderboard", style: TextStyle(color: Colors.red, fontSize: R.fs(context, 14))),
-                          TextButton(onPressed: _fetchLeaderboard, child: const Text("Retry")),
+                          Text(TranslationService.translate('leaderboard_fail'), style: TextStyle(color: Colors.red, fontSize: R.fs(context, 14))),
+                          TextButton(onPressed: _fetchLeaderboard, child: Text(TranslationService.translate('retry'))),
                         ],
                       ),
                     )
                   : _leaderboardData.isEmpty
-                      ? Center(child: Text("No records found", style: TextStyle(color: Colors.grey, fontSize: R.fs(context, 14))))
+                      ? Center(child: Text(TranslationService.translate('no_records'), style: TextStyle(color: Colors.grey, fontSize: R.fs(context, 14))))
                       : ListView.builder(
                           padding: EdgeInsets.only(bottom: R.h(context, 12)),
                           itemCount: _leaderboardData.length,
@@ -584,7 +611,7 @@ class _ActivityTabState extends State<ActivityTab> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const SizedBox(height: 10),
-                Text("Are you sure you want to delete these records?", textAlign: TextAlign.center, style: TextStyle(fontSize: R.fs(context, 16), fontWeight: FontWeight.bold)),
+                Text(TranslationService.translate('delete_confirm_desc'), textAlign: TextAlign.center, style: TextStyle(fontSize: R.fs(context, 16), fontWeight: FontWeight.bold)),
                 const SizedBox(height: 30),
                 Row(
                   children: [
@@ -592,7 +619,7 @@ class _ActivityTabState extends State<ActivityTab> {
                       child: TextButton(
                         onPressed: () { Navigator.pop(ctx); _deleteSelected(); },
                         style: TextButton.styleFrom(backgroundColor: const Color(0xFFFFEBEE), padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))),
-                        child: Text("YES", style: TextStyle(color: const Color(0xFFD32F2F), fontWeight: FontWeight.bold, fontSize: R.fs(context, 13))),
+                        child: Text(TranslationService.translate('yes'), style: TextStyle(color: const Color(0xFFD32F2F), fontWeight: FontWeight.bold, fontSize: R.fs(context, 13))),
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -600,7 +627,7 @@ class _ActivityTabState extends State<ActivityTab> {
                       child: TextButton(
                         onPressed: () => Navigator.pop(ctx),
                         style: TextButton.styleFrom(backgroundColor: const Color(0xFFE3F2FD), padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))),
-                        child: Text("NO", style: TextStyle(color: const Color(0xFF007AFF), fontWeight: FontWeight.bold, fontSize: R.fs(context, 13))),
+                        child: Text(TranslationService.translate('no'), style: TextStyle(color: const Color(0xFF007AFF), fontWeight: FontWeight.bold, fontSize: R.fs(context, 13))),
                       ),
                     ),
                   ],
@@ -639,9 +666,9 @@ class _ActivityTabState extends State<ActivityTab> {
                       ),
                     ),
                   ),
-                  Text("Activity", style: TextStyle(color: Colors.white, fontSize: R.fs(context, 18), fontWeight: FontWeight.bold)),
+                  Text(TranslationService.translate('tab_activity'), style: TextStyle(color: Colors.white, fontSize: R.fs(context, 18), fontWeight: FontWeight.bold)),
                   if (_isSelectionMode)
-                    TextButton(onPressed: () { setState(() { _isSelectionMode = false; _selectedIndices.clear(); }); }, child: Text("Cancel", style: TextStyle(color: Colors.white, fontSize: R.fs(context, 15))))
+                    TextButton(onPressed: () { setState(() { _isSelectionMode = false; _selectedIndices.clear(); }); }, child: Text(TranslationService.translate('cancel'), style: TextStyle(color: Colors.white, fontSize: R.fs(context, 15))))
                   else
                     Row(
                       children: [
@@ -670,8 +697,8 @@ class _ActivityTabState extends State<ActivityTab> {
                   children: [
                     Icon(Icons.error_outline, color: Colors.red, size: 50),
                     const SizedBox(height: 10),
-                    Text("Failed to load history", style: TextStyle(color: Colors.red)),
-                    TextButton(onPressed: _fetchHistory, child: const Text("Retry"))
+                    Text(TranslationService.translate('history_fail'), style: TextStyle(color: Colors.red)),
+                    TextButton(onPressed: _fetchHistory, child: Text(TranslationService.translate('retry')))
                   ],
                 ))
               else if (_history.isEmpty)
@@ -691,7 +718,12 @@ class _ActivityTabState extends State<ActivityTab> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Icon(Icons.delete_outline, color: _selectedIndices.isEmpty ? Colors.grey : const Color(0xFFD32F2F)),
-                          Text("DELETE ${_selectedIndices.length} RECORD${_selectedIndices.length != 1 ? 'S' : ''}", style: TextStyle(color: _selectedIndices.isEmpty ? Colors.grey : const Color(0xFFD32F2F), fontWeight: FontWeight.bold, fontSize: R.fs(context, 13), letterSpacing: 1.0)),
+                          Text(
+                            TranslationService.isUrdu
+                                ? "${_selectedIndices.length} ریکارڈز حذف کریں"
+                                : "DELETE ${_selectedIndices.length} RECORD${_selectedIndices.length != 1 ? 'S' : ''}",
+                            style: TextStyle(color: _selectedIndices.isEmpty ? Colors.grey : const Color(0xFFD32F2F), fontWeight: FontWeight.bold, fontSize: R.fs(context, 13), letterSpacing: 1.0),
+                          ),
                           const SizedBox(width: 24),
                         ],
                       ),
@@ -720,7 +752,7 @@ class _ActivityTabState extends State<ActivityTab> {
           ),
         ),
         SizedBox(height: R.h(context, 4)),
-        Text("No Scans Yet", style: TextStyle(fontSize: R.fs(context, 22), fontWeight: FontWeight.bold, color: Colors.black87)),
+        Text(TranslationService.translate('no_scans'), style: TextStyle(fontSize: R.fs(context, 22), fontWeight: FontWeight.bold, color: Colors.black87)),
         SizedBox(height: R.h(context, 10)),
       ],
     );
@@ -964,12 +996,12 @@ class _ImpactTabState extends State<ImpactTab> {
                               ),
                             ),
                           ),
-                          Text("Impact", style: TextStyle(color: Colors.white, fontSize: R.fs(context, 20), fontWeight: FontWeight.bold)),
+                          Text(TranslationService.translate('tab_impact'), style: TextStyle(color: Colors.white, fontSize: R.fs(context, 20), fontWeight: FontWeight.bold)),
                           SizedBox(width: R.icon(context, 40)),
                         ],
                       ),
                       SizedBox(height: sp * 1.5),
-                      Text("Total Global Litter Pickup", style: TextStyle(color: Colors.white70, fontSize: R.fs(context, 14))),
+                      Text(TranslationService.translate('total_global_litter'), style: TextStyle(color: Colors.white70, fontSize: R.fs(context, 14))),
                       SizedBox(height: sp * 0.25),
                       SizedBox(
                         width: double.infinity,
@@ -980,7 +1012,7 @@ class _ImpactTabState extends State<ImpactTab> {
                         ),
                       ),
                       SizedBox(height: sp * 1.25),
-                      Text("Overall Pickup This Month", style: TextStyle(color: Colors.white70, fontSize: R.fs(context, 14))),
+                      Text(TranslationService.translate('pickup_this_month'), style: TextStyle(color: Colors.white70, fontSize: R.fs(context, 14))),
                       SizedBox(height: sp * 0.25),
                       SizedBox(
                         width: double.infinity,
@@ -1034,9 +1066,10 @@ class _ImpactTabState extends State<ImpactTab> {
                 alignment: Alignment.centerLeft,
                 child: Row(
                   children: [
-                    Text("My ", style: TextStyle(fontSize: R.fs(context, 28), fontWeight: FontWeight.w300)),
-                    Text("Activity ", style: TextStyle(fontSize: R.fs(context, 28), fontWeight: FontWeight.bold)),
-                    Text("This Week", style: TextStyle(fontSize: R.fs(context, 28), fontWeight: FontWeight.w300)),
+                    Text(
+                      TranslationService.translate('my_activity_week'),
+                      style: TextStyle(fontSize: R.fs(context, 26), fontWeight: FontWeight.bold),
+                    ),
                     const SizedBox(width: 10),
                     Icon(Icons.info, color: Colors.blue[500], size: R.icon(context, 28)),
                   ],
@@ -1068,7 +1101,7 @@ class _ImpactTabState extends State<ImpactTab> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text("Stories of\nImpact", style: TextStyle(fontSize: R.fs(context, 26), fontWeight: FontWeight.bold)),
+                Text(TranslationService.translate('stories_impact'), style: TextStyle(fontSize: R.fs(context, 26), fontWeight: FontWeight.bold)),
                 GestureDetector(
                   onTap: () {
                     Navigator.push(
@@ -1076,7 +1109,7 @@ class _ImpactTabState extends State<ImpactTab> {
                       MaterialPageRoute(builder: (context) => const ImpactStoriesScreen()),
                     );
                   },
-                  child: Text("View All", style: TextStyle(color: Colors.pink[400], fontWeight: FontWeight.bold)),
+                  child: Text(TranslationService.translate('view_all'), style: TextStyle(color: Colors.pink[400], fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
@@ -1087,7 +1120,7 @@ class _ImpactTabState extends State<ImpactTab> {
             child: _stories.isEmpty
                 ? Center(
                     child: Text(
-                      "No stories available",
+                      TranslationService.translate('no_stories'),
                       style: TextStyle(color: Colors.grey, fontSize: R.fs(context, 13)),
                     ),
                   )

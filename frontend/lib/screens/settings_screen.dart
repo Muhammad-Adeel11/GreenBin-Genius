@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/responsive.dart';
 import '../utils/app_theme.dart';
 import '../services/api_service.dart';
+import '../services/translation_service.dart';
 import 'login_selection_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -61,13 +62,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("Logout"),
-        content: const Text("Are you sure you want to log out?"),
+        title: Text(TranslationService.translate('logout_confirm_title')),
+        content: Text(TranslationService.translate('logout_confirm_desc')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("CANCEL")),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(TranslationService.translate('cancel').toUpperCase()),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text("LOGOUT", style: TextStyle(color: Colors.red)),
+            child: Text(
+              TranslationService.translate('log_out').toUpperCase(),
+              style: const TextStyle(color: Colors.red),
+            ),
           ),
         ],
       ),
@@ -98,7 +105,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          "Settings",
+          TranslationService.translate('settings'),
           style: TextStyle(
             fontSize: R.fs(context, 18),
             fontWeight: FontWeight.bold,
@@ -113,34 +120,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             SizedBox(height: sp),
 
-            _buildSectionTitle(context, "APPEARANCE"),
+            _buildSectionTitle(context, TranslationService.translate('appearance')),
             SizedBox(height: sp),
             
-            _buildSwitchOption(context, "Dark Mode", _isDarkMode, (val) {
+            _buildSwitchOption(context, TranslationService.translate('dark_mode'), _isDarkMode, (val) {
               _updateSetting('is_dark_mode', val);
             }),
             const Divider(height: 32),
 
-            _buildSectionTitle(context, "PREFERENCES"),
+            _buildSectionTitle(context, TranslationService.translate('preferences')),
             SizedBox(height: sp),
 
             // Toggles
-            _buildSwitchOption(context, "GreenBin Suggestions", _aiSuggestions, (val) {
+            _buildSwitchOption(context, TranslationService.translate('greenbin_suggestions'), _aiSuggestions, (val) {
               _updateSetting('ai_suggestions', val);
             }),
             const Divider(height: 32),
 
-            _buildSwitchOption(context, "Upload only via Wi-Fi", _wifiOnly, (val) {
+            _buildSwitchOption(context, TranslationService.translate('upload_wifi'), _wifiOnly, (val) {
               _updateSetting('wifi_only', val);
             }),
             const Divider(height: 32),
 
-            _buildSwitchOption(context, "Maximum Location Accuracy", _maxLocation, (val) {
+            _buildSwitchOption(context, TranslationService.translate('location_accuracy'), _maxLocation, (val) {
               _updateSetting('max_location', val);
             }),
+            const Divider(height: 32),
+
+            _buildLanguageOption(context),
             
             SizedBox(height: sp * 4),
-            _buildSectionTitle(context, "ACCOUNT"),
+            _buildSectionTitle(context, TranslationService.translate('account')),
             SizedBox(height: sp),
 
             // Logout Button
@@ -148,7 +158,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.logout, color: Colors.redAccent),
               title: Text(
-                "Log Out",
+                TranslationService.translate('log_out'),
                 style: TextStyle(
                   fontSize: R.fs(context, 15),
                   fontWeight: FontWeight.bold,
@@ -165,7 +175,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.delete_sweep_outlined, color: Theme.of(context).colorScheme.onSurface),
               title: Text(
-                "Clear History Cache",
+                TranslationService.translate('clear_cache'),
                 style: TextStyle(
                   fontSize: R.fs(context, 15),
                   fontWeight: FontWeight.bold,
@@ -173,7 +183,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               onTap: () {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("History cache cleared successfully")),
+                  SnackBar(content: Text(TranslationService.isUrdu ? "ہسٹری کیشے کامیابی سے صاف ہو گیا" : "History cache cleared successfully")),
                 );
               },
             ),
@@ -185,7 +195,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.help_outline, color: Theme.of(context).colorScheme.onSurface),
               title: Text(
-                "Show Camera Tutorial Again",
+                TranslationService.translate('show_tutorial'),
                 style: TextStyle(
                   fontSize: R.fs(context, 15),
                   fontWeight: FontWeight.bold,
@@ -196,7 +206,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 await prefs.setBool('has_seen_camera_tutorial', false);
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Camera tutorial will be shown on next scan")),
+                    SnackBar(content: Text(TranslationService.isUrdu ? "کیمرہ ٹیوٹوریل اگلے اسکین پر دکھایا جائے گا" : "Camera tutorial will be shown on next scan")),
                   );
                 }
               },
@@ -205,7 +215,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const Divider(height: 32),
 
             SizedBox(height: sp * 4),
-            _buildSectionTitle(context, "ABOUT"),
+            _buildSectionTitle(context, TranslationService.translate('about')),
             SizedBox(height: sp),
 
             // App Version Text
@@ -213,7 +223,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  "App Version",
+                  TranslationService.translate('app_version'),
                   style: TextStyle(
                     fontSize: R.fs(context, 14),
                     fontWeight: FontWeight.w600,
@@ -269,6 +279,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
           onChanged: onChanged,
         ),
       ],
+    );
+  }
+
+  Widget _buildLanguageOption(BuildContext context) {
+    final isUrdu = TranslationService.isUrdu;
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(Icons.language, color: Theme.of(context).colorScheme.onSurface),
+      title: Text(
+        TranslationService.translate('app_language'),
+        style: TextStyle(
+          fontSize: R.fs(context, 15),
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      trailing: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: Theme.of(context).primaryColor.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          isUrdu ? "اردو" : "English",
+          style: TextStyle(
+            color: Theme.of(context).primaryColor,
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+      onTap: () async {
+        await TranslationService.instance.toggleLanguage();
+        setState(() {});
+      },
     );
   }
 }

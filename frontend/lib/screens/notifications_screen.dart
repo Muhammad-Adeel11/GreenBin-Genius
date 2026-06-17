@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../utils/responsive.dart';
+import '../services/translation_service.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -13,7 +14,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   List<dynamic> _notifications = [];
   int _unreadCount = 0;
   bool _isLoading = true;
-  bool _showUrdu = false;
 
   @override
   void initState() {
@@ -104,7 +104,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         title: Row(
           children: [
             Text(
-              _showUrdu ? 'اطلاعات' : 'Notifications',
+              TranslationService.translate('notifications'),
               style: TextStyle(fontSize: R.fs(context, 18), fontWeight: FontWeight.bold),
             ),
             if (_unreadCount > 0) ...[
@@ -126,7 +126,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         actions: [
           // Language toggle
           TextButton(
-            onPressed: () => setState(() => _showUrdu = !_showUrdu),
+            onPressed: () async {
+              await TranslationService.instance.toggleLanguage();
+              setState(() {});
+            },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
@@ -134,7 +137,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Text(
-                _showUrdu ? 'EN' : 'اردو',
+                TranslationService.isUrdu ? 'EN' : 'اردو',
                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
               ),
             ),
@@ -183,7 +186,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            _showUrdu ? 'کوئی اطلاع نہیں' : 'No Notifications Yet',
+            TranslationService.translate('no_notifications'),
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -192,9 +195,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            _showUrdu
-                ? 'جب آپ اسکین کریں گے تو یہاں اطلاعات ظاہر ہوں گی۔'
-                : 'Your scan results & updates will appear here.',
+            TranslationService.translate('notifications_subtitle'),
             style: TextStyle(
               fontSize: 14,
               color: isDark ? Colors.white54 : Colors.grey[600],
@@ -213,8 +214,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final isRead   = (n['is_read'] as bool?) ?? true;
     final emoji    = _typeEmoji[type] ?? '🔔';
     final typeClr  = _typeColor(type, isDark);
-    final title    = _showUrdu ? (n['title_ur'] ?? n['title_en'] ?? '') : (n['title_en'] ?? '');
-    final message  = _showUrdu ? (n['message_ur'] ?? n['message_en'] ?? '') : (n['message_en'] ?? '');
+    final title    = TranslationService.isUrdu ? (n['title_ur'] ?? n['title_en'] ?? '') : (n['title_en'] ?? '');
+    final message  = TranslationService.isUrdu ? (n['message_ur'] ?? n['message_en'] ?? '') : (n['message_en'] ?? '');
     final timeAgo  = _relativeTime(n['created_at']);
 
     return GestureDetector(
@@ -271,7 +272,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         Expanded(
                           child: Text(
                             title,
-                            textDirection: _showUrdu ? TextDirection.rtl : TextDirection.ltr,
+                            textDirection: TranslationService.isUrdu ? TextDirection.rtl : TextDirection.ltr,
                             style: TextStyle(
                               fontSize: R.fs(context, 14),
                               fontWeight: isRead ? FontWeight.w600 : FontWeight.bold,
@@ -294,7 +295,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     const SizedBox(height: 5),
                     Text(
                       message,
-                      textDirection: _showUrdu ? TextDirection.rtl : TextDirection.ltr,
+                      textDirection: TranslationService.isUrdu ? TextDirection.rtl : TextDirection.ltr,
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
