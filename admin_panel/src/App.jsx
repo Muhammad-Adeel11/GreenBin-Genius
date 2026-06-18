@@ -15,6 +15,7 @@ const FaqsResources   = React.lazy(() => import('./pages/FaqsResources'))
 const Settings        = React.lazy(() => import('./pages/Settings'))
 const Campaigns       = React.lazy(() => import('./pages/Campaigns'))
 const ImpactStories   = React.lazy(() => import('./pages/ImpactStories'))
+const EcoTasksAdmin   = React.lazy(() => import('./pages/EcoTasks'))
 
 function RequireAuth({ children }) {
   const { token } = useAuthStore()
@@ -106,6 +107,11 @@ export default function App() {
         <Route path="/stories" element={
           <RequireAuth>
             <React.Suspense fallback={<PageFallback />}><ImpactStories /></React.Suspense>
+          </RequireAuth>
+        } />
+        <Route path="/eco-tasks" element={
+          <RequireAuth>
+            <React.Suspense fallback={<PageFallback />}><EcoTasksAdmin /></React.Suspense>
           </RequireAuth>
         } />
 

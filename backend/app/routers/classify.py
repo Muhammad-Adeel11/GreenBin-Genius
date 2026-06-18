@@ -250,6 +250,13 @@ async def classify_image(
         notif_type = "scan",
     )
 
+    # ── Auto-update enrolled task progress ────────────────────
+    try:
+        from app.routers.tasks import update_task_progress
+        await update_task_progress(user_id=user_id, category=result.category)
+    except Exception as e:
+        logger.warning(f"[TASKS] Progress update failed (non-critical): {e}")
+
     return result
 
 

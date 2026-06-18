@@ -408,6 +408,39 @@ class ApiService {
   // ═══════════════════════════════════════════════════════════
   // HEALTH CHECK
   // ═══════════════════════════════════════════════════════════
+  // ECO TASKS
+  // ═══════════════════════════════════════════════════════════
+
+  Future<List<dynamic>> getTasks() async {
+    return _wrapNetworkCall(() async {
+      final res = await _client.get(
+        Uri.parse('$baseUrl/api/tasks'),
+        headers: await _authHeaders(),
+      );
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        return body['data'] as List<dynamic>;
+      }
+      throw _handleError(res);
+    });
+  }
+
+  Future<Map<String, dynamic>> enrollTask(String taskId) async {
+    return _wrapNetworkCall(() async {
+      final res = await _client.post(
+        Uri.parse('$baseUrl/api/tasks/$taskId/enroll'),
+        headers: await _authHeaders(),
+      );
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body) as Map<String, dynamic>;
+      }
+      throw _handleError(res);
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // HEALTH CHECK
+  // ═══════════════════════════════════════════════════════════
 
   Future<Map<String, dynamic>> healthCheck() async {
     return _wrapNetworkCall(() async {

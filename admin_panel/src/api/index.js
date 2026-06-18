@@ -100,3 +100,15 @@ export const storiesApi = {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
 }
+
+export const tasksApi = {
+  getAll:       ()                => api.get('/tasks'),
+  getMine:      ()                => api.get('/tasks/mine'),
+  enroll:       (id)              => api.post(`/tasks/${id}/enroll`),
+  getProgress:  (id)              => api.get(`/tasks/${id}/progress`),
+  adminGetAll:  (params)          => api.get('/tasks/admin/all', { params }),
+  create:       (data)            => api.post('/tasks', data),
+  update:       (id, data)        => api.put(`/tasks/${id}`, data),
+  toggle:       (id)              => api.patch(`/tasks/${id}/toggle`),
+  delete:       (id)              => api.delete(`/tasks/${id}`),
+}

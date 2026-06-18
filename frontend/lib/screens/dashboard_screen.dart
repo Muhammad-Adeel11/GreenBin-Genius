@@ -143,110 +143,543 @@ void _navigateToProfile(BuildContext context) {
 }
 
 // ==========================================
+// ==========================================
 // TASKS TAB
 // ==========================================
-class TasksTab extends StatelessWidget {
+class TasksTab extends StatefulWidget {
   const TasksTab({super.key});
+
+  @override
+  State<TasksTab> createState() => _TasksTabState();
+}
+
+class _TasksTabState extends State<TasksTab> with SingleTickerProviderStateMixin {
+  bool _isLoading = true;
+  String? _error;
+  List<dynamic> _tasks = [];
+  late TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _fetchTasks();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetchTasks() async {
+    try {
+      if (mounted) {
+        setState(() {
+          _isLoading = true;
+          _error = null;
+        });
+      }
+      final data = await ApiService().getTasks();
+      if (mounted) {
+        setState(() {
+          _tasks = data;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _enrollTask(String taskId) async {
+    try {
+      // Optimistic UI update
+      setState(() {
+        final idx = _tasks.indexWhere((t) => t['id'] == taskId);
+        if (idx != -1) {
+          _tasks[idx]['enrolled'] = true;
+          _tasks[idx]['enrollment_status'] = 'in_progress';
+          _tasks[idx]['progress'] = 0;
+        }
+      });
+
+      await ApiService().enrollTask(taskId);
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(TranslationService.translate('task_enrolled_success')),
+          backgroundColor: const Color(0xFF2196F3),
+        ),
+      );
+
+      _fetchTasks(); // Refresh to get precise state
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString()),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      _fetchTasks(); // Revert state on error
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final sp = R.sp(context);
 
+    // Filter tasks
+    final activeTasks = _tasks.where((t) => t['is_active'] == true).toList();
+    final myTasks = _tasks.where((t) => t['enrolled'] == true).toList();
+
     return Column(
       children: [
+        // Premium App Bar
         Container(
           color: const Color(0xFF007AFF),
           child: SafeArea(
             bottom: false,
-            child: Padding(
-              padding: R.pagePadding(context).add(EdgeInsets.symmetric(vertical: R.h(context, 1.5))),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  GestureDetector(
-                    onTap: () => _navigateToProfile(context),
-                    child: Container(
-                      width: R.icon(context, 36),
-                      height: R.icon(context, 36),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Colors.cyanAccent, Colors.blue],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
-                      ),
-                    ),
-                  ),
-                  Text(TranslationService.translate('tab_tasks'), style: TextStyle(color: Colors.white, fontSize: R.fs(context, 18), fontWeight: FontWeight.bold)),
-                  SizedBox(width: R.icon(context, 36)),
-                ],
-              ),
-            ),
-          ),
-        ),
-        Expanded(
-          child: SingleChildScrollView(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                SizedBox(height: sp * 2),
-                Image.asset(
-                  'assets/images/tasks_illustration.png',
-                  width: double.infinity,
-                  fit: BoxFit.fitWidth,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    height: R.h(context, 30),
-                    width: double.infinity,
-                    decoration: BoxDecoration(color: Colors.grey[100]),
-                    child: Center(child: Text("tasks_illustration.png goes here", style: TextStyle(color: Colors.grey, fontSize: R.fs(context, 14)))),
-                  ),
-                ),
-                SizedBox(height: sp * 3),
                 Padding(
-                  padding: R.pagePadding(context),
-                  child: Column(
+                  padding: R.pagePadding(context).add(EdgeInsets.symmetric(vertical: R.h(context, 1.5))),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        TranslationService.translate('litter_data_desc'),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: R.fs(context, 15), fontWeight: FontWeight.bold, color: Colors.black87),
-                      ),
-                      SizedBox(height: sp),
-                      Text(
-                        TranslationService.translate('apply_researcher'),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: R.fs(context, 18), fontWeight: FontWeight.w900, color: const Color(0xFF007AFF), letterSpacing: 0.5, height: 1.4),
-                      ),
-                      SizedBox(height: sp * 2.5),
-                      Container(
-                        width: double.infinity,
-                        height: R.h(context, 7),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(30),
-                          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 15, offset: const Offset(0, 8))],
-                        ),
-                        child: ElevatedButton(
-                          onPressed: () {},
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.black,
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                      GestureDetector(
+                        onTap: () => _navigateToProfile(context),
+                        child: Container(
+                          width: R.icon(context, 36),
+                          height: R.icon(context, 36),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Colors.cyanAccent, Colors.blue],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2),
                           ),
-                          child: Text(TranslationService.translate('apply_now'), style: TextStyle(fontSize: R.fs(context, 13), fontWeight: FontWeight.w800, letterSpacing: 1.5)),
                         ),
                       ),
-                      SizedBox(height: R.h(context, 10)),
+                      Text(
+                        TranslationService.translate('tab_tasks'),
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: R.fs(context, 20),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(width: R.icon(context, 36)),
                     ],
                   ),
+                ),
+                // Tab Bar
+                TabBar(
+                  controller: _tabController,
+                  indicatorColor: Colors.white,
+                  indicatorWeight: 3.0,
+                  labelColor: Colors.white,
+                  unselectedLabelColor: Colors.white70,
+                  tabs: [
+                    Tab(text: TranslationService.translate('task_active')),
+                    Tab(text: TranslationService.translate('task_mine')),
+                  ],
                 ),
               ],
             ),
           ),
         ),
+
+        // Tasks List content
+        Expanded(
+          child: Container(
+            color: const Color(0xFFF5F8FF), // Light theme background
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF007AFF))))
+                : _error != null
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.error_outline, color: Colors.redAccent, size: 48),
+                            const SizedBox(height: 12),
+                            Text(_error!, style: TextStyle(color: Colors.black87, fontSize: R.fs(context, 14))),
+                            const SizedBox(height: 12),
+                            ElevatedButton(
+                              onPressed: _fetchTasks,
+                              child: const Text('Retry'),
+                            ),
+                          ],
+                        ),
+                      )
+                    : TabBarView(
+                        controller: _tabController,
+                        children: [
+                          _buildTaskList(activeTasks, isMineTab: false),
+                          _buildTaskList(myTasks, isMineTab: true),
+                        ],
+                      ),
+          ),
+        ),
       ],
+    );
+  }
+
+  Widget _buildTaskList(List<dynamic> tasksList, {required bool isMineTab}) {
+    if (tasksList.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                isMineTab ? '🎯' : '🌿',
+                style: const TextStyle(fontSize: 48),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                TranslationService.translate(isMineTab ? 'task_mine_empty' : 'task_empty'),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.black54,
+                  fontSize: R.fs(context, 15),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _fetchTasks,
+      child: ListView.builder(
+        padding: R.pagePadding(context).copyWith(top: 16, bottom: 24),
+        itemCount: tasksList.length,
+        itemBuilder: (context, index) {
+          final task = tasksList[index];
+          return _buildTaskCard(task);
+        },
+      ),
+    );
+  }
+
+  Widget _buildTaskCard(dynamic task) {
+    final bool showUrdu = TranslationService.instance.currentLanguage == 'ur';
+    final String titleStr = (showUrdu && task['title_ur'] != null && task['title_ur'].toString().isNotEmpty)
+        ? task['title_ur']
+        : (task['title'] ?? '');
+    final String descStr = (showUrdu && task['description_ur'] != null && task['description_ur'].toString().isNotEmpty)
+        ? task['description_ur']
+        : (task['description'] ?? '');
+
+    final String difficulty = task['difficulty'] ?? 'medium';
+    final int rewardPoints = task['reward_points'] ?? 100;
+    final String badge = task['badge_icon'] ?? '🌿';
+    final bool enrolled = task['enrolled'] ?? false;
+    final String status = task['enrollment_status'] ?? 'not_enrolled';
+    final int progress = task['progress'] ?? 0;
+    final int target = task['target_count'] ?? 10;
+
+    // Difficulty Color
+    Color diffColor = Colors.grey;
+    if (difficulty == 'easy') diffColor = Colors.green;
+    if (difficulty == 'medium') diffColor = Colors.orange;
+    if (difficulty == 'hard') diffColor = Colors.red;
+
+    // Calculate deadline days remaining
+    int? daysLeft;
+    if (task['deadline'] != null) {
+      try {
+        final deadlineDate = DateTime.parse(task['deadline']);
+        daysLeft = deadlineDate.difference(DateTime.now()).inDays;
+      } catch (_) {}
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
+        ],
+        border: Border.all(
+          color: enrolled ? const Color(0xFF007AFF).withOpacity(0.2) : Colors.black12,
+          width: enrolled ? 1.5 : 1.0,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header Row: Emoji Badge & Title & Difficulty
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0F5FF),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Center(
+                    child: Text(
+                      badge,
+                      style: const TextStyle(fontSize: 24),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        titleStr,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: R.fs(context, 16),
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          // Points Badge
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFF4DF),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.star, size: 12, color: Colors.orange),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '+$rewardPoints ${TranslationService.translate('task_points')}',
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.orange,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          // Difficulty Badge
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: diffColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              difficulty.toUpperCase(),
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: diffColor,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Description
+            if (descStr.isNotEmpty)
+              Text(
+                descStr,
+                style: TextStyle(
+                  fontSize: R.fs(context, 13),
+                  color: Colors.black54,
+                  height: 1.4,
+                ),
+              ),
+            const SizedBox(height: 12),
+
+            // Deadline & Status row
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Deadline
+                if (daysLeft != null && daysLeft >= 0)
+                  Row(
+                    children: [
+                      const Icon(Icons.access_time, size: 14, color: Colors.black45),
+                      const SizedBox(width: 4),
+                      Text(
+                        '$daysLeft ${TranslationService.translate('task_days_left')}',
+                        style: const TextStyle(fontSize: 12, color: Colors.black54),
+                      ),
+                    ],
+                  )
+                else if (daysLeft != null && daysLeft < 0)
+                  Row(
+                    children: [
+                      const Icon(Icons.error_outline, size: 14, color: Colors.redAccent),
+                      const SizedBox(width: 4),
+                      Text(
+                        TranslationService.translate('task_expired'),
+                        style: const TextStyle(fontSize: 12, color: Colors.redAccent, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  )
+                else
+                  const SizedBox.shrink(),
+
+                // Action / Status Indicator
+                _buildActionWidget(task, status, enrolled),
+              ],
+            ),
+
+            // Progress bar if enrolled
+            if (enrolled && status == 'in_progress') ...[
+              const SizedBox(height: 16),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '${TranslationService.translate('task_in_progress').toUpperCase()}',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF007AFF),
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      Text(
+                        '$progress / $target',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: target > 0 ? progress / target : 0,
+                      backgroundColor: Colors.grey[200],
+                      valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF007AFF)),
+                      minHeight: 6,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionWidget(dynamic task, String status, bool enrolled) {
+    if (!enrolled) {
+      return TextButton(
+        onPressed: () => _enrollTask(task['id']),
+        style: TextButton.styleFrom(
+          backgroundColor: const Color(0xFF007AFF),
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(30),
+          ),
+        ),
+        child: Text(
+          TranslationService.translate('task_apply_now'),
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+        ),
+      );
+    }
+
+    if (status == 'completed') {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0xFFE8F5E9),
+          borderRadius: BorderRadius.circular(30),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.check_circle, size: 14, color: Colors.green),
+            const SizedBox(width: 4),
+            Text(
+              TranslationService.translate('task_completed'),
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: Colors.green,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (status == 'expired') {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.grey[200],
+          borderRadius: BorderRadius.circular(30),
+        ),
+        child: Text(
+          TranslationService.translate('task_expired'),
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            color: Colors.grey,
+          ),
+        ),
+      );
+    }
+
+    // In Progress badge
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE3F2FD),
+        borderRadius: BorderRadius.circular(30),
+      ),
+      child: Text(
+        TranslationService.translate('task_in_progress'),
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+          color: Color(0xFF007AFF),
+        ),
+      ),
     );
   }
 }

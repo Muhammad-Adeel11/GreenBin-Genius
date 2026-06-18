@@ -255,6 +255,58 @@ class TranslationService {
       'en': 'APPLY NOW!',
       'ur': 'ابھی درخواست دیں!',
     },
+    'task_active': {
+      'en': 'Active Tasks',
+      'ur': 'سرگرم ٹاسک',
+    },
+    'task_mine': {
+      'en': 'My Tasks',
+      'ur': 'میرے ٹاسک',
+    },
+    'task_points': {
+      'en': 'Points',
+      'ur': 'پوائنٹس',
+    },
+    'task_difficulty': {
+      'en': 'Difficulty',
+      'ur': 'مشکل',
+    },
+    'task_deadline': {
+      'en': 'Deadline',
+      'ur': 'آخری تاریخ',
+    },
+    'task_days_left': {
+      'en': 'days left',
+      'ur': 'دن باقی',
+    },
+    'task_completed': {
+      'en': 'COMPLETED',
+      'ur': 'مکمل ہو گیا',
+    },
+    'task_expired': {
+      'en': 'EXPIRED',
+      'ur': 'میعاد ختم',
+    },
+    'task_in_progress': {
+      'en': 'IN PROGRESS',
+      'ur': 'جاری ہے',
+    },
+    'task_empty': {
+      'en': 'No tasks available at the moment.',
+      'ur': 'اس وقت کوئی ٹاسک دستیاب نہیں ہے۔',
+    },
+    'task_mine_empty': {
+      'en': "You haven't enrolled in any tasks yet.",
+      'ur': 'آپ نے ابھی تک کسی ٹاسک میں حصہ نہیں لیا ہے۔',
+    },
+    'task_enrolled_success': {
+      'en': 'Enrolled successfully!',
+      'ur': 'کامیابی سے شامل ہو گئے!',
+    },
+    'task_apply_now': {
+      'en': 'APPLY NOW',
+      'ur': 'شامل ہوں',
+    },
     // Leaderboard Tab
     'leaderboard_members': {
       'en': 'Members',
