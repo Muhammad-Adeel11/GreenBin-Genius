@@ -79,9 +79,10 @@ class _DisposalGuidanceScreenState extends State<DisposalGuidanceScreen> {
         final steps    = isUrdu ? _guidance.stepsUr : _guidance.steps;
         final textDir  = isUrdu ? TextDirection.rtl : TextDirection.ltr;
         final crossStart = isUrdu ? CrossAxisAlignment.end : CrossAxisAlignment.start;
+        final isDark = Theme.of(context).brightness == Brightness.dark;
 
         return Scaffold(
-          backgroundColor: const Color(0xFFF5F8FF),
+          backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF5F8FF),
           appBar: AppBar(
             backgroundColor: const Color(0xFF2196F3),
             elevation: 0,
@@ -140,7 +141,7 @@ class _DisposalGuidanceScreenState extends State<DisposalGuidanceScreen> {
                   width: double.infinity,
                   padding: EdgeInsets.all(R.sp(context) * 1.5),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: binColor.withOpacity(0.25), width: 1.5),
                     boxShadow: [
@@ -182,8 +183,8 @@ class _DisposalGuidanceScreenState extends State<DisposalGuidanceScreen> {
                             const SizedBox(height: 4),
                             Text(
                               _guidance.category.replaceAll('_', ' ').toUpperCase(),
-                              style: const TextStyle(
-                                color: Colors.black87,
+                              style: TextStyle(
+                                color: isDark ? Colors.white : Colors.black87,
                                 fontSize: 18,
                                 fontWeight: FontWeight.w900,
                               ),
@@ -218,7 +219,7 @@ class _DisposalGuidanceScreenState extends State<DisposalGuidanceScreen> {
                   width: double.infinity,
                   padding: EdgeInsets.all(R.sp(context) * 1.5),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
@@ -234,8 +235,8 @@ class _DisposalGuidanceScreenState extends State<DisposalGuidanceScreen> {
                     children: [
                       Container(
                         padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFF3E0),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFFFF3E0),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(Icons.lightbulb_outline_rounded, color: Color(0xFFFF9800), size: 20),
@@ -245,8 +246,8 @@ class _DisposalGuidanceScreenState extends State<DisposalGuidanceScreen> {
                         child: Text(
                           isUrdu ? _guidance.tipUr : _guidance.tipEn,
                           textDirection: textDir,
-                          style: const TextStyle(
-                            color: Colors.black87,
+                          style: TextStyle(
+                            color: isDark ? Colors.white70 : Colors.black87,
                             fontSize: 14,
                             fontStyle: FontStyle.italic,
                             height: 1.55,
@@ -298,11 +299,11 @@ class _DisposalGuidanceScreenState extends State<DisposalGuidanceScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       if (_guidance.doList.isNotEmpty)
-                        Expanded(child: _buildList(context, '✅  Do', _guidance.doList, const Color(0xFF4CAF50), const Color(0xFFE8F5E9))),
+                        Expanded(child: _buildList(context, '✅  Do', _guidance.doList, const Color(0xFF4CAF50), isDark ? const Color(0xFF1B2E1C) : const Color(0xFFE8F5E9))),
                       if (_guidance.doList.isNotEmpty && _guidance.dontList.isNotEmpty)
                         const SizedBox(width: 12),
                       if (_guidance.dontList.isNotEmpty)
-                        Expanded(child: _buildList(context, "❌  Don't", _guidance.dontList, const Color(0xFFE53935), const Color(0xFFFFEBEE))),
+                        Expanded(child: _buildList(context, "❌  Don't", _guidance.dontList, const Color(0xFFE53935), isDark ? const Color(0xFF3E1F1F) : const Color(0xFFFFEBEE))),
                     ],
                   ),
 
@@ -313,7 +314,7 @@ class _DisposalGuidanceScreenState extends State<DisposalGuidanceScreen> {
                   width: double.infinity,
                   padding: EdgeInsets.all(R.sp(context) * 1.5),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
@@ -337,6 +338,7 @@ class _DisposalGuidanceScreenState extends State<DisposalGuidanceScreen> {
 
   Widget _buildStep(BuildContext context, int num, String text, Color accent, bool isUrdu) {
     final sp = R.sp(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: EdgeInsets.only(bottom: sp * 1.2),
       child: Row(
@@ -362,7 +364,7 @@ class _DisposalGuidanceScreenState extends State<DisposalGuidanceScreen> {
             child: Container(
               padding: EdgeInsets.symmetric(horizontal: sp, vertical: sp * 0.9),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
@@ -375,7 +377,7 @@ class _DisposalGuidanceScreenState extends State<DisposalGuidanceScreen> {
               child: Text(
                 text,
                 textDirection: isUrdu ? TextDirection.rtl : TextDirection.ltr,
-                style: const TextStyle(color: Colors.black87, fontSize: 13.5, height: 1.55),
+                style: TextStyle(color: isDark ? Colors.white87 : Colors.black87, fontSize: 13.5, height: 1.55),
               ),
             ),
           ),
@@ -429,11 +431,13 @@ class _DisposalGuidanceScreenState extends State<DisposalGuidanceScreen> {
 
   Widget _buildFeedbackSection(BuildContext context, Color accent, bool isUrdu) {
     final sp = R.sp(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     if (_feedbackSubmitted) {
       return Container(
         padding: EdgeInsets.symmetric(horizontal: sp, vertical: sp * 0.8),
         decoration: BoxDecoration(
-          color: const Color(0xFFE8F5E9),
+          color: isDark ? const Color(0xFF1B2E1C) : const Color(0xFFE8F5E9),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: const Color(0xFF4CAF50).withOpacity(0.4)),
         ),
@@ -462,7 +466,7 @@ class _DisposalGuidanceScreenState extends State<DisposalGuidanceScreen> {
             Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: const Color(0xFFE3F2FD),
+                color: isDark ? Colors.white10 : const Color(0xFFE3F2FD),
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.rate_review_outlined, color: Color(0xFF2196F3), size: 16),
@@ -470,8 +474,8 @@ class _DisposalGuidanceScreenState extends State<DisposalGuidanceScreen> {
             const SizedBox(width: 8),
             Text(
               isUrdu ? 'کیا یہ درست تھا؟' : 'WAS THIS CORRECT?',
-              style: const TextStyle(
-                color: Colors.black54,
+              style: TextStyle(
+                color: isDark ? Colors.white60 : Colors.black54,
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 1.0,
@@ -489,7 +493,7 @@ class _DisposalGuidanceScreenState extends State<DisposalGuidanceScreen> {
                 child: Container(
                   padding: EdgeInsets.symmetric(vertical: sp * 0.9),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE8F5E9),
+                    color: isDark ? const Color(0xFF1B2E1C) : const Color(0xFFE8F5E9),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: const Color(0xFF4CAF50).withOpacity(0.5)),
                   ),
@@ -514,7 +518,7 @@ class _DisposalGuidanceScreenState extends State<DisposalGuidanceScreen> {
                 child: Container(
                   padding: EdgeInsets.symmetric(vertical: sp * 0.9),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFEBEE),
+                    color: isDark ? const Color(0xFF3E1F1F) : const Color(0xFFFFEBEE),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: const Color(0xFFE53935).withOpacity(0.5)),
                   ),
@@ -539,13 +543,13 @@ class _DisposalGuidanceScreenState extends State<DisposalGuidanceScreen> {
           SizedBox(height: sp),
           DropdownButtonFormField<String>(
             initialValue: _feedbackCategory,
-            dropdownColor: Colors.white,
-            style: const TextStyle(color: Colors.black87, fontSize: 13),
+            dropdownColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+            style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 13),
             decoration: InputDecoration(
               filled: true,
-              fillColor: const Color(0xFFF5F8FF),
+              fillColor: isDark ? Colors.white10 : const Color(0xFFF5F8FF),
               hintText: isUrdu ? 'درست زمرہ چنیں…' : 'Choose correct category…',
-              hintStyle: const TextStyle(color: Colors.black38, fontSize: 13),
+              hintStyle: TextStyle(color: isDark ? Colors.white38 : Colors.black38, fontSize: 13),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide(color: accent.withOpacity(0.3)),
@@ -562,7 +566,7 @@ class _DisposalGuidanceScreenState extends State<DisposalGuidanceScreen> {
             ),
             items: _kCategories.map((c) => DropdownMenuItem(
               value: c,
-              child: Text(c.replaceAll('_', ' ').toUpperCase()),
+              child: Text(c.replaceAll('_', ' ').toUpperCase(), style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
             )).toList(),
             onChanged: (v) => setState(() => _feedbackCategory = v),
           ),
@@ -578,7 +582,7 @@ class _DisposalGuidanceScreenState extends State<DisposalGuidanceScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF2196F3),
                 foregroundColor: Colors.white,
-                disabledBackgroundColor: Colors.grey[200],
+                disabledBackgroundColor: isDark ? Colors.white12 : Colors.grey[200],
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 padding: EdgeInsets.symmetric(vertical: sp),
                 elevation: 0,

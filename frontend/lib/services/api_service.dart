@@ -45,6 +45,18 @@ class ApiService {
     await _storage.delete(key: 'jwt_token');
   }
 
+  Future<void> saveUsername(String name) async {
+    await _storage.write(key: 'username', value: name);
+  }
+
+  Future<String?> getUsername() async {
+    return _storage.read(key: 'username');
+  }
+
+  Future<void> clearUsername() async {
+    await _storage.delete(key: 'username');
+  }
+
   Future<Map<String, String>> _authHeaders() async {
     final token = await getToken();
     return {
@@ -64,9 +76,10 @@ class ApiService {
       throw Exception('No internet connection. Please check your network and try again.');
     } on http.ClientException {
       throw Exception('Unable to reach the server. Please try again later.');
-    } catch (e) {
+    } catch (e, stack) {
+      debugPrint('GreenBin API Error: $e\n$stack');
       if (e is Exception) rethrow;
-      throw Exception('An unexpected error occurred. Please try again.');
+      throw Exception('An unexpected error occurred: $e');
     }
   }
 
@@ -104,6 +117,9 @@ class ApiService {
       if (res.statusCode == 201) {
         final data = jsonDecode(res.body) as Map<String, dynamic>;
         await saveToken(data['access_token']);
+        if (data['name'] != null) {
+          await saveUsername(data['name']);
+        }
         return data;
       }
       throw _handleError(res);
@@ -124,6 +140,9 @@ class ApiService {
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body) as Map<String, dynamic>;
         await saveToken(data['access_token']);
+        if (data['name'] != null) {
+          await saveUsername(data['name']);
+        }
         return data;
       }
       throw _handleError(res);
@@ -137,7 +156,13 @@ class ApiService {
         Uri.parse('$baseUrl/api/auth/me'),
         headers: await _authHeaders(),
       );
-      if (res.statusCode == 200) return jsonDecode(res.body);
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        if (data['name'] != null) {
+          await saveUsername(data['name']);
+        }
+        return data;
+      }
       throw _handleError(res);
     });
   }
@@ -411,15 +436,27 @@ class ApiService {
   // ECO TASKS
   // ═══════════════════════════════════════════════════════════
 
-  Future<List<dynamic>> getTasks() async {
+  Future<Map<String, dynamic>> getTasks() async {
     return _wrapNetworkCall(() async {
       final res = await _client.get(
         Uri.parse('$baseUrl/api/tasks'),
         headers: await _authHeaders(),
       );
       if (res.statusCode == 200) {
-        final body = jsonDecode(res.body);
-        return body['data'] as List<dynamic>;
+        return jsonDecode(res.body) as Map<String, dynamic>;
+      }
+      throw _handleError(res);
+    });
+  }
+
+  Future<Map<String, dynamic>> enableTasks() async {
+    return _wrapNetworkCall(() async {
+      final res = await _client.post(
+        Uri.parse('$baseUrl/api/tasks/enable'),
+        headers: await _authHeaders(),
+      );
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body) as Map<String, dynamic>;
       }
       throw _handleError(res);
     });

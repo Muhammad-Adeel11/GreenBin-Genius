@@ -16,12 +16,13 @@ class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final sp = R.sp(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return ValueListenableBuilder<String>(
       valueListenable: TranslationService.instance.languageNotifier,
       builder: (context, lang, child) {
         return Scaffold(
-          backgroundColor: Colors.white,
+          backgroundColor: isDark ? const Color(0xFF121212) : Colors.white,
           appBar: AppBar(
             backgroundColor: const Color(0xFF2196F3), // Match app theme
             elevation: 0,
@@ -65,7 +66,7 @@ class ProfileScreen extends StatelessWidget {
                           height: R.icon(context, 110),
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: Colors.white,
+                            color: isDark ? const Color(0xFF121212) : Colors.white,
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withOpacity(0.1),
@@ -105,7 +106,7 @@ class ProfileScreen extends StatelessWidget {
                   style: TextStyle(
                     fontSize: R.fs(context, 28),
                     fontWeight: FontWeight.w900,
-                    color: Colors.black,
+                    color: isDark ? Colors.white : Colors.black,
                   ),
                 ),
                 SizedBox(height: sp * 0.5),
@@ -114,7 +115,7 @@ class ProfileScreen extends StatelessWidget {
                   style: TextStyle(
                     fontSize: R.fs(context, 12),
                     fontWeight: FontWeight.bold,
-                    color: Colors.black54,
+                    color: isDark ? Colors.white60 : Colors.black54,
                   ),
                 ),
 
@@ -129,7 +130,7 @@ class ProfileScreen extends StatelessWidget {
                     );
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFE3F2FD),
+                    backgroundColor: isDark ? Colors.white10 : const Color(0xFFE3F2FD),
                     foregroundColor: const Color(0xFF2196F3),
                     elevation: 0,
                     padding: EdgeInsets.symmetric(horizontal: R.w(context, 10), vertical: 16),
@@ -167,6 +168,7 @@ class ProfileScreen extends StatelessWidget {
                 }),
                 _buildListOption(context, Icons.logout_rounded, TranslationService.translate('log_out'), isLast: true, onTap: () async {
                   await ApiService.instance.clearToken();
+                  await ApiService.instance.clearUsername();
                   if (context.mounted) {
                     Navigator.pushAndRemoveUntil(
                       context,
@@ -186,7 +188,8 @@ class ProfileScreen extends StatelessWidget {
   }
 
   Widget _buildListOption(BuildContext context, IconData icon, String title, {bool isBlue = false, bool isLast = false, VoidCallback? onTap}) {
-    final color = isBlue ? const Color(0xFF2196F3) : Colors.black87;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final color = isBlue ? const Color(0xFF2196F3) : (isDark ? Colors.white : Colors.black87);
     return Column(
       children: [
         ListTile(
@@ -204,7 +207,7 @@ class ProfileScreen extends StatelessWidget {
           onTap: onTap,
         ),
         if (!isLast)
-          const Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE), indent: 24, endIndent: 24),
+          Divider(height: 1, thickness: 1, color: isDark ? Colors.white10 : const Color(0xFFEEEEEE), indent: 24, endIndent: 24),
       ],
     );
   }

@@ -227,7 +227,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   style: TextStyle(
                     fontSize: R.fs(context, 14),
                     fontWeight: FontWeight.w600,
-                    color: Colors.grey[600],
+                    color: Theme.of(context).brightness == Brightness.dark ? Colors.white60 : Colors.grey[600],
                   ),
                 ),
                 Text(
@@ -235,6 +235,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   style: TextStyle(
                     fontSize: R.fs(context, 14),
                     fontWeight: FontWeight.bold,
+                    color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
                   ),
                 ),
               ],
@@ -247,12 +248,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildSectionTitle(BuildContext context, String title) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Text(
       title,
       style: TextStyle(
         fontSize: R.fs(context, 12),
         fontWeight: FontWeight.w900,
-        color: Colors.grey[400],
+        color: isDark ? Colors.white38 : Colors.grey[500],
         letterSpacing: 1.2,
       ),
     );

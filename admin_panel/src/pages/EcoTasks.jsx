@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Plus, Target, Edit, Trash2, ToggleLeft, ToggleRight, CheckCircle, Clock, Users, Trophy } from 'lucide-react'
+import { Plus, Target, Edit, Trash2, ToggleLeft, ToggleRight, CheckCircle, Clock, Users, Trophy, Loader2 } from 'lucide-react'
 import Layout from '../components/layout/Layout'
 import { PageHeader, DataTable, Modal, Spinner } from '../components/ui/index.jsx'
 import { tasksApi } from '../api'
@@ -280,117 +280,120 @@ export default function EcoTasks() {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         title={editingTask ? 'Edit Task' : 'Create New Eco Task'}
-        footer={
-          <div className="flex gap-3 justify-end">
+      >
+        <div className="flex flex-col max-h-[75vh]">
+          {/* Scrollable Form Body */}
+          <div className="space-y-4 overflow-y-auto pr-1 pb-4 flex-1">
+            {modalError && (
+              <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl p-3">{modalError}</div>
+            )}
+
+            {/* Badge + Title */}
+            <div className="flex gap-3">
+              <div className="w-20">
+                <label className="text-[0.74rem] font-semibold text-ink-sub block mb-1">Icon</label>
+                <select value={badgeIcon} onChange={e => setBadgeIcon(e.target.value)}
+                  className="input text-center text-xl p-1.5">
+                  {BADGE_ICONS.map(i => <option key={i} value={i} className="bg-gb-card text-ink">{i}</option>)}
+                </select>
+              </div>
+              <div className="flex-1">
+                <label className="text-[0.74rem] font-semibold text-ink-sub block mb-1">Title (English) *</label>
+                <input value={title} onChange={e => setTitle(e.target.value)}
+                  placeholder="e.g. Plastic Free Week"
+                  className="input text-[0.82rem] py-2" />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[0.74rem] font-semibold text-ink-sub block mb-1">Title (Urdu)</label>
+              <input value={titleUr} onChange={e => setTitleUr(e.target.value)}
+                placeholder="اردو عنوان" dir="rtl"
+                className="input text-[0.82rem] py-2 text-right" />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[0.74rem] font-semibold text-ink-sub block mb-1">Task Type *</label>
+                <select value={taskType} onChange={e => setTaskType(e.target.value)}
+                  className="input text-[0.82rem] py-2">
+                  {TASK_TYPES.map(t => <option key={t.value} value={t.value} className="bg-gb-card text-ink">{t.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-[0.74rem] font-semibold text-ink-sub block mb-1">Difficulty</label>
+                <select value={difficulty} onChange={e => setDifficulty(e.target.value)}
+                  className="input text-[0.82rem] py-2 capitalize">
+                  {DIFFICULTIES.map(d => <option key={d} value={d} className="bg-gb-card text-ink capitalize">{d}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {taskType === 'category_scan' && (
+              <div>
+                <label className="text-[0.74rem] font-semibold text-ink-sub block mb-1">Target Category *</label>
+                <select value={targetCategory} onChange={e => setTargetCategory(e.target.value)}
+                  className="input text-[0.82rem] py-2">
+                  <option value="" className="bg-gb-card text-ink-muted">Select category…</option>
+                  {CATEGORIES.map(c => <option key={c} value={c} className="bg-gb-card text-ink">{c.replace('_', ' ')}</option>)}
+                </select>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[0.74rem] font-semibold text-ink-sub block mb-1">Target Count *</label>
+                <input type="number" min="1" value={targetCount} onChange={e => setTargetCount(e.target.value)}
+                  className="input text-[0.82rem] py-2" />
+              </div>
+              <div>
+                <label className="text-[0.74rem] font-semibold text-ink-sub block mb-1">Reward Points *</label>
+                <input type="number" min="1" value={rewardPoints} onChange={e => setRewardPoints(e.target.value)}
+                  className="input text-[0.82rem] py-2" />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[0.74rem] font-semibold text-ink-sub block mb-1">Deadline (optional)</label>
+              <input type="date" value={deadline} onChange={e => setDeadline(e.target.value)}
+                min={new Date().toISOString().slice(0, 10)}
+                className="input text-[0.82rem] py-2" />
+            </div>
+
+            <div>
+              <label className="text-[0.74rem] font-semibold text-ink-sub block mb-1">Description (English)</label>
+              <textarea value={description} onChange={e => setDescription(e.target.value)} rows={2}
+                placeholder="What should users do to complete this task?"
+                className="input text-[0.82rem] py-2 resize-none" />
+            </div>
+
+            <div>
+              <label className="text-[0.74rem] font-semibold text-ink-sub block mb-1">Description (Urdu)</label>
+              <textarea value={descriptionUr} onChange={e => setDescriptionUr(e.target.value)} rows={2}
+                dir="rtl" placeholder="اردو تفصیل"
+                className="input text-[0.82rem] py-2 resize-none text-right" />
+            </div>
+
+            <div className="flex items-center gap-3 p-3 bg-gb-surface border border-gb-border rounded-xl">
+              <button onClick={() => setIsActive(!isActive)}
+                className={`relative w-11 h-6 rounded-full transition-colors ${isActive ? 'bg-green-500' : 'bg-gray-600'}`}>
+                <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${isActive ? 'translate-x-5' : ''}`} />
+              </button>
+              <span className="text-sm font-medium text-ink-sub">{isActive ? 'Active (visible to users)' : 'Inactive (hidden from users)'}</span>
+            </div>
+          </div>
+
+          {/* Sticky Footer */}
+          <div className="flex gap-2 justify-end pt-4 border-t border-gb-border mt-2">
             <button onClick={() => setModalOpen(false)}
-              className="px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">
+              className="btn btn-ghost btn-sm">
               Cancel
             </button>
             <button onClick={handleSubmit} disabled={modalLoading}
-              className="px-5 py-2 rounded-xl bg-green-600 hover:bg-green-700 text-white text-sm font-semibold disabled:opacity-50 flex items-center gap-2">
-              {modalLoading && <Spinner size="sm" />}
+              className="btn btn-primary btn-sm flex items-center gap-1.5">
+              {modalLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
               {editingTask ? 'Save Changes' : 'Create Task'}
             </button>
-          </div>
-        }
-      >
-        <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
-          {modalError && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl p-3">{modalError}</div>
-          )}
-
-          {/* Badge + Title */}
-          <div className="flex gap-3">
-            <div className="w-20">
-              <label className="block text-xs font-semibold text-gray-500 mb-1">Icon</label>
-              <select value={badgeIcon} onChange={e => setBadgeIcon(e.target.value)}
-                className="w-full text-center text-xl border border-gray-200 rounded-xl p-2 bg-gray-50">
-                {BADGE_ICONS.map(i => <option key={i} value={i}>{i}</option>)}
-              </select>
-            </div>
-            <div className="flex-1">
-              <label className="block text-xs font-semibold text-gray-500 mb-1">Title (English) *</label>
-              <input value={title} onChange={e => setTitle(e.target.value)}
-                placeholder="e.g. Plastic Free Week"
-                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-green-300 outline-none" />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 mb-1">Title (Urdu)</label>
-            <input value={titleUr} onChange={e => setTitleUr(e.target.value)}
-              placeholder="اردو عنوان" dir="rtl"
-              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-right focus:ring-2 focus:ring-green-300 outline-none" />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1">Task Type *</label>
-              <select value={taskType} onChange={e => setTaskType(e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-green-300 outline-none">
-                {TASK_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1">Difficulty</label>
-              <select value={difficulty} onChange={e => setDifficulty(e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-green-300 outline-none capitalize">
-                {DIFFICULTIES.map(d => <option key={d} value={d} className="capitalize">{d}</option>)}
-              </select>
-            </div>
-          </div>
-
-          {taskType === 'category_scan' && (
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1">Target Category *</label>
-              <select value={targetCategory} onChange={e => setTargetCategory(e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-green-300 outline-none">
-                <option value="">Select category…</option>
-                {CATEGORIES.map(c => <option key={c} value={c}>{c.replace('_', ' ')}</option>)}
-              </select>
-            </div>
-          )}
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1">Target Count *</label>
-              <input type="number" min="1" value={targetCount} onChange={e => setTargetCount(e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-green-300 outline-none" />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1">Reward Points *</label>
-              <input type="number" min="1" value={rewardPoints} onChange={e => setRewardPoints(e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-green-300 outline-none" />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 mb-1">Deadline (optional)</label>
-            <input type="date" value={deadline} onChange={e => setDeadline(e.target.value)}
-              min={new Date().toISOString().slice(0, 10)}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-green-300 outline-none" />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 mb-1">Description (English)</label>
-            <textarea value={description} onChange={e => setDescription(e.target.value)} rows={2}
-              placeholder="What should users do to complete this task?"
-              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm resize-none focus:ring-2 focus:ring-green-300 outline-none" />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 mb-1">Description (Urdu)</label>
-            <textarea value={descriptionUr} onChange={e => setDescriptionUr(e.target.value)} rows={2}
-              dir="rtl" placeholder="اردو تفصیل"
-              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm resize-none text-right focus:ring-2 focus:ring-green-300 outline-none" />
-          </div>
-
-          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-            <button onClick={() => setIsActive(!isActive)}
-              className={`relative w-11 h-6 rounded-full transition-colors ${isActive ? 'bg-green-500' : 'bg-gray-300'}`}>
-              <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${isActive ? 'translate-x-5' : ''}`} />
-            </button>
-            <span className="text-sm font-medium text-gray-700">{isActive ? 'Active (visible to users)' : 'Inactive (hidden from users)'}</span>
           </div>
         </div>
       </Modal>

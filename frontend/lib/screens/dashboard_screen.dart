@@ -60,7 +60,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ];
 
         return Scaffold(
-          backgroundColor: Colors.white,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           body: pages[_selectedIndex],
           floatingActionButton: FloatingActionButton(
             onPressed: () async {
@@ -155,14 +155,17 @@ class TasksTab extends StatefulWidget {
 
 class _TasksTabState extends State<TasksTab> with SingleTickerProviderStateMixin {
   bool _isLoading = true;
+  bool _tasksEnabled = false;
   String? _error;
   List<dynamic> _tasks = [];
   late TabController _tabController;
+  String _userInitials = '';
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _loadUserInitials();
     _fetchTasks();
   }
 
@@ -170,6 +173,43 @@ class _TasksTabState extends State<TasksTab> with SingleTickerProviderStateMixin
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadUserInitials() async {
+    try {
+      final name = await ApiService.instance.getUsername();
+      if (name != null && name.isNotEmpty) {
+        if (mounted) {
+          setState(() {
+            _userInitials = _getInitials(name);
+          });
+        }
+      } else {
+        final profile = await ApiService.instance.getMe();
+        final fetchedName = profile['name'] ?? '';
+        if (fetchedName.isNotEmpty) {
+          if (mounted) {
+            setState(() {
+              _userInitials = _getInitials(fetchedName);
+            });
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  String _getInitials(String name) {
+    if (name.isEmpty) return 'US';
+    final parts = name.trim().split(RegExp(r'\s+'));
+    if (parts.length >= 2) {
+      final first = parts[0].isNotEmpty ? parts[0][0] : '';
+      final second = parts[1].isNotEmpty ? parts[1][0] : '';
+      return (first + second).toUpperCase();
+    } else if (name.length >= 2) {
+      return name.substring(0, 2).toUpperCase();
+    } else {
+      return name.toUpperCase();
+    }
   }
 
   Future<void> _fetchTasks() async {
@@ -180,13 +220,34 @@ class _TasksTabState extends State<TasksTab> with SingleTickerProviderStateMixin
           _error = null;
         });
       }
-      final data = await ApiService().getTasks();
+      final res = await ApiService.instance.getTasks();
       if (mounted) {
         setState(() {
-          _tasks = data;
+          _tasksEnabled = res['tasks_enabled'] ?? false;
+          _tasks = res['data'] ?? [];
           _isLoading = false;
         });
       }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _enableTasks() async {
+    try {
+      if (mounted) {
+        setState(() {
+          _isLoading = true;
+          _error = null;
+        });
+      }
+      await ApiService.instance.enableTasks();
+      await _fetchTasks();
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -209,7 +270,7 @@ class _TasksTabState extends State<TasksTab> with SingleTickerProviderStateMixin
         }
       });
 
-      await ApiService().enrollTask(taskId);
+      await ApiService.instance.enrollTask(taskId);
       
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -233,10 +294,12 @@ class _TasksTabState extends State<TasksTab> with SingleTickerProviderStateMixin
   @override
   Widget build(BuildContext context) {
     final sp = R.sp(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // Filter tasks
     final activeTasks = _tasks.where((t) => t['is_active'] == true).toList();
     final myTasks = _tasks.where((t) => t['enrolled'] == true).toList();
+    final showTabBar = _tasksEnabled && !_isLoading && _error == null;
 
     return Column(
       children: [
@@ -266,6 +329,16 @@ class _TasksTabState extends State<TasksTab> with SingleTickerProviderStateMixin
                             shape: BoxShape.circle,
                             border: Border.all(color: Colors.white, width: 2),
                           ),
+                          child: Center(
+                            child: Text(
+                              _userInitials.isNotEmpty ? _userInitials : 'US',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: R.fs(context, 11),
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                       Text(
@@ -280,27 +353,28 @@ class _TasksTabState extends State<TasksTab> with SingleTickerProviderStateMixin
                     ],
                   ),
                 ),
-                // Tab Bar
-                TabBar(
-                  controller: _tabController,
-                  indicatorColor: Colors.white,
-                  indicatorWeight: 3.0,
-                  labelColor: Colors.white,
-                  unselectedLabelColor: Colors.white70,
-                  tabs: [
-                    Tab(text: TranslationService.translate('task_active')),
-                    Tab(text: TranslationService.translate('task_mine')),
-                  ],
-                ),
+                // Tab Bar (only shown if tasks are enabled)
+                if (showTabBar)
+                  TabBar(
+                    controller: _tabController,
+                    indicatorColor: Colors.white,
+                    indicatorWeight: 3.0,
+                    labelColor: Colors.white,
+                    unselectedLabelColor: Colors.white70,
+                    tabs: [
+                      Tab(text: TranslationService.translate('task_active')),
+                      Tab(text: TranslationService.translate('task_mine')),
+                    ],
+                  ),
               ],
             ),
           ),
         ),
 
-        // Tasks List content
+        // Tasks List content or Onboarding Gate
         Expanded(
           child: Container(
-            color: const Color(0xFFF5F8FF), // Light theme background
+            color: isDark ? const Color(0xFF121212) : const Color(0xFFF5F8FF), // Dark theme support
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF007AFF))))
                 : _error != null
@@ -310,7 +384,7 @@ class _TasksTabState extends State<TasksTab> with SingleTickerProviderStateMixin
                           children: [
                             const Icon(Icons.error_outline, color: Colors.redAccent, size: 48),
                             const SizedBox(height: 12),
-                            Text(_error!, style: TextStyle(color: Colors.black87, fontSize: R.fs(context, 14))),
+                            Text(_error!, style: TextStyle(color: isDark ? Colors.white70 : Colors.black87, fontSize: R.fs(context, 14))),
                             const SizedBox(height: 12),
                             ElevatedButton(
                               onPressed: _fetchTasks,
@@ -319,20 +393,115 @@ class _TasksTabState extends State<TasksTab> with SingleTickerProviderStateMixin
                           ],
                         ),
                       )
-                    : TabBarView(
-                        controller: _tabController,
-                        children: [
-                          _buildTaskList(activeTasks, isMineTab: false),
-                          _buildTaskList(myTasks, isMineTab: true),
-                        ],
-                      ),
+                    : !_tasksEnabled
+                        ? _buildOnboardingGate(context, sp)
+                        : TabBarView(
+                            controller: _tabController,
+                            children: [
+                              _buildTaskList(activeTasks, isMineTab: false),
+                              _buildTaskList(myTasks, isMineTab: true),
+                            ],
+                          ),
           ),
         ),
       ],
     );
   }
 
+  Widget _buildOnboardingGate(BuildContext context, double sp) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          SizedBox(height: sp * 2),
+          Image.asset(
+            'assets/images/tasks_illustration.png',
+            width: double.infinity,
+            fit: BoxFit.fitWidth,
+            errorBuilder: (context, error, stackTrace) => Container(
+              height: R.h(context, 30),
+              width: double.infinity,
+              decoration: BoxDecoration(color: isDark ? Colors.white10 : Colors.grey[100]),
+              child: Center(
+                child: Text(
+                  "tasks_illustration.png goes here",
+                  style: TextStyle(color: Colors.grey, fontSize: R.fs(context, 14)),
+                ),
+              ),
+            ),
+          ),
+          SizedBox(height: sp * 3),
+          Padding(
+            padding: R.pagePadding(context),
+            child: Column(
+              children: [
+                Text(
+                  TranslationService.translate('litter_data_desc'),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: R.fs(context, 15),
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white70 : Colors.black87,
+                  ),
+                ),
+                SizedBox(height: sp),
+                Text(
+                  TranslationService.translate('apply_researcher'),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: R.fs(context, 18),
+                    fontWeight: FontWeight.w900,
+                    color: const Color(0xFF007AFF),
+                    letterSpacing: 0.5,
+                    height: 1.4,
+                  ),
+                ),
+                SizedBox(height: sp * 2.5),
+                Container(
+                  width: double.infinity,
+                  height: R.h(context, 7),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(30),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.15),
+                        blurRadius: 15,
+                        offset: const Offset(0, 8),
+                      )
+                    ],
+                  ),
+                  child: ElevatedButton(
+                    onPressed: _enableTasks,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isDark ? Colors.white : Colors.black,
+                      foregroundColor: isDark ? Colors.black : Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                    ),
+                    child: Text(
+                      TranslationService.translate('apply_now'),
+                      style: TextStyle(
+                        fontSize: R.fs(context, 13),
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(height: R.h(context, 10)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTaskList(List<dynamic> tasksList, {required bool isMineTab}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     if (tasksList.isEmpty) {
       return Center(
         child: Padding(
@@ -349,7 +518,7 @@ class _TasksTabState extends State<TasksTab> with SingleTickerProviderStateMixin
                 TranslationService.translate(isMineTab ? 'task_mine_empty' : 'task_empty'),
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.black54,
+                  color: isDark ? Colors.white70 : Colors.black54,
                   fontSize: R.fs(context, 15),
                   fontWeight: FontWeight.w500,
                 ),
@@ -374,7 +543,8 @@ class _TasksTabState extends State<TasksTab> with SingleTickerProviderStateMixin
   }
 
   Widget _buildTaskCard(dynamic task) {
-    final bool showUrdu = TranslationService.instance.currentLanguage == 'ur';
+    final bool showUrdu = TranslationService.isUrdu;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final String titleStr = (showUrdu && task['title_ur'] != null && task['title_ur'].toString().isNotEmpty)
         ? task['title_ur']
         : (task['title'] ?? '');
@@ -408,7 +578,7 @@ class _TasksTabState extends State<TasksTab> with SingleTickerProviderStateMixin
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -418,7 +588,7 @@ class _TasksTabState extends State<TasksTab> with SingleTickerProviderStateMixin
           )
         ],
         border: Border.all(
-          color: enrolled ? const Color(0xFF007AFF).withOpacity(0.2) : Colors.black12,
+          color: enrolled ? const Color(0xFF007AFF).withOpacity(0.2) : (isDark ? Colors.white12 : Colors.black12),
           width: enrolled ? 1.5 : 1.0,
         ),
       ),
@@ -435,7 +605,7 @@ class _TasksTabState extends State<TasksTab> with SingleTickerProviderStateMixin
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF0F5FF),
+                    color: isDark ? Colors.white10 : const Color(0xFFF0F5FF),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Center(
@@ -455,7 +625,7 @@ class _TasksTabState extends State<TasksTab> with SingleTickerProviderStateMixin
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: R.fs(context, 16),
-                          color: Colors.black87,
+                          color: isDark ? Colors.white : Colors.black87,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -465,7 +635,7 @@ class _TasksTabState extends State<TasksTab> with SingleTickerProviderStateMixin
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFFFF4DF),
+                              color: isDark ? const Color(0xFF2C2518) : const Color(0xFFFFF4DF),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Row(
@@ -494,9 +664,9 @@ class _TasksTabState extends State<TasksTab> with SingleTickerProviderStateMixin
                             child: Text(
                               difficulty.toUpperCase(),
                               style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w800,
-                                color: diffColor,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  color: diffColor,
                               ),
                             ),
                           ),
@@ -515,7 +685,7 @@ class _TasksTabState extends State<TasksTab> with SingleTickerProviderStateMixin
                 descStr,
                 style: TextStyle(
                   fontSize: R.fs(context, 13),
-                  color: Colors.black54,
+                  color: isDark ? Colors.white70 : Colors.black54,
                   height: 1.4,
                 ),
               ),
@@ -529,11 +699,11 @@ class _TasksTabState extends State<TasksTab> with SingleTickerProviderStateMixin
                 if (daysLeft != null && daysLeft >= 0)
                   Row(
                     children: [
-                      const Icon(Icons.access_time, size: 14, color: Colors.black45),
+                      Icon(Icons.access_time, size: 14, color: isDark ? Colors.white60 : Colors.black45),
                       const SizedBox(width: 4),
                       Text(
                         '$daysLeft ${TranslationService.translate('task_days_left')}',
-                        style: const TextStyle(fontSize: 12, color: Colors.black54),
+                        style: TextStyle(fontSize: 12, color: isDark ? Colors.white70 : Colors.black54),
                       ),
                     ],
                   )
@@ -552,7 +722,7 @@ class _TasksTabState extends State<TasksTab> with SingleTickerProviderStateMixin
                   const SizedBox.shrink(),
 
                 // Action / Status Indicator
-                _buildActionWidget(task, status, enrolled),
+                _buildActionWidget(task, status, enrolled, isDark),
               ],
             ),
 
@@ -576,10 +746,10 @@ class _TasksTabState extends State<TasksTab> with SingleTickerProviderStateMixin
                       ),
                       Text(
                         '$progress / $target',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
-                          color: Colors.black87,
+                          color: isDark ? Colors.white : Colors.black87,
                         ),
                       ),
                     ],
@@ -589,7 +759,7 @@ class _TasksTabState extends State<TasksTab> with SingleTickerProviderStateMixin
                     borderRadius: BorderRadius.circular(4),
                     child: LinearProgressIndicator(
                       value: target > 0 ? progress / target : 0,
-                      backgroundColor: Colors.grey[200],
+                      backgroundColor: isDark ? Colors.white10 : Colors.grey[200],
                       valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF007AFF)),
                       minHeight: 6,
                     ),
@@ -603,7 +773,7 @@ class _TasksTabState extends State<TasksTab> with SingleTickerProviderStateMixin
     );
   }
 
-  Widget _buildActionWidget(dynamic task, String status, bool enrolled) {
+  Widget _buildActionWidget(dynamic task, String status, bool enrolled, bool isDark) {
     if (!enrolled) {
       return TextButton(
         onPressed: () => _enrollTask(task['id']),
@@ -651,15 +821,15 @@ class _TasksTabState extends State<TasksTab> with SingleTickerProviderStateMixin
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: Colors.grey[200],
+          color: isDark ? Colors.white10 : Colors.grey[200],
           borderRadius: BorderRadius.circular(30),
         ),
         child: Text(
           TranslationService.translate('task_expired'),
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.bold,
-            color: Colors.grey,
+            color: isDark ? Colors.white54 : Colors.grey,
           ),
         ),
       );
@@ -669,7 +839,7 @@ class _TasksTabState extends State<TasksTab> with SingleTickerProviderStateMixin
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFFE3F2FD),
+        color: isDark ? Colors.white10 : const Color(0xFFE3F2FD),
         borderRadius: BorderRadius.circular(30),
       ),
       child: Text(
@@ -700,11 +870,50 @@ class _LeaderboardTabState extends State<LeaderboardTab> {
   bool _isLoading = true;
   String? _error;
   List<dynamic> _leaderboardData = [];
+  String _userInitials = '';
 
   @override
   void initState() {
     super.initState();
+    _loadUserInitials();
     _fetchLeaderboard();
+  }
+
+  Future<void> _loadUserInitials() async {
+    try {
+      final name = await ApiService.instance.getUsername();
+      if (name != null && name.isNotEmpty) {
+        if (mounted) {
+          setState(() {
+            _userInitials = _getInitials(name);
+          });
+        }
+      } else {
+        final profile = await ApiService.instance.getMe();
+        final fetchedName = profile['name'] ?? '';
+        if (fetchedName.isNotEmpty) {
+          if (mounted) {
+            setState(() {
+              _userInitials = _getInitials(fetchedName);
+            });
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  String _getInitials(String name) {
+    if (name.isEmpty) return 'US';
+    final parts = name.trim().split(RegExp(r'\s+'));
+    if (parts.length >= 2) {
+      final first = parts[0].isNotEmpty ? parts[0][0] : '';
+      final second = parts[1].isNotEmpty ? parts[1][0] : '';
+      return (first + second).toUpperCase();
+    } else if (name.length >= 2) {
+      return name.substring(0, 2).toUpperCase();
+    } else {
+      return name.toUpperCase();
+    }
   }
 
   Future<void> _fetchLeaderboard() async {
@@ -735,9 +944,10 @@ class _LeaderboardTabState extends State<LeaderboardTab> {
   }
 
   void _showTimeFilterSheet() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) {
         final options = ['Last 24 Hours', 'Last 7 Days', 'Last 15 Days', 'Last 30 Days'];
@@ -748,16 +958,16 @@ class _LeaderboardTabState extends State<LeaderboardTab> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('Activity', style: TextStyle(fontWeight: FontWeight.bold, fontSize: R.fs(context, 16))),
+                Text('Activity', style: TextStyle(fontWeight: FontWeight.bold, fontSize: R.fs(context, 16), color: isDark ? Colors.white : Colors.black)),
                 SizedBox(height: sp),
                 for (int i = 0; i < options.length; i++) ...[
-                  if (i > 0) const Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
+                  if (i > 0) Divider(height: 1, thickness: 1, color: isDark ? Colors.white10 : const Color(0xFFEEEEEE)),
                   ListTile(
                     contentPadding: EdgeInsets.symmetric(horizontal: R.w(context, 6), vertical: 4),
-                    title: Text(options[i], style: TextStyle(fontSize: R.fs(context, 15), fontWeight: FontWeight.w600, color: Colors.black)),
+                    title: Text(options[i], style: TextStyle(fontSize: R.fs(context, 15), fontWeight: FontWeight.w600, color: isDark ? Colors.white70 : Colors.black)),
                     trailing: _selectedTimeFilter == options[i]
                         ? Icon(Icons.check_circle, color: const Color(0xFF007AFF), size: R.icon(context, 24))
-                        : Container(width: R.icon(context, 24), height: R.icon(context, 24), decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.grey.shade300, width: 2))),
+                        : Container(width: R.icon(context, 24), height: R.icon(context, 24), decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: isDark ? Colors.white24 : Colors.grey.shade300, width: 2))),
                     onTap: () {
                       setState(() { _selectedTimeFilter = options[i]; });
                       Navigator.pop(context);
@@ -775,6 +985,7 @@ class _LeaderboardTabState extends State<LeaderboardTab> {
   @override
   Widget build(BuildContext context) {
     final sp = R.sp(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Column(
       children: [
@@ -799,6 +1010,16 @@ class _LeaderboardTabState extends State<LeaderboardTab> {
                           shape: BoxShape.circle,
                           border: Border.all(color: Colors.white, width: 2),
                         ),
+                        child: Center(
+                          child: Text(
+                            _userInitials.isNotEmpty ? _userInitials : 'US',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: R.fs(context, 11),
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                     Text(TranslationService.translate('tab_leaderboard'), style: TextStyle(color: Colors.white, fontSize: R.fs(context, 18), fontWeight: FontWeight.bold)),
@@ -819,17 +1040,17 @@ class _LeaderboardTabState extends State<LeaderboardTab> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.access_time, size: R.icon(context, 22), color: Colors.black87),
+                    Icon(Icons.access_time, size: R.icon(context, 22), color: isDark ? Colors.white70 : Colors.black87),
                     SizedBox(width: R.w(context, 2)),
                     Text(
                       _selectedTimeFilter == 'Last 24 Hours' ? (TranslationService.isUrdu ? 'پچھلے 24 گھنٹے' : 'Last 24 Hours') :
                       _selectedTimeFilter == 'Last 7 Days' ? (TranslationService.isUrdu ? 'پچھلے 7 دن' : 'Last 7 Days') :
                       _selectedTimeFilter == 'Last 15 Days' ? (TranslationService.isUrdu ? 'پچھلے 15 دن' : 'Last 15 Days') :
                       _selectedTimeFilter == 'Last 30 Days' ? (TranslationService.isUrdu ? 'پچھلے 30 دن' : 'Last 30 Days') : _selectedTimeFilter,
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: R.fs(context, 15)),
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: R.fs(context, 15), color: isDark ? Colors.white : Colors.black87),
                     ),
                     SizedBox(width: R.w(context, 1)),
-                    Icon(Icons.keyboard_arrow_down, size: R.icon(context, 22), color: Colors.black87),
+                    Icon(Icons.keyboard_arrow_down, size: R.icon(context, 22), color: isDark ? Colors.white70 : Colors.black87),
                   ],
                 ),
               ),
@@ -845,7 +1066,7 @@ class _LeaderboardTabState extends State<LeaderboardTab> {
                       child: Container(
                         padding: EdgeInsets.only(bottom: R.h(context, 1.5)),
                         decoration: BoxDecoration(border: Border(bottom: BorderSide(color: _isMembersActive ? const Color(0xFF007AFF) : Colors.transparent, width: 2))),
-                        child: Center(child: Text(TranslationService.translate('leaderboard_members'), style: TextStyle(color: _isMembersActive ? const Color(0xFF007AFF) : Colors.grey, fontWeight: FontWeight.bold, fontSize: R.fs(context, 14)))),
+                        child: Center(child: Text(TranslationService.translate('leaderboard_members'), style: TextStyle(color: _isMembersActive ? const Color(0xFF007AFF) : (isDark ? Colors.white54 : Colors.grey), fontWeight: FontWeight.bold, fontSize: R.fs(context, 14)))),
                       ),
                     ),
                   ),
@@ -858,7 +1079,7 @@ class _LeaderboardTabState extends State<LeaderboardTab> {
                       child: Container(
                         padding: EdgeInsets.only(bottom: R.h(context, 1.5)),
                         decoration: BoxDecoration(border: Border(bottom: BorderSide(color: !_isMembersActive ? const Color(0xFF007AFF) : Colors.transparent, width: 2))),
-                        child: Center(child: Text(TranslationService.translate('leaderboard_countries'), style: TextStyle(color: !_isMembersActive ? const Color(0xFF007AFF) : Colors.grey, fontWeight: FontWeight.bold, fontSize: R.fs(context, 14)))),
+                        child: Center(child: Text(TranslationService.translate('leaderboard_countries'), style: TextStyle(color: !_isMembersActive ? const Color(0xFF007AFF) : (isDark ? Colors.white54 : Colors.grey), fontWeight: FontWeight.bold, fontSize: R.fs(context, 14)))),
                       ),
                     ),
                   ),
@@ -867,7 +1088,7 @@ class _LeaderboardTabState extends State<LeaderboardTab> {
             ],
           ),
         ),
-        const Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
+        Divider(height: 1, thickness: 1, color: isDark ? Colors.white10 : const Color(0xFFEEEEEE)),
         Expanded(
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())
@@ -884,7 +1105,7 @@ class _LeaderboardTabState extends State<LeaderboardTab> {
                       ),
                     )
                   : _leaderboardData.isEmpty
-                      ? Center(child: Text(TranslationService.translate('no_records'), style: TextStyle(color: Colors.grey, fontSize: R.fs(context, 14))))
+                      ? Center(child: Text(TranslationService.translate('no_records'), style: TextStyle(color: isDark ? Colors.white54 : Colors.grey, fontSize: R.fs(context, 14))))
                       : ListView.builder(
                           padding: EdgeInsets.only(bottom: R.h(context, 12)),
                           itemCount: _leaderboardData.length,
@@ -900,8 +1121,9 @@ class _LeaderboardTabState extends State<LeaderboardTab> {
   Widget _buildLeaderboardItem(Map<String, dynamic> item) {
     final rank = item['rank'];
     final isMe = item['isMe'] == true;
-    Color bgColor = Colors.white;
-    if (rank == '1' || rank == '3') bgColor = const Color(0xFFFCF4E6);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    Color bgColor = isDark ? const Color(0xFF121212) : Colors.white;
+    if (rank == '1' || rank == '3') bgColor = isDark ? const Color(0xFF231F16) : const Color(0xFFFCF4E6);
     Color? ribbonColor;
     if (rank == '1') ribbonColor = const Color(0xFFEAB233);
     if (rank == '2') ribbonColor = const Color(0xFFA8A8A8);
@@ -917,7 +1139,7 @@ class _LeaderboardTabState extends State<LeaderboardTab> {
                 width: R.w(context, 13), height: R.h(context, 3.5),
                 child: ribbonColor != null
                     ? ClipPath(clipper: RibbonClipper(), child: Container(color: ribbonColor, alignment: Alignment.centerLeft, padding: EdgeInsets.only(left: R.w(context, 3)), child: Text(rank, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: R.fs(context, 13)))))
-                    : Center(child: Text(rank, style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: R.fs(context, 13)))),
+                    : Center(child: Text(rank, style: TextStyle(color: isDark ? Colors.white54 : Colors.grey, fontWeight: FontWeight.bold, fontSize: R.fs(context, 13)))),
               ),
               SizedBox(width: R.w(context, 2)),
               CircleAvatar(
@@ -928,16 +1150,16 @@ class _LeaderboardTabState extends State<LeaderboardTab> {
               SizedBox(width: R.w(context, 4)),
               Expanded(
                 child: RichText(
-                  text: TextSpan(style: TextStyle(color: Colors.black, fontSize: R.fs(context, 14), fontFamily: 'Roboto'), children: [TextSpan(text: item['name'], style: const TextStyle(fontWeight: FontWeight.bold)), if (isMe) const TextSpan(text: ' (You)', style: TextStyle(color: Colors.grey))]),
+                  text: TextSpan(style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: R.fs(context, 14), fontFamily: 'Roboto'), children: [TextSpan(text: item['name'], style: const TextStyle(fontWeight: FontWeight.bold)), if (isMe) TextSpan(text: ' (You)', style: TextStyle(color: isDark ? Colors.white54 : Colors.grey))]),
                   maxLines: 1, overflow: TextOverflow.ellipsis,
                 ),
               ),
-              Text(item['score'], style: TextStyle(color: Colors.grey, fontSize: R.fs(context, 10), fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+              Text(item['score'], style: TextStyle(color: isDark ? Colors.white54 : Colors.grey, fontSize: R.fs(context, 10), fontWeight: FontWeight.w800, letterSpacing: 0.5)),
               SizedBox(width: R.w(context, 4)),
             ],
           ),
         ),
-        if (isMe) const Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
+        if (isMe) Divider(height: 1, thickness: 1, color: isDark ? Colors.white10 : const Color(0xFFEEEEEE)),
       ],
     );
   }
@@ -977,11 +1199,50 @@ class _ActivityTabState extends State<ActivityTab> {
   List<dynamic> _history = [];
   bool _isSelectionMode = false;
   final Set<int> _selectedIndices = {};
+  String _userInitials = '';
 
   @override
   void initState() {
     super.initState();
+    _loadUserInitials();
     _fetchHistory();
+  }
+
+  Future<void> _loadUserInitials() async {
+    try {
+      final name = await ApiService.instance.getUsername();
+      if (name != null && name.isNotEmpty) {
+        if (mounted) {
+          setState(() {
+            _userInitials = _getInitials(name);
+          });
+        }
+      } else {
+        final profile = await ApiService.instance.getMe();
+        final fetchedName = profile['name'] ?? '';
+        if (fetchedName.isNotEmpty) {
+          if (mounted) {
+            setState(() {
+              _userInitials = _getInitials(fetchedName);
+            });
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  String _getInitials(String name) {
+    if (name.isEmpty) return 'US';
+    final parts = name.trim().split(RegExp(r'\s+'));
+    if (parts.length >= 2) {
+      final first = parts[0].isNotEmpty ? parts[0][0] : '';
+      final second = parts[1].isNotEmpty ? parts[1][0] : '';
+      return (first + second).toUpperCase();
+    } else if (name.length >= 2) {
+      return name.substring(0, 2).toUpperCase();
+    } else {
+      return name.toUpperCase();
+    }
   }
 
   Future<void> _fetchHistory() async {
@@ -1033,10 +1294,12 @@ class _ActivityTabState extends State<ActivityTab> {
   }
 
   void _showDeleteDialog(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     showDialog(
       context: context,
       builder: (ctx) {
         return Dialog(
+          backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           child: Padding(
             padding: const EdgeInsets.all(24.0),
@@ -1044,22 +1307,22 @@ class _ActivityTabState extends State<ActivityTab> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const SizedBox(height: 10),
-                Text(TranslationService.translate('delete_confirm_desc'), textAlign: TextAlign.center, style: TextStyle(fontSize: R.fs(context, 16), fontWeight: FontWeight.bold)),
+                Text(TranslationService.translate('delete_confirm_desc'), textAlign: TextAlign.center, style: TextStyle(fontSize: R.fs(context, 16), fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
                 const SizedBox(height: 30),
                 Row(
                   children: [
                     Expanded(
                       child: TextButton(
                         onPressed: () { Navigator.pop(ctx); _deleteSelected(); },
-                        style: TextButton.styleFrom(backgroundColor: const Color(0xFFFFEBEE), padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))),
-                        child: Text(TranslationService.translate('yes'), style: TextStyle(color: const Color(0xFFD32F2F), fontWeight: FontWeight.bold, fontSize: R.fs(context, 13))),
+                        style: TextButton.styleFrom(backgroundColor: isDark ? const Color(0xFF5C1919) : const Color(0xFFFFEBEE), padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))),
+                        child: Text(TranslationService.translate('yes'), style: TextStyle(color: isDark ? Colors.white : const Color(0xFFD32F2F), fontWeight: FontWeight.bold, fontSize: R.fs(context, 13))),
                       ),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
                       child: TextButton(
                         onPressed: () => Navigator.pop(ctx),
-                        style: TextButton.styleFrom(backgroundColor: const Color(0xFFE3F2FD), padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))),
+                        style: TextButton.styleFrom(backgroundColor: isDark ? Colors.white10 : const Color(0xFFE3F2FD), padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))),
                         child: Text(TranslationService.translate('no'), style: TextStyle(color: const Color(0xFF007AFF), fontWeight: FontWeight.bold, fontSize: R.fs(context, 13))),
                       ),
                     ),
@@ -1096,6 +1359,16 @@ class _ActivityTabState extends State<ActivityTab> {
                         gradient: const LinearGradient(colors: [Colors.cyanAccent, Colors.blue], begin: Alignment.topLeft, end: Alignment.bottomRight),
                         shape: BoxShape.circle,
                         border: Border.all(color: Colors.white, width: 2),
+                      ),
+                      child: Center(
+                        child: Text(
+                          _userInitials.isNotEmpty ? _userInitials : 'US',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: R.fs(context, 11),
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -1146,16 +1419,16 @@ class _ActivityTabState extends State<ActivityTab> {
                     onTap: _selectedIndices.isEmpty ? null : () => _showDeleteDialog(context),
                     child: Container(
                       height: 56, padding: const EdgeInsets.symmetric(horizontal: 24),
-                      decoration: BoxDecoration(color: const Color(0xFFFFEBEE), borderRadius: BorderRadius.circular(30), boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 5))]),
+                      decoration: BoxDecoration(color: isDark ? const Color(0xFF5C1919) : const Color(0xFFFFEBEE), borderRadius: BorderRadius.circular(30), boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 5))]),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Icon(Icons.delete_outline, color: _selectedIndices.isEmpty ? Colors.grey : const Color(0xFFD32F2F)),
+                          Icon(Icons.delete_outline, color: _selectedIndices.isEmpty ? Colors.grey : (isDark ? Colors.white : const Color(0xFFD32F2F))),
                           Text(
                             TranslationService.isUrdu
                                 ? "${_selectedIndices.length} ریکارڈز حذف کریں"
                                 : "DELETE ${_selectedIndices.length} RECORD${_selectedIndices.length != 1 ? 'S' : ''}",
-                            style: TextStyle(color: _selectedIndices.isEmpty ? Colors.grey : const Color(0xFFD32F2F), fontWeight: FontWeight.bold, fontSize: R.fs(context, 13), letterSpacing: 1.0),
+                            style: TextStyle(color: _selectedIndices.isEmpty ? Colors.grey : (isDark ? Colors.white : const Color(0xFFD32F2F)), fontWeight: FontWeight.bold, fontSize: R.fs(context, 13), letterSpacing: 1.0),
                           ),
                           const SizedBox(width: 24),
                         ],
@@ -1171,12 +1444,13 @@ class _ActivityTabState extends State<ActivityTab> {
   }
 
   Widget _buildEmptyState(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Container(
           height: R.h(context, 25), width: R.h(context, 25),
-          decoration: const BoxDecoration(color: Color(0xFFE3F2FD), shape: BoxShape.circle),
+          decoration: BoxDecoration(color: isDark ? Colors.white10 : const Color(0xFFE3F2FD), shape: BoxShape.circle),
           child: Stack(
             alignment: Alignment.center,
             children: [
@@ -1185,13 +1459,14 @@ class _ActivityTabState extends State<ActivityTab> {
           ),
         ),
         SizedBox(height: R.h(context, 4)),
-        Text(TranslationService.translate('no_scans'), style: TextStyle(fontSize: R.fs(context, 22), fontWeight: FontWeight.bold, color: Colors.black87)),
+        Text(TranslationService.translate('no_scans'), style: TextStyle(fontSize: R.fs(context, 22), fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
         SizedBox(height: R.h(context, 10)),
       ],
     );
   }
 
   Widget _buildHistoryList(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return ListView.builder(
       padding: EdgeInsets.symmetric(horizontal: R.w(context, 4), vertical: 8),
       itemCount: _history.length,
@@ -1237,9 +1512,9 @@ class _ActivityTabState extends State<ActivityTab> {
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: isSelected ? Colors.blue.withValues(alpha: 0.1) : Colors.white,
+              color: isSelected ? Colors.blue.withValues(alpha: 0.1) : (isDark ? const Color(0xFF1E1E1E) : Colors.white),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: isSelected ? const Color(0xFF007AFF) : Colors.grey.withValues(alpha: 0.2), width: isSelected ? 2 : 1),
+              border: Border.all(color: isSelected ? const Color(0xFF007AFF) : (isDark ? Colors.white12 : Colors.grey.withValues(alpha: 0.2)), width: isSelected ? 2 : 1),
               boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8, offset: const Offset(0, 2))],
             ),
             child: Row(
@@ -1248,7 +1523,7 @@ class _ActivityTabState extends State<ActivityTab> {
                 Container(
                   width: 60, height: 60,
                   decoration: BoxDecoration(
-                    color: Colors.grey[200],
+                    color: isDark ? Colors.white10 : Colors.grey[200],
                     borderRadius: BorderRadius.circular(12),
                     image: item['image_url'] != null ? DecorationImage(image: NetworkImage(item['image_url']), fit: BoxFit.cover) : null,
                   ),
@@ -1261,7 +1536,7 @@ class _ActivityTabState extends State<ActivityTab> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(item['object_detected'] ?? 'Unknown Object', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      Text(item['object_detected'] ?? 'Unknown Object', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.white : Colors.black87)),
                       const SizedBox(height: 6),
                       Row(
                         children: [
@@ -1272,7 +1547,7 @@ class _ActivityTabState extends State<ActivityTab> {
                         ],
                       ),
                       const SizedBox(height: 6),
-                      Text(item['timestamp']?.toString().substring(0, 10) ?? '', style: TextStyle(color: Colors.grey[400], fontSize: 11)),
+                      Text(item['timestamp']?.toString().substring(0, 10) ?? '', style: TextStyle(color: isDark ? Colors.white38 : Colors.grey[400], fontSize: 11)),
                     ],
                   ),
                 ),
@@ -1342,11 +1617,50 @@ class _ImpactTabState extends State<ImpactTab> {
   Map<String, dynamic>? _myStats;
   Map<String, dynamic>? _globalStats;
   List<dynamic> _stories = [];
+  String _userInitials = '';
 
   @override
   void initState() {
     super.initState();
+    _loadUserInitials();
     _fetchStats();
+  }
+
+  Future<void> _loadUserInitials() async {
+    try {
+      final name = await ApiService.instance.getUsername();
+      if (name != null && name.isNotEmpty) {
+        if (mounted) {
+          setState(() {
+            _userInitials = _getInitials(name);
+          });
+        }
+      } else {
+        final profile = await ApiService.instance.getMe();
+        final fetchedName = profile['name'] ?? '';
+        if (fetchedName.isNotEmpty) {
+          if (mounted) {
+            setState(() {
+              _userInitials = _getInitials(fetchedName);
+            });
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  String _getInitials(String name) {
+    if (name.isEmpty) return 'US';
+    final parts = name.trim().split(RegExp(r'\s+'));
+    if (parts.length >= 2) {
+      final first = parts[0].isNotEmpty ? parts[0][0] : '';
+      final second = parts[1].isNotEmpty ? parts[1][0] : '';
+      return (first + second).toUpperCase();
+    } else if (name.length >= 2) {
+      return name.substring(0, 2).toUpperCase();
+    } else {
+      return name.toUpperCase();
+    }
   }
 
   Future<void> _fetchStats() async {
@@ -1427,6 +1741,16 @@ class _ImpactTabState extends State<ImpactTab> {
                                 shape: BoxShape.circle,
                                 border: Border.all(color: Colors.white, width: 2),
                               ),
+                              child: Center(
+                                child: Text(
+                                  _userInitials.isNotEmpty ? _userInitials : 'US',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: R.fs(context, 12),
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
                           Text(TranslationService.translate('tab_impact'), style: TextStyle(color: Colors.white, fontSize: R.fs(context, 20), fontWeight: FontWeight.bold)),
@@ -1501,7 +1825,7 @@ class _ImpactTabState extends State<ImpactTab> {
                   children: [
                     Text(
                       TranslationService.translate('my_activity_week'),
-                      style: TextStyle(fontSize: R.fs(context, 26), fontWeight: FontWeight.bold),
+                      style: TextStyle(fontSize: R.fs(context, 26), fontWeight: FontWeight.bold, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87),
                     ),
                     const SizedBox(width: 10),
                     Icon(Icons.info, color: Colors.blue[500], size: R.icon(context, 28)),
@@ -1534,7 +1858,7 @@ class _ImpactTabState extends State<ImpactTab> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(TranslationService.translate('stories_impact'), style: TextStyle(fontSize: R.fs(context, 26), fontWeight: FontWeight.bold)),
+                Text(TranslationService.translate('stories_impact'), style: TextStyle(fontSize: R.fs(context, 26), fontWeight: FontWeight.bold, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87)),
                 GestureDetector(
                   onTap: () {
                     Navigator.push(
@@ -1577,11 +1901,12 @@ class _ImpactTabState extends State<ImpactTab> {
   }
 
   Widget _buildBar(BuildContext context, String label, double height, bool isActive) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       children: [
         Container(
           width: 8, height: height,
-          decoration: BoxDecoration(color: isActive ? const Color(0xFF007AFF) : Colors.grey[200], borderRadius: BorderRadius.circular(4)),
+          decoration: BoxDecoration(color: isActive ? const Color(0xFF007AFF) : (isDark ? Colors.white12 : Colors.grey[200]), borderRadius: BorderRadius.circular(4)),
         ),
         const SizedBox(height: 12),
         Text(label, style: TextStyle(fontSize: R.fs(context, 10), color: Colors.grey, fontWeight: FontWeight.bold)),
@@ -1590,9 +1915,10 @@ class _ImpactTabState extends State<ImpactTab> {
   }
 
   Widget _buildDateCircle(BuildContext context, String date, {bool isActive = false}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: R.icon(context, 54), margin: const EdgeInsets.only(right: 12),
-      decoration: BoxDecoration(color: isActive ? const Color(0xFF007AFF) : Colors.grey[400], shape: BoxShape.circle),
+      decoration: BoxDecoration(color: isActive ? const Color(0xFF007AFF) : (isDark ? Colors.white24 : Colors.grey[400]), shape: BoxShape.circle),
       child: Center(child: Text(date, style: TextStyle(color: Colors.white, fontSize: R.fs(context, 13), fontWeight: FontWeight.bold))),
     );
   }
@@ -1601,10 +1927,11 @@ class _ImpactTabState extends State<ImpactTab> {
     final title = item['title'] ?? '';
     final imageUrl = item['image_url'] ?? '';
     final sp = R.sp(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: R.w(context, 56), margin: const EdgeInsets.only(right: 16),
       decoration: BoxDecoration(
-        color: Colors.white, borderRadius: BorderRadius.circular(16),
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white, borderRadius: BorderRadius.circular(16),
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 15, offset: const Offset(0, 5))],
       ),
       child: GestureDetector(
@@ -1625,7 +1952,7 @@ class _ImpactTabState extends State<ImpactTab> {
                   ? Image.network(imageUrl, height: R.h(context, 14), width: double.infinity, fit: BoxFit.cover)
                   : Image.asset(imageUrl, height: R.h(context, 14), width: double.infinity, fit: BoxFit.cover),
             ),
-            Padding(padding: EdgeInsets.all(sp), child: Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: R.fs(context, 13), height: 1.2), maxLines: 3, overflow: TextOverflow.ellipsis)),
+            Padding(padding: EdgeInsets.all(sp), child: Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: R.fs(context, 13), height: 1.2, color: isDark ? Colors.white : Colors.black87), maxLines: 3, overflow: TextOverflow.ellipsis)),
           ],
         ),
       ),

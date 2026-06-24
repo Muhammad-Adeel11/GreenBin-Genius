@@ -91,13 +91,14 @@ class _ClassificationResultScreenState extends State<ClassificationResultScreen>
   @override
   Widget build(BuildContext context) {
     final sp = R.sp(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: isDark ? const Color(0xFF121212) : Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: Icon(Icons.arrow_back, color: isDark ? Colors.white : Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -112,7 +113,7 @@ class _ClassificationResultScreenState extends State<ClassificationResultScreen>
                 style: TextStyle(
                   fontSize: R.fs(context, 26),
                   fontWeight: FontWeight.bold,
-                  color: Colors.black,
+                  color: isDark ? Colors.white : Colors.black,
                 ),
               ),
               SizedBox(height: sp * 2),
@@ -122,7 +123,7 @@ class _ClassificationResultScreenState extends State<ClassificationResultScreen>
                 height: R.h(context, 35),
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                   borderRadius: BorderRadius.circular(32),
                   boxShadow: [
                     BoxShadow(
@@ -153,7 +154,7 @@ class _ClassificationResultScreenState extends State<ClassificationResultScreen>
 
                           if (_isAnalyzing)
                             Container(
-                              color: Colors.white70,
+                              color: isDark ? Colors.black54 : Colors.white70,
                               child: const Center(child: CircularProgressIndicator(color: Color(0xFF2196F3))),
                             ),
                         ],
@@ -192,7 +193,7 @@ class _ClassificationResultScreenState extends State<ClassificationResultScreen>
                           children: [
                             Text(
                               "DETECTIONS",
-                              style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.black54, fontSize: 11, letterSpacing: 1.0),
+                              style: TextStyle(fontWeight: FontWeight.w900, color: isDark ? Colors.white60 : Colors.black54, fontSize: 11, letterSpacing: 1.0),
                             ),
                             Text(
                               "OBJECT COUNT: ${_result!.objectCount}",
@@ -206,20 +207,20 @@ class _ClassificationResultScreenState extends State<ClassificationResultScreen>
                             margin: const EdgeInsets.only(bottom: 12),
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                               borderRadius: BorderRadius.circular(20),
                               boxShadow: [
                                 BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4)),
                               ],
-                              border: Border.all(color: Colors.grey.withOpacity(0.1)),
+                              border: Border.all(color: isDark ? Colors.white10 : Colors.grey.withOpacity(0.1)),
                             ),
                             child: Column(
                               children: [
-                                _buildSimpleInfoRow("Class", det.label),
-                                const Divider(height: 16),
-                                _buildSimpleInfoRow("Material", det.material),
-                                const Divider(height: 16),
-                                _buildSimpleInfoRow("Confidence", "${(det.confidence * 100).toStringAsFixed(0)}%"),
+                                _buildSimpleInfoRow(context, "Class", det.label),
+                                Divider(height: 16, color: isDark ? Colors.white10 : Colors.grey[200]),
+                                _buildSimpleInfoRow(context, "Material", det.material),
+                                Divider(height: 16, color: isDark ? Colors.white10 : Colors.grey[200]),
+                                _buildSimpleInfoRow(context, "Confidence", "${(det.confidence * 100).toStringAsFixed(0)}%"),
                               ],
                             ),
                           );
@@ -257,8 +258,6 @@ class _ClassificationResultScreenState extends State<ClassificationResultScreen>
 
                 // ── Disposal Guidance Button → navigates to full screen
                 if (_guidance != null) Builder(builder: (context) {
-                  final isUrdu   = TranslationService.isUrdu;
-                  final binColor = Color(int.parse('FF${_guidance!.binColorHex.replaceAll("#", "")}', radix: 16));
                   return ValueListenableBuilder<String>(
                     valueListenable: TranslationService.instance.languageNotifier,
                     builder: (context, lang, _) {
@@ -275,7 +274,7 @@ class _ClassificationResultScreenState extends State<ClassificationResultScreen>
                           width: double.infinity,
                           padding: const EdgeInsets.all(18),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(color: bc.withOpacity(0.25), width: 1.5),
                             boxShadow: [BoxShadow(color: bc.withOpacity(0.08), blurRadius: 16, offset: const Offset(0, 6))],
@@ -306,7 +305,7 @@ class _ClassificationResultScreenState extends State<ClassificationResultScreen>
                                       textDirection: isU ? TextDirection.rtl : TextDirection.ltr,
                                       maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(color: Colors.black54, fontSize: 13, height: 1.4),
+                                      style: TextStyle(color: isDark ? Colors.white60 : Colors.black54, fontSize: 13, height: 1.4),
                                     ),
                                     const SizedBox(height: 6),
                                     Container(
@@ -375,6 +374,7 @@ class _ClassificationResultScreenState extends State<ClassificationResultScreen>
   }
 
   Widget _buildInfoRow(BuildContext context, String label, String value, bool isFirst, bool isLast) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return SizedBox(
       height: 50,
       child: Row(
@@ -388,21 +388,21 @@ class _ClassificationResultScreenState extends State<ClassificationResultScreen>
                 if (!isLast)
                   Positioned(
                     top: 25, bottom: -25,
-                    child: Container(width: 1, color: Colors.grey[300]),
+                    child: Container(width: 1, color: isDark ? Colors.white10 : Colors.grey[300]),
                   ),
                 if (!isFirst)
                   Positioned(
                     top: -25, bottom: 25,
-                    child: Container(width: 1, color: Colors.grey[300]),
+                    child: Container(width: 1, color: isDark ? Colors.white10 : Colors.grey[300]),
                   ),
-                Container(width: 12, height: 1, color: Colors.grey[300]),
+                Container(width: 12, height: 1, color: isDark ? Colors.white10 : Colors.grey[300]),
               ],
             ),
           ),
           
           Text(
             label,
-            style: TextStyle(fontSize: R.fs(context, 15), fontWeight: FontWeight.w500, color: Colors.black87),
+            style: TextStyle(fontSize: R.fs(context, 15), fontWeight: FontWeight.w500, color: isDark ? Colors.white70 : Colors.black87),
           ),
           const Spacer(),
           Container(
@@ -421,12 +421,13 @@ class _ClassificationResultScreenState extends State<ClassificationResultScreen>
     );
   }
 
-  Widget _buildSimpleInfoRow(String label, String value) {
+  Widget _buildSimpleInfoRow(BuildContext context, String label, String value) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: const TextStyle(color: Colors.black54, fontSize: 13, fontWeight: FontWeight.w500)),
-        Text(value, style: const TextStyle(color: Colors.black, fontSize: 13, fontWeight: FontWeight.bold)),
+        Text(label, style: TextStyle(color: isDark ? Colors.white60 : Colors.black54, fontSize: 13, fontWeight: FontWeight.w500)),
+        Text(value, style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 13, fontWeight: FontWeight.bold)),
       ],
     );
   }

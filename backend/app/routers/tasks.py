@@ -33,6 +33,9 @@ def _serialize(doc: dict) -> dict:
         doc["task_id"] = str(doc["task_id"])
     if "user_id" in doc:
         doc["user_id"] = str(doc["user_id"])
+    for k, v in list(doc.items()):
+        if hasattr(v, "isoformat"):
+            doc[k] = v.isoformat()
     return doc
 
 
@@ -46,6 +49,7 @@ def _require_admin(user: dict):
 @router.get("", summary="List all active tasks (with user enrollment status)")
 async def get_tasks(current_user: dict = Depends(get_current_user)):
     user_id = str(current_user["_id"])
+    tasks_enabled = current_user.get("tasks_enabled", False)
 
     # Fetch all active tasks
     cursor = tasks_col().find({"is_active": True}).sort("created_at", -1)
@@ -71,7 +75,33 @@ async def get_tasks(current_user: dict = Depends(get_current_user)):
             t_dict["enrollment_status"] = "not_enrolled"
         result.append(t_dict)
 
-    return {"success": True, "data": result}
+    return {
+        "success": True,
+        "tasks_enabled": tasks_enabled,
+        "data": result
+    }
+
+
+@router.post("/enable", summary="Enable tasks feature (Become Researcher)")
+async def enable_tasks(current_user: dict = Depends(get_current_user)):
+    user_id = str(current_user["_id"])
+    
+    from app.db.mongo import users_col
+    await users_col().update_one(
+        {"_id": ObjectId(user_id)},
+        {"$set": {"tasks_enabled": True}}
+    )
+
+    await create_notification(
+        user_id=user_id,
+        title_en="🎉 Tasks Enabled!",
+        title_ur="🎉 ٹاسک فعال ہو گئے!",
+        message_en="You are now a GreenBin Researcher! You can apply to challenges and earn points.",
+        message_ur="اب آپ گرین بن محقق ہیں! آپ چیلنجز کے لیے درخواست دے سکتے ہیں اور پوائنٹس حاصل کر سکتے ہیں۔",
+        notif_type="achievement",
+    )
+
+    return {"success": True, "message": "Tasks enabled successfully."}
 
 
 @router.get("/mine", summary="Tasks the current user is enrolled in")
@@ -108,6 +138,13 @@ async def get_my_tasks(current_user: dict = Depends(get_current_user)):
 @router.post("/{task_id}/enroll", summary="Enroll in (Apply Now) a task")
 async def enroll_task(task_id: str, current_user: dict = Depends(get_current_user)):
     user_id = str(current_user["_id"])
+
+    # Must have tasks enabled first
+    if not current_user.get("tasks_enabled", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You must first enable tasks by applying to become a GreenBin Researcher.",
+        )
 
     # Task must exist and be active
     try:
