@@ -1419,16 +1419,16 @@ class _ActivityTabState extends State<ActivityTab> {
                     onTap: _selectedIndices.isEmpty ? null : () => _showDeleteDialog(context),
                     child: Container(
                       height: 56, padding: const EdgeInsets.symmetric(horizontal: 24),
-                      decoration: BoxDecoration(color: isDark ? const Color(0xFF5C1919) : const Color(0xFFFFEBEE), borderRadius: BorderRadius.circular(30), boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 5))]),
+                      decoration: BoxDecoration(color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF5C1919) : const Color(0xFFFFEBEE), borderRadius: BorderRadius.circular(30), boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 5))]),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Icon(Icons.delete_outline, color: _selectedIndices.isEmpty ? Colors.grey : (isDark ? Colors.white : const Color(0xFFD32F2F))),
+                          Icon(Icons.delete_outline, color: _selectedIndices.isEmpty ? Colors.grey : (Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFFD32F2F))),
                           Text(
                             TranslationService.isUrdu
                                 ? "${_selectedIndices.length} ریکارڈز حذف کریں"
                                 : "DELETE ${_selectedIndices.length} RECORD${_selectedIndices.length != 1 ? 'S' : ''}",
-                            style: TextStyle(color: _selectedIndices.isEmpty ? Colors.grey : (isDark ? Colors.white : const Color(0xFFD32F2F)), fontWeight: FontWeight.bold, fontSize: R.fs(context, 13), letterSpacing: 1.0),
+                            style: TextStyle(color: _selectedIndices.isEmpty ? Colors.grey : (Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFFD32F2F)), fontWeight: FontWeight.bold, fontSize: R.fs(context, 13), letterSpacing: 1.0),
                           ),
                           const SizedBox(width: 24),
                         ],

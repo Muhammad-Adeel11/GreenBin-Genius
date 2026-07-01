@@ -167,6 +167,35 @@ class ApiService {
     });
   }
 
+  /// Verify a Google idToken with the backend and claim the anonymous account.
+  /// The backend calls Google's tokeninfo API to confirm the Gmail is real.
+  Future<Map<String, dynamic>> verifyGoogleAndClaim({
+    required String idToken,
+    String? username,
+    String? displayName,
+    String? photoUrl,
+  }) async {
+    return _wrapNetworkCall(() async {
+      final res = await _client.post(
+        Uri.parse('$baseUrl/api/auth/verify-google'),
+        headers: await _authHeaders(),
+        body: jsonEncode({
+          'id_token': idToken,
+          if (username != null) 'username': username,
+          if (displayName != null) 'display_name': displayName,
+          if (photoUrl != null) 'photo_url': photoUrl,
+        }),
+      );
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        await saveToken(data['access_token']);
+        if (data['name'] != null) await saveUsername(data['name']);
+        return data;
+      }
+      throw _handleError(res);
+    });
+  }
+
   // ═══════════════════════════════════════════════════════════
   // CLASSIFICATION
   // ═══════════════════════════════════════════════════════════

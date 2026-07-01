@@ -24,6 +24,14 @@ class UserLoginRequest(BaseModel):
     password: str
 
 
+class GoogleVerifyClaimRequest(BaseModel):
+    """Payload sent from Flutter after google_sign_in succeeds."""
+    id_token:     str            = Field(..., description="Google ID token from flutter google_sign_in package")
+    username:     Optional[str]  = Field(default=None, min_length=3, max_length=30)
+    display_name: Optional[str]  = Field(default=None)
+    photo_url:    Optional[str]  = Field(default=None)
+
+
 class UserInfo(BaseModel):
     id: str
     name: str

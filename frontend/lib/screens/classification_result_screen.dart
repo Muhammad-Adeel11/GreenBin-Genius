@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../utils/responsive.dart';
 import '../utils/disposal_data.dart';
 import '../services/api_service.dart';
+import '../services/tflite_classifier_service.dart';
 import '../services/translation_service.dart';
 import 'bin_locator_screen.dart';
 import 'disposal_guidance_screen.dart';
@@ -31,6 +32,8 @@ class _ClassificationResultScreenState extends State<ClassificationResultScreen>
   String? _errorMessage;
   Size? _imageSize;
   String? _classificationId;   // MongoDB _id of the saved record
+  int? _inferenceMs;           // On-device inference time in milliseconds
+  bool _usedOnDevice = false;  // Whether TFLite on-device was used
 
   // Guidance
   DisposalGuidance? _guidance;
@@ -70,7 +73,36 @@ class _ClassificationResultScreenState extends State<ClassificationResultScreen>
         });
       }
 
-      final result = await ApiService.instance.classifyImage(widget.imageFile!, mode: widget.mode);
+      ClassificationResult result;
+
+      if (widget.mode == 'single') {
+        // ── On-Device TFLite path ────────────────────────────────────────
+        final loaded = await TFLiteClassifierService.instance.load();
+        if (loaded) {
+          final tfliteOut = await TFLiteClassifierService.instance.classify(widget.imageFile!);
+          if (tfliteOut != null) {
+            result = _tfliteToResult(tfliteOut);
+            if (mounted) {
+              setState(() {
+                _inferenceMs  = tfliteOut.inferenceMs;
+                _usedOnDevice = true;
+              });
+            }
+            // Save to backend history in background (non-blocking)
+            _saveToHistory(widget.imageFile!);
+          } else {
+            // TFLite ran but returned null — fallback to backend
+            result = await ApiService.instance.classifyImage(widget.imageFile!, mode: 'single');
+          }
+        } else {
+          // Model failed to load — fallback to backend
+          result = await ApiService.instance.classifyImage(widget.imageFile!, mode: 'single');
+        }
+      } else {
+        // ── Backend path for multiple / food modes ───────────────────────
+        result = await ApiService.instance.classifyImage(widget.imageFile!, mode: widget.mode);
+      }
+
       if (mounted) {
         setState(() {
           _result   = result;
@@ -86,6 +118,41 @@ class _ClassificationResultScreenState extends State<ClassificationResultScreen>
         });
       }
     }
+  }
+
+  /// Convert TFLite output to the unified [ClassificationResult] model.
+  ClassificationResult _tfliteToResult(TFLiteClassificationOutput out) {
+    // Material and recyclability lookup per label
+    const materialMap = <String, (String, bool)>{
+      'e-waste': ('Electronic Components', false),
+      'glass':   ('Glass', true),
+      'metal':   ('Metal', true),
+      'plastic': ('Plastic', true),
+      'textile': ('Textile / Fabric', false),
+      'wood':    ('Wood', false),
+    };
+    final (material, recyclable) = materialMap[out.label] ?? ('Unknown', false);
+    final guidance = getDisposalGuidance(out.label);
+    return ClassificationResult(
+      mode:           'single',
+      category:       out.label,
+      objectDetected: out.label,
+      material:       material,
+      confidence:     out.confidence,
+      cnnConfidence:  out.confidence,
+      disposalTip:    guidance.tipEn,
+      disposalTipUr:  guidance.tipUr,
+      recyclable:     recyclable,
+      timestamp:      DateTime.now(),
+    );
+  }
+
+  /// Fire-and-forget: send the image to the backend so the scan is logged
+  /// in MongoDB (Activity tab, leaderboard points, streak).
+  void _saveToHistory(File imageFile) {
+    ApiService.instance
+        .classifyImage(imageFile, mode: 'single')
+        .catchError((_) {});
   }
 
   @override
@@ -246,6 +313,47 @@ class _ClassificationResultScreenState extends State<ClassificationResultScreen>
                     padding: EdgeInsets.symmetric(horizontal: R.w(context, 4)),
                     child: Column(
                       children: [
+                        // ⚡ On-Device AI badge
+                        if (_usedOnDevice && _inferenceMs != null)
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? const Color(0xFF1A2340)
+                                  : const Color(0xFFE8EAF6),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                  color: const Color(0xFF3F51B5).withValues(alpha: 0.3)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Text('🤖', style: TextStyle(fontSize: 14)),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'On-Device AI',
+                                  style: TextStyle(
+                                    color: const Color(0xFF3F51B5),
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: R.fs(context, 11),
+                                    letterSpacing: 0.3,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                const Text('⚡', style: TextStyle(fontSize: 13)),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${_inferenceMs}ms',
+                                  style: TextStyle(
+                                    color: isDark ? Colors.white70 : Colors.black54,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: R.fs(context, 11),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         _buildInfoRow(context, "Class", _result!.category.toUpperCase(), true, false),
                         _buildInfoRow(context, "Material", _result!.material, false, false),
                         _buildInfoRow(context, "Confidence", "${(_result!.confidence * 100).toStringAsFixed(0)}%", false, true),

@@ -377,7 +377,7 @@ class _DisposalGuidanceScreenState extends State<DisposalGuidanceScreen> {
               child: Text(
                 text,
                 textDirection: isUrdu ? TextDirection.rtl : TextDirection.ltr,
-                style: TextStyle(color: isDark ? Colors.white87 : Colors.black87, fontSize: 13.5, height: 1.55),
+                style: TextStyle(color: isDark ? Colors.white.withValues(alpha: 0.87) : Colors.black87, fontSize: 13.5, height: 1.55),
               ),
             ),
           ),
