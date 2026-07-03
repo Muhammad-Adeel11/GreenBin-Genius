@@ -18,6 +18,7 @@ logger = logging.getLogger("greenbin")
 from app.services import cnn_classifier, yolo_detector
 from app.db.mongo import classifications_col, users_col
 from app.routers.auth import get_current_user
+from app.routers.notifications import create_notification
 from bson import ObjectId
 import cloudinary
 import cloudinary.uploader
@@ -236,6 +237,26 @@ async def classify_image(
         {"_id": ObjectId(user_id)}, {"$inc": {"total_scans": 1}}
     )
 
+    # ── Auto Notification: scan complete ─────────────────────
+    category_label = result.category.replace("_", " ").title()
+    recyclable_note = "♻️ This item is recyclable!" if result.recyclable else "🗑️ Dispose of this responsibly."
+    recyclable_note_ur = "♻️ یہ چیز ری سائیکل کی جا سکتی ہے!" if result.recyclable else "🗑️ اسے ذمہ داری سے ٹھکانے لگائیں۔"
+    await create_notification(
+        user_id    = user_id,
+        title_en   = f"Scan Complete – {category_label}",
+        title_ur   = f"اسکین مکمل – {category_label}",
+        message_en = f"{result.object_detected} identified. {recyclable_note} {result.disposal_tip}",
+        message_ur = f"{result.object_detected} شناخت ہوا۔ {recyclable_note_ur} {result.disposal_tip_ur}",
+        notif_type = "scan",
+    )
+
+    # ── Auto-update enrolled task progress ────────────────────
+    try:
+        from app.routers.tasks import update_task_progress
+        await update_task_progress(user_id=user_id, category=result.category)
+    except Exception as e:
+        logger.warning(f"[TASKS] Progress update failed (non-critical): {e}")
+
     return result
 
 
@@ -294,6 +315,70 @@ async def classify_yolo(
         annotated_image_url=annotated_image_url,
         timestamp=timestamp,
     )
+
+
+@router.post(
+    "/classify/{classification_id}/feedback",
+    summary="Submit category correction feedback for a classification",
+)
+async def submit_classification_feedback(
+    classification_id: str,
+    payload: dict,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Submits a correction for a classification.
+    Available to users and admins.
+    """
+    corrected_category = payload.get("corrected_category")
+    if not corrected_category:
+        raise HTTPException(status_code=400, detail="corrected_category is required")
+
+    try:
+        oid = ObjectId(classification_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid classification ID.")
+
+    col = classifications_col()
+    classification = await col.find_one({"_id": oid})
+    if not classification:
+        raise HTTPException(status_code=404, detail="Classification not found")
+
+    # If the user is not an admin, they can only correct their own classification
+    is_admin = (current_user.get("role") or "").upper() == "ADMIN"
+    if not is_admin and classification.get("user_id") != str(current_user["_id"]):
+        raise HTTPException(status_code=403, detail="You can only correct your own classifications.")
+
+    # Update database
+    corrected = corrected_category.upper()
+    update_fields = {
+        "predicted_category": corrected,
+        "category": corrected,
+        "user_feedback": corrected,
+        "is_verified": True,
+        "verification_status": "verified"
+    }
+    if "original_category" not in classification:
+        update_fields["original_category"] = classification.get("category")
+
+    await col.update_one(
+        {"_id": oid},
+        {"$set": update_fields}
+    )
+
+    # Award points to the owner if not already verified
+    if not classification.get("is_verified"):
+        owner_id = classification.get("user_id")
+        if owner_id:
+            try:
+                await users_col().update_one(
+                    {"_id": ObjectId(owner_id)},
+                    {"$inc": {"contribution_points": 5}}
+                )
+            except Exception as e:
+                logger.error(f"Failed to award points to user {owner_id}: {e}")
+
+    return {"success": True, "message": "Feedback submitted and classification updated."}
 
 
 @router.get(

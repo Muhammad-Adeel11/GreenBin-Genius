@@ -24,6 +24,14 @@ class UserLoginRequest(BaseModel):
     password: str
 
 
+class GoogleVerifyClaimRequest(BaseModel):
+    """Payload sent from Flutter after google_sign_in succeeds."""
+    id_token:     str            = Field(..., description="Google ID token from flutter google_sign_in package")
+    username:     Optional[str]  = Field(default=None, min_length=3, max_length=30)
+    display_name: Optional[str]  = Field(default=None)
+    photo_url:    Optional[str]  = Field(default=None)
+
+
 class UserInfo(BaseModel):
     id: str
     name: str
@@ -140,6 +148,18 @@ class BinCreate(BaseModel):
     longitude: float
     address: Optional[str] = None
     waste_types: Optional[List[str]] = Field(default=["PLASTIC"])
+
+
+class BinUpdate(BaseModel):
+    """Payload for updating an existing bin."""
+    name: str = Field(..., example="BIN-105")
+    bin_type: str = Field(default="Plastic / Recyclable", example="Plastic / Recyclable")
+    latitude: float
+    longitude: float
+    address: Optional[str] = None
+    waste_types: Optional[List[str]] = Field(default=["PLASTIC"])
+    status: str = Field(default="AVAILABLE", example="AVAILABLE")
+
 
 
 
@@ -322,3 +342,84 @@ class ResourceResponse(BaseModel):
 class ResourceListResponse(BaseModel):
     total: int
     data: List[ResourceResponse]
+
+
+# ──────────────────────────────────────────────
+# Notification & Campaign Schemas
+# ──────────────────────────────────────────────
+
+class NotificationResponse(BaseModel):
+    id: str
+    user_id: str
+    title_en: str
+    title_ur: str
+    message_en: str
+    message_ur: str
+    type: str                       # "scan", "points", "campaign", "system"
+    is_read: bool
+    created_at: Optional[datetime] = None
+
+
+class NotificationListResponse(BaseModel):
+    total: int
+    unread: int
+    data: List[NotificationResponse]
+
+
+class CampaignCreate(BaseModel):
+    title_english:   str  = Field(..., example="Recycling Drive This Weekend!")
+    title_urdu:      str  = Field(..., example="اس ہفتے کے آخر میں ری سائیکلنگ مہم!")
+    message_english: str  = Field(..., example="Join us for a community clean-up drive.")
+    message_urdu:    str  = Field(..., example="کمیونٹی صفائی مہم میں شامل ہوں۔")
+    target_audience: str  = Field(default="ALL", example="ALL")  # "ALL" or "ACTIVE_USERS"
+
+
+class CampaignResponse(BaseModel):
+    id: str
+    title_english: str
+    title_urdu: str
+    message_english: str
+    message_urdu: str
+    target_audience: str
+    recipients_count: int
+    created_at: Optional[datetime] = None
+
+
+class CampaignListResponse(BaseModel):
+    total: int
+    data: List[CampaignResponse]
+
+
+# ──────────────────────────────────────────────
+# Impact Story Schemas
+# ──────────────────────────────────────────────
+
+class StoryCreate(BaseModel):
+    title: str = Field(..., example="School Project in Spain")
+    image_url: str = Field(..., example="https://res.cloudinary.com/...")
+    video_url: Optional[str] = Field(default=None, example="https://youtube.com/...")
+    description: str = Field(default="", example="This school project taught children to recycle plastic.")
+    is_active: bool = Field(default=True)
+
+
+class StoryUpdate(BaseModel):
+    title: Optional[str] = None
+    image_url: Optional[str] = None
+    video_url: Optional[str] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class StoryResponse(BaseModel):
+    id: str
+    title: str
+    image_url: str
+    video_url: Optional[str] = None
+    description: str = ""
+    is_active: bool
+    created_at: Optional[datetime] = None
+
+
+class StoryListResponse(BaseModel):
+    total: int
+    data: List[StoryResponse]

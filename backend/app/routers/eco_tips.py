@@ -23,6 +23,7 @@ from bson.errors import InvalidId
 
 from app.db.mongo import eco_tips_col, classifications_col, users_col
 from app.routers.auth import get_current_user
+from app.routers.notifications import create_notification
 from app.models.schemas import (
     EcoTipCreate, EcoTipUpdate, EcoTipResponse,
     EcoTipFeedbackRequest, EcoTipFeedbackResponse,
@@ -42,7 +43,8 @@ def _serialize(doc: dict) -> dict:
 
 
 def _require_admin(user: dict):
-    if user.get("role") != "ADMIN":
+    role = (user.get("role") or "").upper()
+    if role != "ADMIN":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required.",
@@ -264,6 +266,17 @@ async def submit_feedback(
     # Fetch updated user points
     updated_user = await users_col().find_one({"_id": ObjectId(user_id)})
     total_points = updated_user.get("contribution_points", 0) if updated_user else 0
+
+    # Auto Notification: points awarded
+    corrected_label = corrected.replace("_", " ").title()
+    await create_notification(
+        user_id    = user_id,
+        title_en   = "🏆 +5 Points Earned!",
+        title_ur   = "🏆 +5 پوائنٹس حاصل ہوئے!",
+        message_en = f"Thanks for correcting the category to '{corrected_label}'. You now have {total_points} contribution points.",
+        message_ur = f"'{corrected_label}' زمرہ درست کرنے کا شکریہ۔ آپ کے پاس اب {total_points} کنٹریبیوشن پوائنٹس ہیں۔",
+        notif_type = "points",
+    )
 
     # Fetch the updated disposal guidance for the corrected category
     tip_doc = await eco_tips_col().find_one(

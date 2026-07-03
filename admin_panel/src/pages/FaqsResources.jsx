@@ -5,7 +5,7 @@ import {
 } from 'lucide-react'
 import Layout from '../components/layout/Layout'
 import { Modal, Spinner, EmptyState } from '../components/ui/index.jsx'
-import { faqsApi, resourcesApi } from '../api'
+import { faqsApi, resourcesApi, googleTranslateApi } from '../api'
 
 const FAQ_CATEGORIES = ['general', 'classification', 'locator', 'account', 'other']
 const RESOURCE_CATEGORIES = ['Education', 'Composting', 'Tips', 'E-Waste', 'Other']
@@ -377,7 +377,19 @@ export default function FaqsResources() {
           </div>
 
           <div>
-            <label className="text-[0.74rem] font-semibold text-ink-sub block mb-1">Question (اردو)</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-[0.74rem] font-semibold text-ink-sub">Question (اردو)</label>
+              <button
+                type="button"
+                onClick={async () => {
+                  const translated = await googleTranslateApi.translateToUrdu(faqForm.question_en)
+                  setFaqForm(prev => ({ ...prev, question_ur: translated }))
+                }}
+                className="text-[0.7rem] text-eco font-bold hover:underline cursor-pointer bg-transparent border-none"
+              >
+                ✨ Auto-Translate from English
+              </button>
+            </div>
             <input
               required
               value={faqForm.question_ur}
@@ -401,7 +413,19 @@ export default function FaqsResources() {
           </div>
 
           <div>
-            <label className="text-[0.74rem] font-semibold text-ink-sub block mb-1">Answer (اردو)</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-[0.74rem] font-semibold text-ink-sub">Answer (اردو)</label>
+              <button
+                type="button"
+                onClick={async () => {
+                  const translated = await googleTranslateApi.translateToUrdu(faqForm.answer_en)
+                  setFaqForm(prev => ({ ...prev, answer_ur: translated }))
+                }}
+                className="text-[0.7rem] text-eco font-bold hover:underline cursor-pointer bg-transparent border-none"
+              >
+                ✨ Auto-Translate from English
+              </button>
+            </div>
             <textarea
               required
               value={faqForm.answer_ur}

@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 from app.db.mongo import ping as ping_db
 from app.db.mongo import ping as ping_db
 from app.services import cnn_classifier, yolo_detector
-from app.routers import auth, classify, history, bins, analytics, admin, notifications, leaderboard, eco_tips, faqs
+from app.routers import auth, classify, history, bins, analytics, admin, notifications, leaderboard, eco_tips, faqs, stories, tasks
 import cloudinary
 # import cloudinary.config  -- Removed as it's not a valid module
 
@@ -101,6 +101,8 @@ app.include_router(leaderboard.router)
 app.include_router(notifications.router)
 app.include_router(eco_tips.router)
 app.include_router(faqs.router)
+app.include_router(stories.router)
+app.include_router(tasks.router)
 
 
 # ── Root Health-Check ────────────────────────────────────────

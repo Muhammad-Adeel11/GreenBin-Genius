@@ -22,13 +22,19 @@ function confBadgeClass(score) {
 
 function timeAgo(ts) {
   if (!ts) return 'Unknown'
-  const diff = Date.now() - new Date(ts).getTime()
+  const date = new Date(ts)
+  const diff = Date.now() - date.getTime()
   const m = Math.floor(diff / 60000)
   if (m < 1)  return 'Just now'
   if (m < 60) return `${m} mins ago`
   const h = Math.floor(m / 60)
   if (h < 24) return `${h}h ago`
-  return 'Yesterday'
+  
+  const timeStr = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+  if (h < 48) return `Yesterday at ${timeStr}`
+  
+  const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  return `${dateStr} at ${timeStr}`
 }
 
 function EditModal({ open, item, onClose, onSave }) {
@@ -67,12 +73,13 @@ export default function Classifications() {
   const [editModal, setEditModal] = useState(false)
   const [editItem,  setEditItem]  = useState(null)
   const [catDist,   setCatDist]   = useState([])
+  const [limit,     setLimit]     = useState(50)
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (currentLimit = 50) => {
     setLoading(true)
     try {
       const [hRes, dRes] = await Promise.all([
-        classificationApi.getHistory({ limit: 50, skip: 0 }),
+        classificationApi.getHistory({ limit: currentLimit, skip: 0 }),
         analyticsApi.getDashboard(),
       ])
       const hData = hRes.data
@@ -92,7 +99,7 @@ export default function Classifications() {
     } finally { setLoading(false) }
   }, [])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { load(limit) }, [load])
   useEffect(() => {
     setFiltered(filter === 'LOW_CONF' ? items.filter(i => (i.confidence_score??i.conf/100) < 0.80) : items)
   }, [filter, items])
@@ -102,6 +109,12 @@ export default function Classifications() {
       await classificationApi.addFeedback(id, category)
       setItems(prev => prev.map(i => i.id===id ? {...i, predicted_category:category, is_verified:true} : i))
     } catch(e) { console.error(e) }
+  }
+
+  const handleLoadMore = () => {
+    const nextLimit = limit + 50
+    setLimit(nextLimit)
+    load(nextLimit)
   }
 
   const handleExport = async () => {
@@ -146,67 +159,75 @@ export default function Classifications() {
 
           {/* Cards grid */}
           {loading ? <Spinner /> : filtered.length===0 ? <EmptyState icon="🗂️" message="No classifications found"/> : (
-            <div className="grid grid-cols-4 gap-4">
-              {filtered.map((item,i) => {
-                const conf        = item.confidence ?? item.confidence_score ?? (item.conf ? item.conf/100 : 0)
-                const pct         = Math.round(conf*100)
-                const cat         = item.category || item.predicted_category || 'UNKNOWN'
-                const needsReview = conf < 0.60 || cat === 'UNKNOWN'
-                return (
-                  <div key={item.id||i}
-                    className={`card overflow-hidden flex flex-col group animate-fade-up ${needsReview?'border-yellow-500/25':''}`}
-                    style={{ animationDelay:`${i*35}ms` }}>
-                    {/* Image */}
-                    <div className="relative h-36 bg-gb-surface overflow-hidden">
-                      {item.image_url ? (
-                        <img src={item.image_url} alt={cat}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                          onError={e=>{ e.target.style.display='none' }}/>
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-4xl">
-                          {cat==='PLASTIC'?'🧴':cat==='PAPER'?'📦':cat==='GLASS'?'🫙':cat==='METAL'?'🥫':cat==='ORGANIC'?'🥦':'♻️'}
-                        </div>
-                      )}
-                      <span className={`absolute top-2 left-2 text-[0.68rem] font-bold px-2 py-0.5 rounded-lg ${confBadgeClass(conf)}`}>
-                        {pct}% Conf.
-                      </span>
-                      <span className="absolute top-2 right-2">
-                        {item.is_verified   ? <CheckCircle2 size={15} className="text-eco"/> :
-                         needsReview        ? <AlertTriangle size={15} className="text-yellow-400"/> :
-                                             <Sparkles size={15} className="text-eco"/>}
-                      </span>
-                    </div>
-                    {/* Body */}
-                    <div className="p-3 flex flex-col gap-2 flex-1">
-                      <div>
-                        <p className="text-[0.88rem] font-bold text-ink leading-tight">
-                          {item.label || LABEL_MAP[cat] || cat}
-                        </p>
-                        <div className="flex flex-col gap-0.5 mt-1.5">
-                          <div className="flex items-center justify-between text-[0.68rem]">
-                            <span className="text-ink-muted">Object:</span>
-                            <span className="text-ink font-semibold">{item.object_detected || 'Unknown'}</span>
+            <>
+              <div className="grid grid-cols-4 gap-4">
+                {filtered.map((item,i) => {
+                  const conf        = item.confidence ?? item.confidence_score ?? (item.conf ? item.conf/100 : 0)
+                  const pct         = Math.round(conf*100)
+                  const cat         = item.category || item.predicted_category || 'UNKNOWN'
+                  const needsReview = conf < 0.60 || cat === 'UNKNOWN'
+                  return (
+                    <div key={item.id||i}
+                      className={`card overflow-hidden flex flex-col group animate-fade-up ${needsReview?'border-yellow-500/25':''}`}
+                      style={{ animationDelay:`${i*35}ms` }}>
+                      {/* Image */}
+                      <div className="relative h-36 bg-gb-surface overflow-hidden">
+                        {item.image_url ? (
+                          <img src={item.image_url} alt={cat}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            onError={e=>{ e.target.style.display='none' }}/>
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-4xl">
+                            {cat==='PLASTIC'?'🧴':cat==='PAPER'?'📦':cat==='GLASS'?'🫙':cat==='METAL'?'🥫':cat==='ORGANIC'?'🥦':'♻️'}
                           </div>
-                          <div className="flex items-center justify-between text-[0.68rem]">
-                            <span className="text-ink-muted">Type:</span>
-                            <span className="text-eco font-bold ml-2 lowercase first-letter:uppercase">{cat}</span>
+                        )}
+                        <span className={`absolute top-2 left-2 text-[0.68rem] font-bold px-2 py-0.5 rounded-lg ${confBadgeClass(conf)}`}>
+                          {pct}% Conf.
+                        </span>
+                        <span className="absolute top-2 right-2">
+                          {item.is_verified   ? <CheckCircle2 size={15} className="text-eco"/> :
+                           needsReview        ? <AlertTriangle size={15} className="text-yellow-400"/> :
+                                               <Sparkles size={15} className="text-eco"/>}
+                        </span>
+                      </div>
+                      {/* Body */}
+                      <div className="p-3 flex flex-col gap-2 flex-1">
+                        <div>
+                          <p className="text-[0.88rem] font-bold text-ink leading-tight">
+                            {item.label || LABEL_MAP[cat] || cat}
+                          </p>
+                          <div className="flex flex-col gap-0.5 mt-1.5">
+                            <div className="flex items-center justify-between text-[0.68rem]">
+                              <span className="text-ink-muted">Object:</span>
+                              <span className="text-ink font-semibold">{item.object_detected || 'Unknown'}</span>
+                            </div>
+                            <div className="flex items-center justify-between text-[0.68rem]">
+                              <span className="text-ink-muted">Type:</span>
+                              <span className="text-eco font-bold ml-2 lowercase first-letter:uppercase">{cat}</span>
+                            </div>
                           </div>
                         </div>
+                        <div className="flex items-center gap-1 text-[0.68rem] text-ink-muted">
+                          <Clock size={10}/> {timeAgo(item.timestamp)}
+                        </div>
+                        <button onClick={()=>{setEditItem(item);setEditModal(true)}}
+                          className={`flex items-center gap-1.5 text-[0.74rem] font-semibold transition-colors cursor-pointer mt-auto bg-transparent border-none p-0
+                            ${needsReview&&!item.is_verified ? 'text-red-400 hover:text-red-300' : 'text-ink-sub hover:text-eco'}`}>
+                          <Pencil size={11}/>
+                          {needsReview && !item.is_verified ? 'Review Now' : 'Edit Label'}
+                        </button>
                       </div>
-                      <div className="flex items-center gap-1 text-[0.68rem] text-ink-muted">
-                        <Clock size={10}/> {timeAgo(item.timestamp)}
-                      </div>
-                      <button onClick={()=>{setEditItem(item);setEditModal(true)}}
-                        className={`flex items-center gap-1.5 text-[0.74rem] font-semibold transition-colors cursor-pointer mt-auto bg-transparent border-none p-0
-                          ${needsReview&&!item.is_verified ? 'text-red-400 hover:text-red-300' : 'text-ink-sub hover:text-eco'}`}>
-                        <Pencil size={11}/>
-                        {needsReview && !item.is_verified ? 'Review Now' : 'Edit Label'}
-                      </button>
                     </div>
-                  </div>
-                )
-              })}
-            </div>
+                  )
+                })}
+              </div>
+              {items.length >= limit && (
+                <button onClick={handleLoadMore}
+                  className="w-full mt-4 py-2.5 text-eco text-[0.78rem] font-bold hover:bg-eco-muted rounded-xl transition-all cursor-pointer border border-dashed border-eco/30 bg-transparent flex items-center justify-center gap-1.5">
+                  Load More Classifications
+                </button>
+              )}
+            </>
           )}
         </div>
 

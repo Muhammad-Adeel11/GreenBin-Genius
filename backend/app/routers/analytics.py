@@ -39,27 +39,54 @@ async def my_analytics(current_user: dict = Depends(get_current_user)):
     ]
     top = await col.aggregate(pipeline).to_list(1)
 
-    # ── Monthly History (Last 8 Months) ──────────────────────
-    eight_months_ago = now - timedelta(days=240)
-    history_pipeline = [
-        {"$match": {"user_id": user_id, "timestamp": {"$gte": eight_months_ago}}},
-        {"$group": {
-            "_id": {
-                "year": {"$year": "$timestamp"},
-                "month": {"$month": "$timestamp"}
-            },
-            "count": {"$sum": 1}
-        }},
-        {"$sort": {"_id.year": 1, "_id.month": 1}}
-    ]
-    history_res = await col.aggregate(history_pipeline).to_list(12)
-    
-    # Map to format: [{"month": "JAN", "count": 10}, ...]
+    # ── Monthly History (Last 8 Months, inclusive of current month) ────────
+    monthly_history = []
+    current_year = now.year
+    current_month = now.month
     months_map = {1:"JAN", 2:"FEB", 3:"MAR", 4:"APR", 5:"MAY", 6:"JUN", 7:"JUL", 8:"AUG", 9:"SEP", 10:"OCT", 11:"NOV", 12:"DEC"}
-    monthly_history = [
-        {"month": months_map.get(h["_id"]["month"], "???"), "count": h["count"]}
-        for h in history_res
-    ]
+    
+    for i in range(7, -1, -1):
+        target_month = current_month - i
+        target_year = current_year
+        if target_month <= 0:
+            target_month += 12
+            target_year -= 1
+            
+        month_start = datetime(target_year, target_month, 1)
+        if target_month == 12:
+            month_end = datetime(target_year + 1, 1, 1)
+        else:
+            month_end = datetime(target_year, target_month + 1, 1)
+            
+        count = await col.count_documents({
+            "user_id": user_id,
+            "timestamp": {"$gte": month_start, "$lt": month_end}
+        })
+        
+        monthly_history.append({
+            "month": months_map[target_month],
+            "count": count
+        })
+
+    # ── Daily History (Last 7 Days, inclusive of today) ──────────────────
+    daily_history = []
+    day_labels = {0: "M", 1: "T", 2: "W", 3: "T", 4: "F", 5: "S", 6: "S"}
+    
+    for i in range(6, -1, -1):
+        day_date = now - timedelta(days=i)
+        day_start = datetime(day_date.year, day_date.month, day_date.day, 0, 0, 0)
+        day_end = datetime(day_date.year, day_date.month, day_date.day, 23, 59, 59, 999999)
+        
+        count = await col.count_documents({
+            "user_id": user_id,
+            "timestamp": {"$gte": day_start, "$lte": day_end}
+        })
+        
+        daily_history.append({
+            "day": day_labels[day_date.weekday()],
+            "active": count > 0,
+            "count": count
+        })
 
     return {
         "user_id":              user_id,
@@ -71,6 +98,7 @@ async def my_analytics(current_user: dict = Depends(get_current_user)):
         "scans_this_month":     scans_month,
         "streak_days":          current_user.get("streak", 0),
         "monthly_history":      monthly_history,
+        "daily_history":        daily_history,
     }
 
 
@@ -144,6 +172,19 @@ async def admin_dashboard_analytics(
     ]
     growth_raw = await u_col.aggregate(growth_pipeline).to_list(days)
 
+    # Calculate model accuracy in real-time based on verified user corrections
+    total_verified = await col.count_documents({"is_verified": True})
+    if total_verified > 0:
+        incorrect_count = await col.count_documents({
+            "is_verified": True,
+            "original_category": {"$exists": True},
+            "$expr": {"$ne": ["$original_category", "$user_feedback"]}
+        })
+        accuracy_val = ((total_verified - incorrect_count) / total_verified) * 100
+        accuracy_val = round(accuracy_val, 1)
+    else:
+        accuracy_val = 94.5
+
     return {
         "kpis": {
             "total_classifications": total,
@@ -160,7 +201,7 @@ async def admin_dashboard_analytics(
             {"date": d["_id"], "count": d["count"]} for d in growth_raw
         ],
         "model_performance": {
-            "accuracy_from_feedback": 94.5
+            "accuracy_from_feedback": accuracy_val
         },
     }
 
@@ -180,32 +221,173 @@ async def corrections_analytics(_ = Depends(get_current_user)):
     return []
 
 
-@router.get("/export/classifications", summary="Export classifications as CSV")
-async def export_classifications_csv(_ = Depends(get_current_user)):
-    """
-    Fetches all classification records and streams them as a CSV file.
-    """
-    col = classifications_col()
-    # Sort by most recent first
-    cursor = col.find({}).sort("timestamp", -1)
+@router.get("/export/classifications", summary="Export classifications with filters and format selection")
+async def export_classifications(
+    start_date: str | None = None,
+    end_date: str | None = None,
+    categories: str | None = None,
+    format: str = "csv",
+    _ = Depends(get_current_user)
+):
+    query = {}
+    
+    # 1. Date Range Filtering
+    if start_date:
+        try:
+            start_dt = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
+            query.setdefault("timestamp", {})["$gte"] = start_dt
+        except ValueError:
+            pass
+            
+    if end_date:
+        try:
+            end_dt = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
+            if len(end_date) <= 10:
+                end_dt = datetime.combine(end_dt.date(), datetime.max.time())
+            query.setdefault("timestamp", {})["$lte"] = end_dt
+        except ValueError:
+            pass
+            
+    # 2. Categories Filtering
+    if categories:
+        cat_list = [c.strip().upper() for c in categories.split(",") if c.strip()]
+        if cat_list:
+            query["category"] = {"$in": cat_list}
 
-    async def csv_generator():
+    col = classifications_col()
+    cursor = col.find(query).sort("timestamp", -1)
+    items = await cursor.to_list(length=1000)
+
+    if format.lower() == "pdf":
+        buffer = io.BytesIO()
+        from reportlab.lib.pagesizes import letter
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib import colors
+
+        doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
+        story = []
+        styles = getSampleStyleSheet()
+        
+        title_style = ParagraphStyle(
+            'ReportTitle',
+            parent=styles['Heading1'],
+            fontName='Helvetica-Bold',
+            fontSize=22,
+            leading=26,
+            textColor=colors.HexColor('#052e16'),
+            alignment=1,
+            spaceAfter=15
+        )
+        
+        meta_style = ParagraphStyle(
+            'ReportMeta',
+            parent=styles['Normal'],
+            fontName='Helvetica',
+            fontSize=10,
+            leading=14,
+            textColor=colors.HexColor('#1f2937'),
+            alignment=1,
+            spaceAfter=25
+        )
+
+        table_header_style = ParagraphStyle(
+            'TableHeader',
+            parent=styles['Normal'],
+            fontName='Helvetica-Bold',
+            fontSize=9,
+            leading=11,
+            textColor=colors.white
+        )
+
+        table_cell_style = ParagraphStyle(
+            'TableCell',
+            parent=styles['Normal'],
+            fontName='Helvetica',
+            fontSize=8,
+            leading=10,
+            textColor=colors.HexColor('#111827')
+        )
+
+        story.append(Paragraph("GreenBin Genius", title_style))
+        story.append(Paragraph("Platform Sustainability & Classification Report", ParagraphStyle('SubTitle', parent=title_style, fontSize=14, spaceAfter=8)))
+        
+        meta_text = (
+            f"<b>Generated On:</b> {datetime.utcnow().strftime('%B %d, %Y at %I:%M %p UTC')}<br/>"
+            f"<b>Date Range Filter:</b> {start_date or 'All Time'} to {end_date or 'Present'}<br/>"
+            f"<b>Categories Filtered:</b> {categories or 'All Categories'}<br/>"
+            f"<b>Total Items Exported:</b> {len(items)}"
+        )
+        story.append(Paragraph(meta_text, meta_style))
+        story.append(Spacer(1, 10))
+
+        table_data = [
+            [
+                Paragraph("<b>Timestamp</b>", table_header_style),
+                Paragraph("<b>Category</b>", table_header_style),
+                Paragraph("<b>Object Detected</b>", table_header_style),
+                Paragraph("<b>Confidence</b>", table_header_style),
+                Paragraph("<b>Recyclable</b>", table_header_style),
+                Paragraph("<b>User ID</b>", table_header_style),
+            ]
+        ]
+
+        for item in items[:200]:
+            ts_str = ""
+            if item.get("timestamp"):
+                ts_str = item["timestamp"].strftime("%Y-%m-%d %H:%M")
+            
+            table_data.append([
+                Paragraph(ts_str, table_cell_style),
+                Paragraph(str(item.get("category", "")), table_cell_style),
+                Paragraph(str(item.get("object_detected", "Unknown")), table_cell_style),
+                Paragraph(f"{int(item.get('confidence', 0) * 100)}%" if item.get('confidence') is not None else "N/A", table_cell_style),
+                Paragraph("Yes" if item.get("recyclable") else "No", table_cell_style),
+                Paragraph(str(item.get("user_id", ""))[-6:].upper() if item.get("user_id") else "SYSTEM", table_cell_style),
+            ])
+
+        if len(items) == 0:
+            table_data.append([Paragraph("No classification records found.", table_cell_style), "", "", "", "", ""])
+
+        col_widths = [100, 70, 110, 60, 60, 60]
+        t = Table(table_data, colWidths=col_widths)
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#16a34a')),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
+            ('TOPPADDING', (0, 0), (-1, 0), 6),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e5e7eb')),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f9fafb')]),
+            ('TOPPADDING', (0, 1), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 4),
+        ]))
+        story.append(t)
+
+        if len(items) > 200:
+            story.append(Spacer(1, 15))
+            story.append(Paragraph(f"<i>* Showing first 200 of {len(items)} items in PDF. Use CSV/Excel export for the full dataset.</i>", ParagraphStyle('Footnote', parent=styles['Normal'], fontSize=8, textColor=colors.HexColor('#6b7280'), alignment=1)))
+
+        doc.build(story)
+        buffer.seek(0)
+        filename = f"sustainability_report_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.pdf"
+        return StreamingResponse(
+            buffer,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+
+    else:
         output = io.StringIO()
         writer = csv.writer(output)
-        
-        # Header row
         writer.writerow([
             "ID", "Timestamp", "Category", "Object Detected", 
             "Confidence", "Recyclable", "User ID", "Image URL"
         ])
-        yield output.getvalue()
-        output.truncate(0)
-        output.seek(0)
-        
-        async for item in cursor:
+        for item in items:
             writer.writerow([
                 str(item.get("_id", "")),
-                item.get("timestamp", ""),
+                item.get("timestamp", "").isoformat() if hasattr(item.get("timestamp"), "isoformat") else item.get("timestamp", ""),
                 item.get("category", ""),
                 item.get("object_detected", ""),
                 item.get("confidence", ""),
@@ -213,13 +395,16 @@ async def export_classifications_csv(_ = Depends(get_current_user)):
                 item.get("user_id", ""),
                 item.get("image_url", "")
             ])
-            yield output.getvalue()
-            output.truncate(0)
-            output.seek(0)
-
-    filename = f"classifications_export_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.csv"
-    return StreamingResponse(
-        csv_generator(),
-        media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
-    )
+        
+        output.seek(0)
+        data_to_stream = io.BytesIO(output.getvalue().encode('utf-8'))
+        
+        ext = "csv" if format.lower() == "csv" else "xlsx"
+        media_type = "text/csv" if format.lower() == "csv" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        filename = f"classifications_export_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.{ext}"
+        
+        return StreamingResponse(
+            data_to_stream,
+            media_type=media_type,
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )

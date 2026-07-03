@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import Layout from '../components/layout/Layout'
 import { Badge, Modal, Spinner, EmptyState } from '../components/ui/index.jsx'
-import { userApi, analyticsApi, adminApi } from '../api'
+import { userApi, analyticsApi, adminApi, classificationApi } from '../api'
 
 /* ── Rank badge ────────────────────────────────────────────────────────────── */
 function RankBadge({ rank }) {
@@ -52,16 +52,52 @@ function UserAvatar({ name, size = 'sm' }) {
 }
 
 /* ── Action dropdown ─────────────────────────────────────────────────────────── */
-function ActionMenu({ user, onRefresh }) {
+function ActionMenu({ user, onRefresh, onViewHistory }) {
   const [open, setOpen] = useState(false)
 
   const handleRole = async (role) => {
-    try { await userApi.updateRole(user.id||user._id, role); onRefresh(); setOpen(false) }
-    catch(e) { console.error(e) }
+    try {
+      await userApi.updateRole(user.id || user._id, role)
+      alert(`User role updated to ${role}`)
+      onRefresh()
+      setOpen(false)
+    }
+    catch(e) {
+      console.error(e)
+      alert(e.response?.data?.detail || e.message || "Failed to update role")
+    }
   }
+
   const handleSuspend = async () => {
-    try { await userApi.suspend(user.id||user._id, true, 'Admin action'); onRefresh(); setOpen(false) }
-    catch(e) { console.error(e) }
+    const isSuspended = user.status === 'suspended'
+    const actionText = isSuspended ? 'unsuspend' : 'suspend'
+    const reason = isSuspended ? '' : window.prompt("Enter reason for suspension:")
+    if (!isSuspended && reason === null) return
+    
+    try {
+      await userApi.suspend(user.id || user._id, !isSuspended, reason || '')
+      alert(`User successfully ${actionText}ed!`)
+      onRefresh()
+      setOpen(false)
+    }
+    catch(e) {
+      console.error(e)
+      alert(e.response?.data?.detail || e.message || "Failed to update suspension status")
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!window.confirm(`Are you sure you want to delete user ${user.name}? This action is irreversible.`)) return
+    try {
+      await userApi.delete(user.id || user._id)
+      alert("User deleted successfully!")
+      onRefresh()
+      setOpen(false)
+    }
+    catch(e) {
+      console.error(e)
+      alert(e.response?.data?.detail || e.message || "Failed to delete user")
+    }
   }
 
   return (
@@ -71,12 +107,18 @@ function ActionMenu({ user, onRefresh }) {
         <MoreVertical size={14}/>
       </button>
       {open && (
-        <div className="absolute right-0 top-8 z-50 w-44 bg-gb-card border border-gb-border rounded-xl shadow-modal overflow-hidden"
+        <div className="absolute right-0 top-8 z-50 w-44 bg-gb-card border border-gb-border rounded-xl shadow-modal overflow-hidden animate-fade-up"
           onMouseLeave={()=>setOpen(false)}>
+          <button onClick={() => { onViewHistory(user); setOpen(false) }}
+            className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-[0.78rem] font-medium hover:bg-eco-muted transition-colors cursor-pointer bg-transparent border-none text-left text-ink-sub hover:text-eco">
+            <Eye size={13}/> View History
+          </button>
           {[
             { label:'Make Admin',     icon:UserCog,   action:()=>handleRole('ADMIN') },
             { label:'Make Moderator', icon:UserCog,   action:()=>handleRole('MODERATOR') },
-            { label:'Suspend User',   icon:ShieldBan, action:handleSuspend, cls:'text-red-400' },
+            { label:'Make User',      icon:UserCog,   action:()=>handleRole('USER') },
+            { label: user.status === 'suspended' ? 'Activate User' : 'Suspend User', icon:ShieldBan, action:handleSuspend, cls: user.status === 'suspended' ? 'text-eco' : 'text-red-400' },
+            { label:'Delete User',    icon:ShieldBan, action:handleDelete, cls:'text-red-400 font-bold border-t border-gb-border' },
           ].map(({label,icon:Icon,action,cls=''})=>(
             <button key={label} onClick={action}
               className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 text-[0.78rem] font-medium hover:bg-eco-muted transition-colors cursor-pointer bg-transparent border-none text-left ${cls||'text-ink-sub hover:text-eco'}`}>
@@ -96,6 +138,19 @@ export default function Users() {
   const [growthData,  setGrowthData]    = useState([])
   const [loadingLead, setLoadingLead]   = useState(true)
   const [loadingHist, setLoadingHist]   = useState(false)
+  const [historyModal, setHistoryModal] = useState({ open: false, user: null, scans: [], loading: false })
+
+  const handleOpenHistory = async (user) => {
+    setHistoryModal({ open: true, user, scans: [], loading: true })
+    try {
+      const res = await classificationApi.getHistory({ user_id: user.id || user._id, limit: 50 })
+      const items = res.data?.items || (Array.isArray(res.data) ? res.data : [])
+      setHistoryModal(prev => ({ ...prev, scans: items, loading: false }))
+    } catch(e) {
+      console.error(e)
+      setHistoryModal(prev => ({ ...prev, scans: [], loading: false }))
+    }
+  }
 
   const loadLeaderboard = useCallback(async () => {
     setLoadingLead(true)
@@ -174,33 +229,34 @@ export default function Users() {
                       <th className="w-12">Rank</th>
                       <th>User Profile</th>
                       <th className="text-right">Items Classified</th>
-                      <th className="text-center">Sust. Score</th>
-                      <th className="text-center">Trend</th>
+                      <th className="text-center">Task Score</th>
+                      <th className="text-center">Feedback Points</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {leaderboard.map((u, i) => {
-                      const score = Math.min(100, Math.round((u.contribution_points||0) / 10))
-                      return (
-                        <tr key={u.user_id||u.id||i}>
-                          <td><RankBadge rank={i+1}/></td>
-                          <td>
-                            <div className="flex items-center gap-3">
-                              <UserAvatar name={u.name} size="sm"/>
-                              <div>
-                                <p className="text-[0.85rem] font-semibold text-ink">{u.name || 'Unknown'}</p>
-                                <p className="text-[0.7rem] text-ink-muted">{u.email || `user${i+1}@example.com`}</p>
-                              </div>
+                    {leaderboard.map((u, i) => (
+                      <tr key={u.user_id||u.id||i}>
+                        <td><RankBadge rank={i+1}/></td>
+                        <td>
+                          <div className="flex items-center gap-3">
+                            <UserAvatar name={u.name} size="sm"/>
+                            <div>
+                              <p className="text-[0.85rem] font-semibold text-ink">{u.name || 'Unknown'}</p>
+                              <p className="text-[0.7rem] text-ink-muted">{u.email || `user${i+1}@example.com`}</p>
                             </div>
-                          </td>
-                          <td className="text-right font-semibold">
-                            {(u.total_classifications||0).toLocaleString()}
-                          </td>
-                          <td className="text-center"><SustScore score={score}/></td>
-                          <td className="text-center"><Trend value={i < 3 ? 1 : i === 3 ? 0 : -1}/></td>
-                        </tr>
-                      )
-                    })}
+                          </div>
+                        </td>
+                        <td className="text-right font-semibold">
+                          {(u.total_classifications||0).toLocaleString()} items
+                        </td>
+                        <td className="text-center text-[0.82rem] font-semibold text-sky-400">
+                          {(u.total_points||0).toLocaleString()} pts
+                        </td>
+                        <td className="text-center text-[0.82rem] font-semibold text-eco">
+                          {(u.contribution_points||0).toLocaleString()} pts
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               )}
@@ -233,49 +289,49 @@ export default function Users() {
                 <table className="tbl">
                   <thead>
                     <tr>
-                      <th>Date &amp; Time</th>
-                      <th>Waste Image</th>
-                      <th>AI Prediction</th>
-                      <th>User</th>
-                      <th>Accuracy</th>
+                      <th>User Profile</th>
+                      <th>Joined Date</th>
+                      <th>Role / Status</th>
+                      <th className="text-right">Items Classified</th>
+                      <th className="text-center">Task Score</th>
+                      <th className="text-center">Feedback Points</th>
                       <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {history.map((u, i) => (
-                      <tr key={u.id||i}>
-                        <td className="text-[0.76rem]">
-                          <p className="text-ink font-medium">{new Date(u.created_at||Date.now()).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</p>
-                          <p className="text-ink-muted">{new Date(u.created_at||Date.now()).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}</p>
-                        </td>
+                      <tr key={u.id || u._id || i}>
                         <td>
-                          <div className="w-12 h-12 rounded-lg bg-gb-surface border border-gb-border flex items-center justify-center text-xl overflow-hidden">
-                            ♻️
-                          </div>
-                        </td>
-                        <td>
-                          <p className="text-[0.84rem] font-semibold text-ink">{u.name||'User'}</p>
-                          <span className="badge badge-green text-[0.66rem] mt-0.5">Recyclable</span>
-                        </td>
-                        <td>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-3">
                             <UserAvatar name={u.name} size="sm"/>
-                            <span className="text-[0.82rem] text-ink">{u.name||'Unknown'}</span>
+                            <div>
+                              <p className="text-[0.85rem] font-semibold text-ink">{u.name || 'Unknown'}</p>
+                              <p className="text-[0.7rem] text-ink-muted">{u.email}</p>
+                            </div>
                           </div>
                         </td>
-                        <td>
-                          {u.total_classifications > 100 ? (
-                            <span className="flex items-center gap-1.5 text-eco text-[0.78rem] font-semibold">
-                              <CheckCircle size={13}/> Verified
-                            </span>
-                          ) : (
-                            <span className="flex items-center gap-1.5 text-yellow-400 text-[0.78rem] font-semibold">
-                              ⚠ Pending
-                            </span>
-                          )}
+                        <td className="text-[0.76rem] text-ink-sub">
+                          {u.created_at
+                            ? new Date(u.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})
+                            : 'N/A'}
                         </td>
                         <td>
-                          <ActionMenu user={u} onRefresh={loadLeaderboard}/>
+                          <div className="flex flex-col gap-1">
+                            <Badge label={u.role || 'USER'} />
+                            <Badge label={u.status === 'suspended' ? 'SUSPENDED' : 'VERIFIED'} />
+                          </div>
+                        </td>
+                        <td className="text-right font-semibold text-ink">
+                          {u.total_scans || 0} items
+                        </td>
+                        <td className="text-center text-[0.82rem] font-semibold text-sky-400">
+                          {u.total_points || 0} pts
+                        </td>
+                        <td className="text-center text-[0.82rem] font-semibold text-eco">
+                          {u.contribution_points || 0} pts
+                        </td>
+                        <td>
+                          <ActionMenu user={u} onRefresh={() => { loadLeaderboard(); searchHistory(histSearch); }} onViewHistory={handleOpenHistory} />
                         </td>
                       </tr>
                     ))}
@@ -371,6 +427,57 @@ export default function Users() {
           </div>
         </div>
       </div>
+      <Modal open={historyModal.open} onClose={() => setHistoryModal({ open: false, user: null, scans: [], loading: false })}
+        title={`${historyModal.user?.name || 'User'}'s Scan History`} width="max-w-2xl">
+        {historyModal.loading ? (
+          <Spinner />
+        ) : historyModal.scans.length === 0 ? (
+          <EmptyState icon="♻️" message="No scans logged for this user yet." />
+        ) : (
+          <div className="space-y-4">
+            <p className="text-[0.76rem] text-ink-muted">Showing last 50 waste classification scans for this user.</p>
+            <div className="max-h-[50vh] overflow-y-auto border border-gb-border rounded-xl">
+              <table className="tbl text-[0.78rem]">
+                <thead>
+                  <tr>
+                    <th>Image</th>
+                    <th>Date &amp; Time</th>
+                    <th>Material</th>
+                    <th>AI Prediction</th>
+                    <th>Confidence</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {historyModal.scans.map((s, idx) => {
+                    const pct = Math.round((s.confidence || 0) * 100)
+                    const dateStr = s.timestamp ? new Date(s.timestamp).toLocaleString('en-US', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' }) : '—'
+                    return (
+                      <tr key={s.id || idx}>
+                        <td>
+                          <div className="w-10 h-10 rounded-lg bg-gb-surface border border-gb-border overflow-hidden flex items-center justify-center">
+                            {s.image_url ? <img src={s.image_url} alt="" className="w-full h-full object-cover" onError={e=>e.target.style.display='none'}/> : '♻️'}
+                          </div>
+                        </td>
+                        <td>{dateStr}</td>
+                        <td className="capitalize">{s.material || 'unknown'}</td>
+                        <td>
+                          <span className="font-bold text-ink uppercase">{s.category || s.predicted_category || 'unknown'}</span>
+                        </td>
+                        <td>{pct}%</td>
+                        <td>
+                          <Badge label={s.is_verified ? 'VERIFIED' : 'PENDING'} />
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </Modal>
+
     </Layout>
   )
 }

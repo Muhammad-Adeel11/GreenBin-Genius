@@ -222,6 +222,12 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
         } else {
           debugPrint('💎 Real bins loaded successfully!');
           _buildMarkers();
+          // Auto-select nearest bin if filter is active
+          if (widget.wasteCategory != null && _nearbyBins.isNotEmpty && _selectedBin == null) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) _selectBin(_nearbyBins.first);
+            });
+          }
         }
       }
     } catch (e) {
@@ -269,6 +275,12 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
           ..addAll(bins);
       });
       _buildMarkers();
+      // Auto-select nearest bin if filter is active
+      if (widget.wasteCategory != null && _nearbyBins.isNotEmpty && _selectedBin == null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _selectBin(_nearbyBins.first);
+        });
+      }
     }
   }
 
@@ -405,8 +417,9 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
   // ── Loading ───────────────────────────────────────────────────────────────
 
   Widget _buildLoading() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      color: Colors.white,
+      color: isDark ? const Color(0xFF121212) : Colors.white,
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -422,9 +435,9 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
                   color: Color(0xFF2196F3), size: 36),
             ),
             const SizedBox(height: 20),
-            const Text('Finding your location…',
+            Text('Finding your location…',
                 style: TextStyle(
-                    fontSize: 16, color: Colors.black87,
+                    fontSize: 16, color: isDark ? Colors.white70 : Colors.black87,
                     fontWeight: FontWeight.w500)),
             const SizedBox(height: 12),
             const SizedBox(
@@ -441,8 +454,9 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
   // ── Error ─────────────────────────────────────────────────────────────────
 
   Widget _buildError() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      color: Colors.white,
+      color: isDark ? const Color(0xFF121212) : Colors.white,
       padding: const EdgeInsets.all(32),
       child: Center(
         child: Column(
@@ -452,8 +466,8 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
             const SizedBox(height: 20),
             Text(_locationError!,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                    fontSize: 15, color: Colors.black54, height: 1.5)),
+                style: TextStyle(
+                    fontSize: 15, color: isDark ? Colors.white60 : Colors.black54, height: 1.5)),
             const SizedBox(height: 28),
             ElevatedButton.icon(
               onPressed: () {
@@ -472,8 +486,8 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
             const SizedBox(height: 16),
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Go Back',
-                  style: TextStyle(color: Colors.grey)),
+              child: Text('Go Back',
+                  style: TextStyle(color: isDark ? Colors.white60 : Colors.grey)),
             ),
           ],
         ),
@@ -484,6 +498,7 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
   // ── Map Layout ────────────────────────────────────────────────────────────
 
   Widget _buildMap(double sp) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Stack(
       children: [
         // ── Google Map ──────────────────────────────────────────────────────
@@ -500,7 +515,7 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
           mapToolbarEnabled: false,
           compassEnabled: false,
           onTap: (_) => _closePanel(),
-          style: _mapStyle,
+          style: isDark ? _darkMapStyle : _mapStyle,
         ),
 
         // ── Top bar ─────────────────────────────────────────────────────────
@@ -650,6 +665,7 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
   // ── Legend ────────────────────────────────────────────────────────────────
 
   Widget _buildLegend(double sp) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final types = [
       ('Recycling', const Color(0xFF2196F3)),
       ('Organic',   const Color(0xFF4CAF50)),
@@ -658,10 +674,10 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.95),
+        color: isDark ? const Color(0xFF1E1E1E).withOpacity(0.95) : Colors.white.withOpacity(0.95),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.08),
+          BoxShadow(color: Colors.black.withOpacity(isDark ? 0.25 : 0.08),
               blurRadius: 10, offset: const Offset(0, 3)),
         ],
       ),
@@ -682,7 +698,7 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
                   style: TextStyle(
                       fontSize: R.fs(context, 11),
                       fontWeight: FontWeight.w600,
-                      color: Colors.black87)),
+                      color: isDark ? Colors.white70 : Colors.black87)),
             ],
           ),
         )).toList(),
@@ -693,14 +709,15 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
   // ── Bottom horizontal list ────────────────────────────────────────────────
 
   Widget _buildBottomList(double sp) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       height: R.h(context, 33),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.12),
+            color: Colors.black.withOpacity(isDark ? 0.3 : 0.12),
             blurRadius: 20,
             offset: const Offset(0, -4),
           ),
@@ -713,7 +730,7 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
             margin: const EdgeInsets.only(top: 10, bottom: 4),
             width: 36, height: 4,
             decoration: BoxDecoration(
-              color: Colors.grey[300],
+              color: isDark ? Colors.grey[800] : Colors.grey[300],
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -726,7 +743,7 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: R.fs(context, 15),
-                    color: Colors.black87,
+                    color: isDark ? Colors.white : Colors.black87,
                   ),
                 ),
                 const Spacer(),
@@ -760,6 +777,7 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
   Widget _binCard(WasteBin bin) {
     final dist = _distanceToBin(bin);
     final isSelected = _selectedBin?.id == bin.id;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
       onTap: () => _selectBin(bin),
       child: AnimatedContainer(
@@ -768,15 +786,15 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
         decoration: BoxDecoration(
           color: isSelected
               ? bin.typeColor.withOpacity(0.1)
-              : Colors.grey.shade50,
+              : (isDark ? const Color(0xFF2C2C2C) : Colors.grey.shade50),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? bin.typeColor : Colors.grey.shade200,
+            color: isSelected ? bin.typeColor : (isDark ? const Color(0xFF3A3A3A) : Colors.grey.shade200),
             width: isSelected ? 2 : 1,
           ),
           boxShadow: isSelected
               ? [BoxShadow(
-                  color: bin.typeColor.withOpacity(0.20),
+                  color: bin.typeColor.withOpacity(isDark ? 0.4 : 0.20),
                   blurRadius: 12, offset: const Offset(0, 4))]
               : [],
         ),
@@ -826,7 +844,7 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: R.fs(context, 12),
-                color: Colors.black87,
+                color: isDark ? Colors.white70 : Colors.black87,
               ),
             ),
             const SizedBox(height: 2),
@@ -842,14 +860,14 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
             Row(
               children: [
                 Icon(Icons.directions_walk,
-                    size: 13, color: Colors.grey[500]),
+                    size: 13, color: isDark ? Colors.grey[400] : Colors.grey[500]),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
                     '${_formatDistance(dist)} • ${_walkTime(dist)}',
                     style: TextStyle(
                       fontSize: R.fs(context, 10),
-                      color: Colors.grey[500],
+                      color: isDark ? Colors.grey[400] : Colors.grey[500],
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -866,6 +884,7 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
   // ── FABs ──────────────────────────────────────────────────────────────────
 
   Widget _buildFABs(double sp) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -873,7 +892,7 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
         FloatingActionButton.small(
           heroTag: 'recenter',
           onPressed: _animateToUser,
-          backgroundColor: Colors.white,
+          backgroundColor: isDark ? const Color(0xFF2C2C2C) : Colors.white,
           elevation: 4,
           child: const Icon(Icons.my_location,
               color: Color(0xFF2196F3), size: 22),
@@ -886,9 +905,9 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
             final ctrl = await _mapController.future;
             ctrl.animateCamera(CameraUpdate.zoomIn());
           },
-          backgroundColor: Colors.white,
+          backgroundColor: isDark ? const Color(0xFF2C2C2C) : Colors.white,
           elevation: 4,
-          child: const Icon(Icons.add, color: Colors.black87),
+          child: Icon(Icons.add, color: isDark ? Colors.white70 : Colors.black87),
         ),
         const SizedBox(height: 6),
         // Zoom out
@@ -898,9 +917,9 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
             final ctrl = await _mapController.future;
             ctrl.animateCamera(CameraUpdate.zoomOut());
           },
-          backgroundColor: Colors.white,
+          backgroundColor: isDark ? const Color(0xFF2C2C2C) : Colors.white,
           elevation: 4,
-          child: const Icon(Icons.remove, color: Colors.black87),
+          child: Icon(Icons.remove, color: isDark ? Colors.white70 : Colors.black87),
         ),
       ],
     );
@@ -911,6 +930,7 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
   Widget _buildSelectedBinPanel(double sp) {
     final bin = _selectedBin!;
     final dist = _distanceToBin(bin);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Positioned(
       top: MediaQuery.of(context).padding.top + R.h(context, 10),
@@ -924,11 +944,11 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
           ).animate(_panelAnimation),
           child: Container(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.15),
+                  color: Colors.black.withOpacity(isDark ? 0.35 : 0.15),
                   blurRadius: 24,
                   offset: const Offset(0, 8),
                 ),
@@ -1027,14 +1047,14 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
                       Row(
                         children: [
                           Icon(Icons.location_on_outlined,
-                              size: 16, color: Colors.grey[500]),
+                              size: 16, color: isDark ? Colors.grey[400] : Colors.grey[500]),
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
                               bin.address,
                               style: TextStyle(
                                   fontSize: R.fs(context, 13),
-                                  color: Colors.grey[600]),
+                                  color: isDark ? Colors.grey[400] : Colors.grey[600]),
                             ),
                           ),
                         ],
@@ -1118,5 +1138,29 @@ class _BinLocatorScreenState extends State<BinLocatorScreen>
     {"featureType":"road","elementType":"labels.text.fill","stylers":[{"color":"#757575"}]},
     {"featureType":"poi","elementType":"labels","stylers":[{"visibility":"off"}]},
     {"featureType":"poi.business","stylers":[{"visibility":"off"}]}
+  ]''';
+
+  static const String _darkMapStyle = '''[
+    {"elementType":"geometry","stylers":[{"color":"#212121"}]},
+    {"elementType":"labels.icon","stylers":[{"visibility":"off"}]},
+    {"elementType":"labels.text.fill","stylers":[{"color":"#757575"}]},
+    {"elementType":"labels.text.stroke","stylers":[{"color":"#212121"}]},
+    {"featureType":"administrative","elementType":"geometry","stylers":[{"color":"#757575"}]},
+    {"featureType":"administrative.country","elementType":"labels.text.fill","stylers":[{"color":"#9e9e9e"}]},
+    {"featureType":"administrative.land_parcel","stylers":[{"visibility":"off"}]},
+    {"featureType":"administrative.locality","elementType":"labels.text.fill","stylers":[{"color":"#bdbdbd"}]},
+    {"featureType":"poi","elementType":"labels.text.fill","stylers":[{"color":"#757575"}]},
+    {"featureType":"poi.park","elementType":"geometry","stylers":[{"color":"#181818"}]},
+    {"featureType":"poi.park","elementType":"labels.text.fill","stylers":[{"color":"#616161"}]},
+    {"featureType":"poi.park","elementType":"labels.text.stroke","stylers":[{"color":"#1b1b1b"}]},
+    {"featureType":"road","elementType":"geometry.fill","stylers":[{"color":"#2c2c2c"}]},
+    {"featureType":"road","elementType":"labels.text.fill","stylers":[{"color":"#8a8a8a"}]},
+    {"featureType":"road.arterial","elementType":"geometry","stylers":[{"color":"#373737"}]},
+    {"featureType":"road.highway","elementType":"geometry","stylers":[{"color":"#3c3c3c"}]},
+    {"featureType":"road.highway.controlled_access","elementType":"geometry","stylers":[{"color":"#4e4e4e"}]},
+    {"featureType":"road.local","elementType":"labels.text.fill","stylers":[{"color":"#616161"}]},
+    {"featureType":"transit","elementType":"labels.text.fill","stylers":[{"color":"#757575"}]},
+    {"featureType":"water","elementType":"geometry","stylers":[{"color":"#000000"}]},
+    {"featureType":"water","elementType":"labels.text.fill","stylers":[{"color":"#3d3d3d"}]}
   ]''';
 }

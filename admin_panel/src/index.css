@@ -118,4 +118,8 @@
   .nav-item-active {
     @apply bg-gb-hover text-eco border-l-[3px] border-eco pl-[9px];
   }
+  
+  select option {
+    @apply bg-gb-card text-ink;
+  }
 }

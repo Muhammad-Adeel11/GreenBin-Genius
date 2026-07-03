@@ -85,7 +85,7 @@ export default function Dashboard() {
         <div className="grid grid-cols-4 gap-4">
           <StatCard
             title="Total Waste Classified"
-            value={`${(totalCls || 12450).toLocaleString()} kg`}
+            value={`${(totalCls || 12450).toLocaleString()}`}
             trend={12} trendLabel="vs last month"
             icon={Scale}
           />

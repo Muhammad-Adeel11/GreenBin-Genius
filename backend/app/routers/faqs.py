@@ -100,7 +100,8 @@ def _serialize(doc: dict) -> dict:
 
 
 def _require_admin(user: dict):
-    if user.get("role") != "ADMIN":
+    role = (user.get("role") or "").upper()
+    if role != "ADMIN":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required.",

@@ -89,3 +89,41 @@ export const adminApi = {
   getModelStatus: ()              => api.get('/admin/model/status'),
   reloadModels:   ()              => api.post('/admin/model/reload'),
 }
+
+export const storiesApi = {
+  getAll:       (params)          => api.get('/stories', { params }),
+  getDetail:    (id)              => api.get(`/stories/${id}`),
+  create:       (data)            => api.post('/stories', data),
+  update:       (id, data)        => api.put(`/stories/${id}`, data),
+  delete:       (id)              => api.delete(`/stories/${id}`),
+  uploadImage:  (formData)        => api.post('/stories/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+}
+
+export const tasksApi = {
+  getAll:       ()                => api.get('/tasks'),
+  getMine:      ()                => api.get('/tasks/mine'),
+  enroll:       (id)              => api.post(`/tasks/${id}/enroll`),
+  getProgress:  (id)              => api.get(`/tasks/${id}/progress`),
+  adminGetAll:  (params)          => api.get('/tasks/admin/all', { params }),
+  create:       (data)            => api.post('/tasks', data),
+  update:       (id, data)        => api.put(`/tasks/${id}`, data),
+  toggle:       (id)              => api.patch(`/tasks/${id}/toggle`),
+  delete:       (id)              => api.delete(`/tasks/${id}`),
+}
+
+export const googleTranslateApi = {
+  translateToUrdu: async (text) => {
+    if (!text || !text.trim()) return ''
+    try {
+      const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ur&dt=t&q=${encodeURIComponent(text)}`)
+      if (!res.ok) throw new Error('Translation API failed')
+      const data = await res.json()
+      return data[0].map(item => item[0]).join('')
+    } catch (error) {
+      console.error('Translation error:', error)
+      return text
+    }
+  }
+}

@@ -45,6 +45,18 @@ class ApiService {
     await _storage.delete(key: 'jwt_token');
   }
 
+  Future<void> saveUsername(String name) async {
+    await _storage.write(key: 'username', value: name);
+  }
+
+  Future<String?> getUsername() async {
+    return _storage.read(key: 'username');
+  }
+
+  Future<void> clearUsername() async {
+    await _storage.delete(key: 'username');
+  }
+
   Future<Map<String, String>> _authHeaders() async {
     final token = await getToken();
     return {
@@ -64,9 +76,10 @@ class ApiService {
       throw Exception('No internet connection. Please check your network and try again.');
     } on http.ClientException {
       throw Exception('Unable to reach the server. Please try again later.');
-    } catch (e) {
+    } catch (e, stack) {
+      debugPrint('GreenBin API Error: $e\n$stack');
       if (e is Exception) rethrow;
-      throw Exception('An unexpected error occurred. Please try again.');
+      throw Exception('An unexpected error occurred: $e');
     }
   }
 
@@ -104,6 +117,9 @@ class ApiService {
       if (res.statusCode == 201) {
         final data = jsonDecode(res.body) as Map<String, dynamic>;
         await saveToken(data['access_token']);
+        if (data['name'] != null) {
+          await saveUsername(data['name']);
+        }
         return data;
       }
       throw _handleError(res);
@@ -124,6 +140,9 @@ class ApiService {
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body) as Map<String, dynamic>;
         await saveToken(data['access_token']);
+        if (data['name'] != null) {
+          await saveUsername(data['name']);
+        }
         return data;
       }
       throw _handleError(res);
@@ -137,7 +156,42 @@ class ApiService {
         Uri.parse('$baseUrl/api/auth/me'),
         headers: await _authHeaders(),
       );
-      if (res.statusCode == 200) return jsonDecode(res.body);
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        if (data['name'] != null) {
+          await saveUsername(data['name']);
+        }
+        return data;
+      }
+      throw _handleError(res);
+    });
+  }
+
+  /// Verify a Google idToken with the backend and claim the anonymous account.
+  /// The backend calls Google's tokeninfo API to confirm the Gmail is real.
+  Future<Map<String, dynamic>> verifyGoogleAndClaim({
+    required String idToken,
+    String? username,
+    String? displayName,
+    String? photoUrl,
+  }) async {
+    return _wrapNetworkCall(() async {
+      final res = await _client.post(
+        Uri.parse('$baseUrl/api/auth/verify-google'),
+        headers: await _authHeaders(),
+        body: jsonEncode({
+          'id_token': idToken,
+          if (username != null) 'username': username,
+          if (displayName != null) 'display_name': displayName,
+          if (photoUrl != null) 'photo_url': photoUrl,
+        }),
+      );
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        await saveToken(data['access_token']);
+        if (data['name'] != null) await saveUsername(data['name']);
+        return data;
+      }
       throw _handleError(res);
     });
   }
@@ -235,6 +289,55 @@ class ApiService {
       );
       if (res.statusCode == 200) return jsonDecode(res.body) as Map<String, dynamic>;
       throw _handleError(res);
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // NOTIFICATIONS
+  // ═══════════════════════════════════════════════════════════
+
+  Future<Map<String, dynamic>> getNotifications({int limit = 30, int skip = 0}) async {
+    return _wrapNetworkCall(() async {
+      final res = await _client.get(
+        Uri.parse('$baseUrl/api/notifications/?limit=$limit&skip=$skip'),
+        headers: await _authHeaders(),
+      );
+      if (res.statusCode == 200) return jsonDecode(res.body) as Map<String, dynamic>;
+      throw _handleError(res);
+    });
+  }
+
+  Future<int> getNotificationUnreadCount() async {
+    return _wrapNetworkCall(() async {
+      final res = await _client.get(
+        Uri.parse('$baseUrl/api/notifications/unread-count'),
+        headers: await _authHeaders(),
+      );
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body) as Map<String, dynamic>;
+        return body['count'] as int? ?? 0;
+      }
+      throw _handleError(res);
+    });
+  }
+
+  Future<void> markNotificationRead(String id) async {
+    return _wrapNetworkCall(() async {
+      final res = await _client.patch(
+        Uri.parse('$baseUrl/api/notifications/$id/read'),
+        headers: await _authHeaders(),
+      );
+      if (res.statusCode != 200) throw _handleError(res);
+    });
+  }
+
+  Future<void> markAllNotificationsRead() async {
+    return _wrapNetworkCall(() async {
+      final res = await _client.patch(
+        Uri.parse('$baseUrl/api/notifications/read-all'),
+        headers: await _authHeaders(),
+      );
+      if (res.statusCode != 200) throw _handleError(res);
     });
   }
 
@@ -337,6 +440,65 @@ class ApiService {
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body);
         return body['data'] as List<dynamic>;
+      }
+      throw _handleError(res);
+    });
+  }
+
+  Future<List<dynamic>> getImpactStories() async {
+    return _wrapNetworkCall(() async {
+      final res = await _client.get(
+        Uri.parse('$baseUrl/api/stories?active=true&limit=50'),
+        headers: await _authHeaders(),
+      );
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        return body['data'] as List<dynamic>;
+      }
+      throw _handleError(res);
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // HEALTH CHECK
+  // ═══════════════════════════════════════════════════════════
+  // ECO TASKS
+  // ═══════════════════════════════════════════════════════════
+
+  Future<Map<String, dynamic>> getTasks() async {
+    return _wrapNetworkCall(() async {
+      final res = await _client.get(
+        Uri.parse('$baseUrl/api/tasks'),
+        headers: await _authHeaders(),
+      );
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body) as Map<String, dynamic>;
+      }
+      throw _handleError(res);
+    });
+  }
+
+  Future<Map<String, dynamic>> enableTasks() async {
+    return _wrapNetworkCall(() async {
+      final res = await _client.post(
+        Uri.parse('$baseUrl/api/tasks/enable'),
+        headers: await _authHeaders(),
+      );
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body) as Map<String, dynamic>;
+      }
+      throw _handleError(res);
+    });
+  }
+
+  Future<Map<String, dynamic>> enrollTask(String taskId) async {
+    return _wrapNetworkCall(() async {
+      final res = await _client.post(
+        Uri.parse('$baseUrl/api/tasks/$taskId/enroll'),
+        headers: await _authHeaders(),
+      );
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body) as Map<String, dynamic>;
       }
       throw _handleError(res);
     });

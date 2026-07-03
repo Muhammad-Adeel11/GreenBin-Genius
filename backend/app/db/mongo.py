@@ -56,6 +56,25 @@ def faqs_col():
 def resources_col():
     return get_db()["resources"]
 
+def notifications_col():
+    return get_db()["notifications"]
+
+
+def campaigns_col():
+    return get_db()["campaigns"]
+
+
+def stories_col():
+    return get_db()["stories"]
+
+
+def tasks_col():
+    return get_db()["tasks"]
+
+
+def enrollments_col():
+    return get_db()["task_enrollments"]
+
 
 async def ping():
     """Check connectivity – called at startup."""

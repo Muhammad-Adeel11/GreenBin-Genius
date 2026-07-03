@@ -93,29 +93,58 @@ function MapPin2({ x, y, status, active, onClick, label }) {
 
 /* ── Add Bin Modal ────────────────────────────────────────────────────────── */
 function AddBinModal({ open, onClose, onSave, initialData }) {
-  const [form, setForm] = useState({ name:'', address:'', latitude:'', longitude:'', waste_types:[] })
+  const [form, setForm] = useState({ name:'', address:'', latitude:'', longitude:'', waste_types:['PLASTIC'], status:'AVAILABLE', bin_type: 'Plastic / Recyclable' })
   
   useEffect(() => {
     if (initialData) {
-      setForm(p => ({ ...p, ...initialData }))
+      setForm(p => ({
+        ...p,
+        ...initialData,
+        waste_types: initialData.waste_types || ['PLASTIC'],
+        status: initialData.status || 'AVAILABLE',
+        bin_type: initialData.bin_type || 'Plastic / Recyclable'
+      }))
     } else if (open) {
-      setForm({ name:'', address:'', latitude:'', longitude:'', waste_types:[] })
+      setForm({ name:'', address:'', latitude:'', longitude:'', waste_types:['PLASTIC'], status:'AVAILABLE', bin_type: 'Plastic / Recyclable' })
     }
   }, [initialData, open])
 
   const set = (k,v) => setForm(p=>({...p,[k]:v}))
+  const isEdit = !!(form.id || form._id)
+
   return (
-    <Modal open={open} onClose={onClose} title="Add New Bin Location" width="max-w-md">
-      <div className="space-y-3">
+    <Modal open={open} onClose={onClose} title={isEdit ? "Edit Bin Location" : "Add New Bin Location"} width="max-w-md">
+      <div className="space-y-3.5">
         {[['name','Bin Name (e.g. BIN-105)'],['address','Address'],['latitude','Latitude'],['longitude','Longitude']].map(([k,ph])=>(
           <div key={k}>
             <label className="text-[0.74rem] font-semibold text-ink-sub block mb-1 capitalize">{k}</label>
-            <input value={form[k]} onChange={e=>set(k,e.target.value)} placeholder={ph} className="input text-[0.82rem] py-2" type={k==='latitude'||k==='longitude' ? 'number' : 'text'}/>
+            <input value={form[k] ?? ''} onChange={e=>set(k,e.target.value)} placeholder={ph} className="input text-[0.82rem] py-2" type={k==='latitude'||k==='longitude' ? 'number' : 'text'}/>
           </div>
         ))}
-        <div className="flex gap-2 justify-end pt-1">
+        
+        <div>
+          <label className="text-[0.74rem] font-semibold text-ink-sub block mb-1">Primary Waste Type</label>
+          <select value={form.waste_types?.[0] || 'PLASTIC'} onChange={e=>set('waste_types',[e.target.value])} className="input text-[0.82rem] py-2">
+            {['PLASTIC', 'GLASS', 'METAL', 'ORGANIC', 'PAPER', 'E-WASTE', 'OTHER'].map(type => (
+              <option key={type} value={type}>{type}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="text-[0.74rem] font-semibold text-ink-sub block mb-1">Status</label>
+          <select value={form.status || 'AVAILABLE'} onChange={e=>set('status',e.target.value)} className="input text-[0.82rem] py-2">
+            {['AVAILABLE', 'FULL', 'MAINTENANCE', 'INACTIVE'].map(st => (
+              <option key={st} value={st}>{st}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex gap-2 justify-end pt-2 border-t border-gb-border">
           <button className="btn btn-ghost btn-sm" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary btn-sm" onClick={() => { onSave(form); onClose() }}>Add Bin</button>
+          <button className="btn btn-primary btn-sm" onClick={() => { onSave(form); onClose() }}>
+            {isEdit ? "Save Changes" : "Add Bin"}
+          </button>
         </div>
       </div>
     </Modal>
@@ -157,11 +186,40 @@ export default function BinLocations() {
 
   const activeBin = bins.find(b => b.id === activeId || b._id === activeId)
 
-  const handleAdd = async (form) => {
+  const handleSave = async (form) => {
+    const id = form.id || form._id
+    const payload = {
+      name: form.name,
+      address: form.address,
+      latitude: parseFloat(form.latitude),
+      longitude: parseFloat(form.longitude),
+      bin_type: form.bin_type || 'Plastic / Recyclable',
+      waste_types: form.waste_types || ['PLASTIC'],
+      status: form.status || 'AVAILABLE'
+    }
     try {
-      await binsApi.create({ ...form, latitude: parseFloat(form.latitude), longitude: parseFloat(form.longitude), waste_types: ['PLASTIC'] })
+      if (id) {
+        await binsApi.update(id, payload)
+      } else {
+        await binsApi.create(payload)
+      }
       load()
-    } catch(e) { console.error(e) }
+    } catch(e) {
+      console.error(e)
+      alert(e.response?.data?.detail || e.message || "Operation failed")
+    }
+  }
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this bin location?")) return
+    try {
+      await binsApi.delete(id)
+      setActiveId(null)
+      load()
+    } catch(e) {
+      console.error(e)
+      alert(e.response?.data?.detail || e.message || "Failed to delete bin")
+    }
   }
 
   const { isLoaded } = useJsApiLoader({
@@ -338,9 +396,10 @@ export default function BinLocations() {
                   </div>
                   {activeBin.address && <p className="text-ink-muted text-[0.7rem] italic">{activeBin.address}</p>}
                 </div>
-                <div className="grid grid-cols-2 gap-2 px-4 pb-4">
-                  <button className="btn btn-ghost btn-sm justify-center text-[0.74rem]">History</button>
-                  <button className="btn btn-primary btn-sm justify-center text-[0.74rem]">Edit Location</button>
+                <div className="grid grid-cols-3 gap-1 px-3 pb-4">
+                  <button onClick={() => alert("History feature coming soon...")} className="btn btn-ghost btn-xs justify-center text-[0.7rem] px-1 py-1">History</button>
+                  <button onClick={() => setAddModal({ open: true, initialData: activeBin })} className="btn btn-primary btn-xs justify-center text-[0.7rem] px-1 py-1">Edit</button>
+                  <button onClick={() => handleDelete(activeBin.id || activeBin._id)} className="btn btn-xs bg-red-500 hover:bg-red-600 text-white justify-center text-[0.7rem] px-1 py-1 rounded-lg">Delete</button>
                 </div>
               </div>
             </div>
@@ -383,7 +442,7 @@ export default function BinLocations() {
         open={addModal.open} 
         initialData={addModal.initialData}
         onClose={() => setAddModal({ open: false, initialData: null })} 
-        onSave={handleAdd}
+        onSave={handleSave}
       />
 
     </Layout>
