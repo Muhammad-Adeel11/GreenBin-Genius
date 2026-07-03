@@ -236,8 +236,74 @@ class ApiService {
   }
 
   // ═══════════════════════════════════════════════════════════
+  // SAVE TFLITE RESULT
+  // ═══════════════════════════════════════════════════════════
+
+  /// Save an on-device TFLite result to the backend without re-running CNN.
+  /// Calls POST /api/classify/save with the TFLite category + metadata.
+  Future<void> saveTfliteResult(
+    ClassificationResult result, {
+    int? inferenceMs,
+  }) async {
+    return _wrapNetworkCall(() async {
+      final token = await getToken();
+      if (token == null) return;
+
+      final res = await _client.post(
+        Uri.parse('$baseUrl/api/classify/save'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'category':        result.category,
+          'material':        result.material,
+          'confidence':      result.confidence,
+          'recyclable':      result.recyclable,
+          'disposal_tip':    result.disposalTip,
+          'disposal_tip_ur': result.disposalTipUr,
+          'object_detected': result.objectDetected,
+          if (inferenceMs != null) 'inference_ms': inferenceMs,
+        }),
+      );
+      if (res.statusCode != 200) throw _handleError(res);
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // UPDATE SETTINGS
+  // ═══════════════════════════════════════════════════════════
+
+  /// Update user profile settings (notifications_enabled, language, etc.)
+  /// Calls PATCH /api/auth/settings
+  Future<void> updateSettings({
+    bool? notificationsEnabled,
+    String? language,
+  }) async {
+    return _wrapNetworkCall(() async {
+      final token = await getToken();
+      if (token == null) return;
+
+      final res = await _client.patch(
+        Uri.parse('$baseUrl/api/auth/settings'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          if (notificationsEnabled != null) 'notifications_enabled': notificationsEnabled,
+          if (language != null) 'language': language,
+        }),
+      );
+      if (res.statusCode != 200) throw _handleError(res);
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════
   // HISTORY
   // ═══════════════════════════════════════════════════════════
+
+
 
   Future<Map<String, dynamic>> getHistory({int page = 1, int limit = 20}) async {
     return _wrapNetworkCall(() async {

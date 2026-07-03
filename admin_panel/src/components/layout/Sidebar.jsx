@@ -2,13 +2,14 @@ import React from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, ListChecks, BarChart2, Users, Megaphone, BookOpen,
-  Lightbulb, MapPin, BrainCircuit, Settings, LogOut, Recycle, HelpCircle, Target,
+  Lightbulb, MapPin, BrainCircuit, Settings, LogOut, Recycle, HelpCircle, Target, Database,
 } from 'lucide-react'
 import useAuthStore from '../../store/authStore'
 
 const NAV = [
   { to: '/',                icon: LayoutDashboard, label: 'Dashboard'       },
   { to: '/classifications', icon: ListChecks,      label: 'Classifications' },
+  { to: '/prepare-dataset', icon: Database,        label: 'Prepare Dataset' },
   { to: '/analytics',       icon: BarChart2,       label: 'Analytics'      },
   { to: '/users',           icon: Users,           label: 'Users'          },
   { to: '/campaigns',       icon: Megaphone,       label: 'Campaigns'      },

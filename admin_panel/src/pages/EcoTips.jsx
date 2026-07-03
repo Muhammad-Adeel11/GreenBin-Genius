@@ -5,7 +5,7 @@ import {
 } from 'lucide-react'
 import Layout from '../components/layout/Layout'
 import { Modal, Spinner, EmptyState } from '../components/ui/index.jsx'
-import { tipsApi, notificationsApi, googleTranslateApi } from '../api'
+import { tipsApi, notificationsApi, googleTranslateApi, broadcastApi } from '../api'
 
 // ── Emoji / colour maps ────────────────────────────────────────────────────────
 const CAT_EMOJI = {
@@ -274,16 +274,21 @@ export default function EcoTips() {
   const [tipModal,   setTipModal] = useState(false)
   const [editTip,    setEditTip]  = useState(null)
 
-  // Notification panel
-  const [notifType,  setNotifType]  = useState('Push')
-  const [audience,   setAudience]   = useState('All Users')
-  const [msgTitle,   setMsgTitle]   = useState('')
-  const [msgBody,    setMsgBody]    = useState('')
-  const [sending,    setSending]    = useState(false)
-  const [recentActivity, setRecent] = useState([
-    { icon: '✓', label: 'Weekly Recycling Reminder', meta: 'Sent to All Users • 2h ago', color: 'bg-eco' },
-    { icon: '◷', label: 'Event: Beach Cleanup',      meta: 'Scheduled for Tomorrow',    color: 'bg-sky-500' },
-  ])
+  // Broadcast & Scheduler state
+  const [quotes, setQuotes] = useState([])
+  const [schedules, setSchedules] = useState([])
+  const [selectedQuoteId, setSelectedQuoteId] = useState('')
+  
+  const [quoteEn, setQuoteEn] = useState('')
+  const [quoteUr, setQuoteUr] = useState('')
+  const [authorEn, setAuthorEn] = useState('')
+  const [authorUr, setAuthorUr] = useState('')
+  
+  const [sendMode, setSendMode] = useState('now') // 'now' | 'once' | 'weekly'
+  const [sendAt, setSendAt] = useState('') // ISO datetime or datetime-local
+  const [weekday, setWeekday] = useState(0) // 0=Mon ... 6=Sun
+  const [sendTime, setSendTime] = useState('09:00') // HH:MM
+  const [sending, setSending] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -291,8 +296,20 @@ export default function EcoTips() {
       const res  = await tipsApi.getAll({ limit: 50 })
       const data = Array.isArray(res.data?.data) ? res.data.data : Array.isArray(res.data) ? res.data : []
       setTips(data)
-    } catch { setTips([]) }
-    finally { setLoading(false) }
+
+      // Load predefined quotes
+      const qRes = await broadcastApi.getQuotes()
+      setQuotes(qRes.data || qRes || [])
+
+      // Load active schedules
+      const sRes = await broadcastApi.getSchedules()
+      setSchedules(sRes.data || sRes || [])
+    } catch (e) {
+      console.error(e)
+      setTips([])
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => { load() }, [load])
@@ -313,19 +330,99 @@ export default function EcoTips() {
     try { await tipsApi.seed(); load() } catch (e) { console.error(e) }
   }
 
+  const handleQuoteChange = (id) => {
+    setSelectedQuoteId(id)
+    if (id === '') {
+      setQuoteEn('')
+      setQuoteUr('')
+      setAuthorEn('')
+      setAuthorUr('')
+      return
+    }
+    const q = quotes.find(item => item.id === id)
+    if (q) {
+      setQuoteEn(q.quote_en)
+      setQuoteUr(q.quote_ur)
+      setAuthorEn(q.author_en)
+      setAuthorUr(q.author_ur)
+    }
+  }
+
   const handleBroadcast = async () => {
-    if (!msgTitle.trim() || !msgBody.trim()) return
+    if (!quoteEn.trim() || !quoteUr.trim()) return
     setSending(true)
     try {
-      await notificationsApi.createCampaign({
-        title_english:   msgTitle, title_urdu:   msgTitle,
-        message_english: msgBody,  message_urdu: msgBody,
-        target_audience: audience === 'All Users' ? 'ALL' : 'ACTIVE_USERS',
-      })
-      setRecent(p => [{ icon: '✓', label: msgTitle, meta: `Sent to ${audience} • Just now`, color: 'bg-eco' }, ...p.slice(0, 3)])
-      setMsgTitle(''); setMsgBody('')
-    } catch (e) { console.error(e) }
-    finally { setSending(false) }
+      if (sendMode === 'now') {
+        await broadcastApi.sendNow({
+          quote_en: quoteEn,
+          quote_ur: quoteUr,
+          author_en: authorEn,
+          author_ur: authorUr
+        })
+        alert('Broadcast sent immediately to all users with notifications enabled!')
+      } else {
+        let finalSendAt = sendAt
+        if (sendMode === 'weekly') {
+          // Compute next occurrence of the weekday and time
+          const [hours, minutes] = sendTime.split(':').map(Number)
+          const d = new Date()
+          d.setHours(hours, minutes, 0, 0)
+          
+          const currentDay = d.getDay() // 0=Sun ... 6=Sat
+          const targetDay = weekday === 6 ? 0 : weekday + 1 // Mon-Sun to Sun-Sat
+          let diff = targetDay - currentDay
+          if (diff < 0 || (diff === 0 && new Date() > d)) {
+            diff += 7
+          }
+          d.setDate(d.getDate() + diff)
+          finalSendAt = d.toISOString()
+        } else {
+          // 'once' mode
+          if (!sendAt) {
+            alert('Please select a specific date and time')
+            setSending(false)
+            return
+          }
+          finalSendAt = new Date(sendAt).toISOString()
+        }
+
+        await broadcastApi.schedule({
+          quote_en: quoteEn,
+          quote_ur: quoteUr,
+          author_en: authorEn,
+          author_ur: authorUr,
+          send_mode: sendMode,
+          send_at: finalSendAt,
+          weekday: sendMode === 'weekly' ? weekday : null
+        })
+        alert('Eco Tip successfully scheduled!')
+      }
+
+      // Reset form and reload
+      setSelectedQuoteId('')
+      setQuoteEn('')
+      setQuoteUr('')
+      setAuthorEn('')
+      setAuthorUr('')
+      setSendMode('now')
+      load()
+    } catch (e) {
+      console.error(e)
+      alert('Error broadcasting/scheduling: ' + (e.response?.data?.detail || e.message))
+    } finally {
+      setSending(false)
+    }
+  }
+
+  const handleCancelSchedule = async (id) => {
+    if (!window.confirm('Are you sure you want to cancel this scheduled broadcast?')) return
+    try {
+      await broadcastApi.cancelSchedule(id)
+      load()
+    } catch (e) {
+      console.error(e)
+      alert('Failed to cancel schedule')
+    }
   }
 
   const filtered = tips.filter(t =>
@@ -382,66 +479,224 @@ export default function EcoTips() {
             )}
         </div>
 
-        {/* ── Right: Broadcast Panel ────────────────────────────── */}
-        <div className="w-72 flex-shrink-0">
+        {/* ── Right: Broadcast & Scheduler Panel ────────────────── */}
+        <div className="w-96 flex-shrink-0">
           <div className="card p-5 space-y-4">
             <h3 className="flex items-center gap-2 text-[0.95rem] font-bold text-ink">
               📢 Broadcast Notifications
             </h3>
 
-            <div className="space-y-2.5">
-              <p className="text-[0.66rem] font-bold tracking-[0.1em] uppercase text-ink-muted">Compose Message</p>
-              <input value={msgTitle} onChange={e => setMsgTitle(e.target.value)}
-                placeholder="Title (e.g., Collection Day Alert)"
-                className="input text-[0.8rem] py-2" />
-              <textarea value={msgBody} onChange={e => setMsgBody(e.target.value)}
-                placeholder="Type your notification message here..."
-                rows={4} className="input text-[0.8rem] py-2 resize-none" />
-            </div>
-
-            <div className="space-y-2">
-              <p className="text-[0.66rem] font-bold tracking-[0.1em] uppercase text-ink-muted">Target Audience</p>
-              <select value={audience} onChange={e => setAudience(e.target.value)}
-                className="input text-[0.8rem] py-2 bg-gb-input">
-                <option>All Users</option>
-                <option>Active Users</option>
+            {/* Select Predefined Quote */}
+            <div className="space-y-1">
+              <label className="text-[0.66rem] font-bold tracking-[0.1em] uppercase text-ink-muted">
+                Pick from Predefined Quotes
+              </label>
+              <select
+                value={selectedQuoteId}
+                onChange={e => handleQuoteChange(e.target.value)}
+                className="input text-[0.8rem] py-2 bg-gb-input w-full"
+              >
+                <option value="">-- Custom Quote --</option>
+                {quotes.map(q => (
+                  <option key={q.id} value={q.id}>
+                    {q.quote_en.substring(0, 35)}...
+                  </option>
+                ))}
               </select>
             </div>
 
+            {/* Quote En */}
+            <div className="space-y-1">
+              <label className="text-[0.66rem] font-bold tracking-[0.1em] uppercase text-ink-muted">
+                English Quote / Tip
+              </label>
+              <textarea
+                value={quoteEn}
+                onChange={e => setQuoteEn(e.target.value)}
+                placeholder="English quote or tip..."
+                rows={3}
+                className="input text-[0.8rem] py-2 resize-none w-full"
+              />
+            </div>
+
+            {/* Author En */}
+            <div className="space-y-1">
+              <label className="text-[0.66rem] font-bold tracking-[0.1em] uppercase text-ink-muted">
+                English Author
+              </label>
+              <input
+                value={authorEn}
+                onChange={e => setAuthorEn(e.target.value)}
+                placeholder="Author (optional)..."
+                className="input text-[0.8rem] py-2 w-full"
+              />
+            </div>
+
+            {/* Quote Ur */}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <label className="text-[0.66rem] font-bold tracking-[0.1em] uppercase text-ink-muted">
+                  Urdu Quote / Tip (اردو)
+                </label>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const trans = await googleTranslateApi.translateToUrdu(quoteEn)
+                    setQuoteUr(trans)
+                  }}
+                  className="text-[0.68rem] text-eco font-bold hover:underline bg-transparent border-none cursor-pointer"
+                >
+                  ✨ Auto-Translate
+                </button>
+              </div>
+              <textarea
+                value={quoteUr}
+                onChange={e => setQuoteUr(e.target.value)}
+                placeholder="اردو میں معلومات..."
+                rows={3}
+                dir="rtl"
+                className="input text-[0.8rem] py-2 resize-none text-right w-full"
+              />
+            </div>
+
+            {/* Author Ur */}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <label className="text-[0.66rem] font-bold tracking-[0.1em] uppercase text-ink-muted">
+                  Urdu Author (اردو)
+                </label>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const trans = await googleTranslateApi.translateToUrdu(authorEn)
+                    setAuthorUr(trans)
+                  }}
+                  className="text-[0.68rem] text-eco font-bold hover:underline bg-transparent border-none cursor-pointer"
+                >
+                  ✨ Auto-Translate
+                </button>
+              </div>
+              <input
+                value={authorUr}
+                onChange={e => setAuthorUr(e.target.value)}
+                placeholder="مصنف کا نام..."
+                dir="rtl"
+                className="input text-[0.8rem] py-2 text-right w-full"
+              />
+            </div>
+
+            {/* Send Mode */}
             <div className="space-y-2">
-              <p className="text-[0.66rem] font-bold tracking-[0.1em] uppercase text-ink-muted">Notification Type</p>
-              <div className="grid grid-cols-2 gap-2">
-                {[{ label: 'Push', icon: '🔔' }, { label: 'In-App', icon: '💬' }].map(({ label, icon }) => (
-                  <button key={label} onClick={() => setNotifType(label)}
-                    className={`flex flex-col items-center gap-1.5 py-3 rounded-xl border text-[0.78rem] font-semibold cursor-pointer transition-all
-                      ${notifType === label
+              <p className="text-[0.66rem] font-bold tracking-[0.1em] uppercase text-ink-muted">Send Mode</p>
+              <div className="grid grid-cols-3 gap-1">
+                {[
+                  { mode: 'now', label: 'Now' },
+                  { mode: 'once', label: 'Once' },
+                  { mode: 'weekly', label: 'Weekly' }
+                ].map(item => (
+                  <button
+                    key={item.mode}
+                    type="button"
+                    onClick={() => setSendMode(item.mode)}
+                    className={`py-1.5 rounded-lg border text-[0.72rem] font-semibold cursor-pointer transition-all
+                      ${sendMode === item.mode
                         ? 'bg-eco text-ink-inverse border-eco'
-                        : 'bg-gb-surface border-gb-border text-ink-sub hover:border-eco-border hover:text-eco'}`}>
-                    <span className="text-lg">{icon}</span>
-                    {label}
+                        : 'bg-gb-surface border-gb-border text-ink-sub hover:border-eco-border hover:text-eco'}`}
+                  >
+                    {item.label}
                   </button>
                 ))}
               </div>
             </div>
 
-            <button onClick={handleBroadcast} disabled={sending || !msgTitle.trim() || !msgBody.trim()}
-              className="btn btn-primary w-full justify-center gap-2 py-3 text-[0.85rem] disabled:opacity-50">
-              {sending ? <RefreshCw size={14} className="animate-spin" /> : '▶'} {sending ? 'Sending…' : 'Send Broadcast'}
+            {/* Date-Time Pickers depending on Send Mode */}
+            {sendMode === 'once' && (
+              <div className="space-y-1">
+                <label className="text-[0.66rem] font-bold tracking-[0.1em] uppercase text-ink-muted">
+                  Schedule Date & Time
+                </label>
+                <input
+                  type="datetime-local"
+                  value={sendAt}
+                  onChange={e => setSendAt(e.target.value)}
+                  className="input text-[0.8rem] py-2 w-full"
+                />
+              </div>
+            )}
+
+            {sendMode === 'weekly' && (
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="text-[0.66rem] font-bold tracking-[0.1em] uppercase text-ink-muted">
+                    Day of Week
+                  </label>
+                  <select
+                    value={weekday}
+                    onChange={e => setWeekday(parseInt(e.target.value))}
+                    className="input text-[0.8rem] py-2 bg-gb-input w-full"
+                  >
+                    <option value={0}>Monday</option>
+                    <option value={1}>Tuesday</option>
+                    <option value={2}>Wednesday</option>
+                    <option value={3}>Thursday</option>
+                    <option value={4}>Friday</option>
+                    <option value={5}>Saturday</option>
+                    <option value={6}>Sunday</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[0.66rem] font-bold tracking-[0.1em] uppercase text-ink-muted">
+                    Time (HH:MM)
+                  </label>
+                  <input
+                    type="time"
+                    value={sendTime}
+                    onChange={e => setSendTime(e.target.value)}
+                    className="input text-[0.8rem] py-2 w-full"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Action Button */}
+            <button
+              onClick={handleBroadcast}
+              disabled={sending || !quoteEn.trim() || !quoteUr.trim()}
+              className="btn btn-primary w-full justify-center gap-2 py-2.5 text-[0.82rem] disabled:opacity-50"
+            >
+              {sending ? <RefreshCw size={12} className="animate-spin" /> : '▶'}
+              {sending ? 'Processing...' : sendMode === 'now' ? 'Send Broadcast' : 'Schedule Broadcast'}
             </button>
 
-            <div className="space-y-2.5 pt-2 border-t border-gb-border">
-              <p className="text-[0.66rem] font-bold tracking-[0.1em] uppercase text-ink-muted">Recent Activity</p>
-              {recentActivity.map((a, i) => (
-                <div key={i} className="flex items-start gap-3">
-                  <div className={`w-5 h-5 rounded-full ${a.color} flex items-center justify-center text-white text-[0.6rem] font-bold flex-shrink-0 mt-0.5`}>
-                    {a.icon}
+            {/* Active / Pending Schedules List */}
+            <div className="space-y-2 pt-2 border-t border-gb-border">
+              <p className="text-[0.66rem] font-bold tracking-[0.1em] uppercase text-ink-muted">
+                Active Schedules ({schedules.filter(s => s.send_mode !== 'sent_immediate' && !s.sent_at).length})
+              </p>
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                {schedules.filter(s => s.send_mode !== 'sent_immediate' && !s.sent_at).map(s => (
+                  <div key={s.id} className="flex items-start justify-between gap-2 p-2 rounded bg-gb-surface border border-gb-border">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[0.74rem] font-semibold text-ink truncate">
+                        "{s.quote_en}"
+                      </p>
+                      <p className="text-[0.62rem] text-ink-muted mt-0.5">
+                        {s.send_mode === 'weekly' ? 'Weekly' : 'Once'} • {new Date(s.send_at).toLocaleString()}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleCancelSchedule(s.id)}
+                      className="text-red-400 hover:text-red-500 cursor-pointer border-none bg-transparent"
+                      title="Cancel Schedule"
+                    >
+                      <X size={14} />
+                    </button>
                   </div>
-                  <div>
-                    <p className="text-[0.78rem] font-semibold text-ink">{a.label}</p>
-                    <p className="text-[0.68rem] text-ink-muted">{a.meta}</p>
-                  </div>
-                </div>
-              ))}
+                ))}
+                {schedules.filter(s => s.send_mode !== 'sent_immediate' && !s.sent_at).length === 0 && (
+                  <p className="text-[0.68rem] text-ink-muted italic font-medium">No active scheduled broadcasts.</p>
+                )}
+              </div>
             </div>
           </div>
         </div>

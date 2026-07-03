@@ -140,6 +140,24 @@ export default function Users() {
   const [loadingHist, setLoadingHist]   = useState(false)
   const [historyModal, setHistoryModal] = useState({ open: false, user: null, scans: [], loading: false })
 
+  const handleDownloadImage = async (url, filename) => {
+    if (!url) return
+    try {
+      const response = await fetch(url)
+      const blob = await response.blob()
+      const blobUrl = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = blobUrl
+      a.download = filename || 'classification.jpg'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(blobUrl)
+    } catch(e) {
+      window.open(url, '_blank')
+    }
+  }
+
   const handleOpenHistory = async (user) => {
     setHistoryModal({ open: true, user, scans: [], loading: true })
     try {
@@ -455,8 +473,22 @@ export default function Users() {
                     return (
                       <tr key={s.id || idx}>
                         <td>
-                          <div className="w-10 h-10 rounded-lg bg-gb-surface border border-gb-border overflow-hidden flex items-center justify-center">
-                            {s.image_url ? <img src={s.image_url} alt="" className="w-full h-full object-cover" onError={e=>e.target.style.display='none'}/> : '♻️'}
+                          <div className="w-10 h-10 rounded-lg bg-gb-surface border border-gb-border overflow-hidden flex items-center justify-center relative group/img">
+                            {s.image_url ? (
+                              <>
+                                <img src={s.image_url} alt="" className="w-full h-full object-cover" onError={e=>e.target.style.display='none'}/>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDownloadImage(s.image_url, `scan_${s.id || idx}.jpg`);
+                                  }}
+                                  title="Download Image"
+                                  className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center text-white border-none cursor-pointer p-0"
+                                >
+                                  <Download size={14} />
+                                </button>
+                              </>
+                            ) : '♻️'}
                           </div>
                         </td>
                         <td>{dateStr}</td>
