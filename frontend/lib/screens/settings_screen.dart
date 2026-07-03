@@ -20,6 +20,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _wifiOnly = false;
   bool _maxLocation = true;
   bool _isDarkMode = false;
+  bool _notificationsEnabled = true;
   bool _isLoading = true;
 
   @override
@@ -35,12 +36,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _wifiOnly = prefs.getBool('wifi_only') ?? false;
       _maxLocation = prefs.getBool('max_location') ?? true;
       _isDarkMode = prefs.getBool('is_dark_mode') ?? false;
+      _notificationsEnabled = prefs.getBool('notifications_enabled') ?? true;
       
       // Update global notifier if needed
       AppTheme.themeNotifier.value = _isDarkMode ? ThemeMode.dark : ThemeMode.light;
       
       _isLoading = false;
     });
+
+    // Try to sync with server in background
+    try {
+      final me = await ApiService.instance.getMe();
+      final bool? serverNotif = me['notifications_enabled'];
+      if (serverNotif != null && serverNotif != _notificationsEnabled) {
+        await prefs.setBool('notifications_enabled', serverNotif);
+        if (mounted) {
+          setState(() {
+            _notificationsEnabled = serverNotif;
+          });
+        }
+      }
+    } catch (_) {}
   }
 
   Future<void> _updateSetting(String key, bool value) async {
@@ -50,6 +66,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (key == 'ai_suggestions') _aiSuggestions = value;
       if (key == 'wifi_only') _wifiOnly = value;
       if (key == 'max_location') _maxLocation = value;
+      if (key == 'notifications_enabled') {
+        _notificationsEnabled = value;
+        ApiService.instance.updateSettings(notificationsEnabled: value).catchError((_) {});
+      }
       if (key == 'is_dark_mode') {
         _isDarkMode = value;
         AppTheme.themeNotifier.value = value ? ThemeMode.dark : ThemeMode.light;
@@ -134,6 +154,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
             // Toggles
             _buildSwitchOption(context, TranslationService.translate('greenbin_suggestions'), _aiSuggestions, (val) {
               _updateSetting('ai_suggestions', val);
+            }),
+            const Divider(height: 32),
+
+            _buildSwitchOption(context, TranslationService.translate('receive_eco_tips'), _notificationsEnabled, (val) {
+              _updateSetting('notifications_enabled', val);
             }),
             const Divider(height: 32),
 

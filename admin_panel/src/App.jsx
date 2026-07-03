@@ -6,6 +6,7 @@ import Login     from './pages/Login'
 import Dashboard from './pages/Dashboard'
 
 const Classifications = React.lazy(() => import('./pages/Classifications'))
+const PrepareDataset   = React.lazy(() => import('./pages/PrepareDataset'))
 const Users           = React.lazy(() => import('./pages/Users'))
 const Analytics       = React.lazy(() => import('./pages/Analytics'))
 const EcoTips         = React.lazy(() => import('./pages/EcoTips'))
@@ -62,6 +63,11 @@ export default function App() {
         <Route path="/classifications" element={
           <RequireAuth>
             <React.Suspense fallback={<PageFallback />}><Classifications /></React.Suspense>
+          </RequireAuth>
+        } />
+        <Route path="/prepare-dataset" element={
+          <RequireAuth>
+            <React.Suspense fallback={<PageFallback />}><PrepareDataset /></React.Suspense>
           </RequireAuth>
         } />
         <Route path="/users" element={

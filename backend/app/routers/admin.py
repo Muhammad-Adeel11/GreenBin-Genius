@@ -177,19 +177,21 @@ async def public_leaderboard(limit: int = 10, _ = Depends(get_admin_user)):
     return result
 
 
-# ── Admin: all classifications (not per-user) ──────────────────────────────────
 @router.get("/classifications")
 async def admin_get_all_classifications(
     _ = Depends(get_admin_user),
     skip: int = 0,
     limit: int = 50,
     user_id: str | None = Query(default=None),
+    category: str | None = Query(default=None),
 ):
-    """All classifications across all users for the admin panel, optionally filtered by user_id."""
+    """All classifications across all users for the admin panel, optionally filtered by user_id or category."""
     col    = classifications_col()
     query = {}
     if user_id:
         query["user_id"] = user_id
+    if category:
+        query["category"] = {"$regex": f"^{category}$", "$options": "i"}
 
     cursor = col.find(query).sort("timestamp", -1).skip(skip).limit(limit)
     items  = await cursor.to_list(length=limit)

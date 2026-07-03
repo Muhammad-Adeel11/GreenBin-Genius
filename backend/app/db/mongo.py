@@ -64,6 +64,10 @@ def campaigns_col():
     return get_db()["campaigns"]
 
 
+def broadcast_schedules_col():
+    return get_db()["broadcast_schedules"]
+
+
 def stories_col():
     return get_db()["stories"]
 

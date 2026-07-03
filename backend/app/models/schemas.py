@@ -423,3 +423,13 @@ class StoryResponse(BaseModel):
 class StoryListResponse(BaseModel):
     total: int
     data: List[StoryResponse]
+
+
+# ──────────────────────────────────────────────
+# Settings Schemas
+# ──────────────────────────────────────────────
+
+class UserUpdateSettings(BaseModel):
+    notifications_enabled: Optional[bool] = None
+    language: Optional[str] = None
+

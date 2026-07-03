@@ -104,6 +104,24 @@ export default function Classifications() {
     setFiltered(filter === 'LOW_CONF' ? items.filter(i => (i.confidence_score??i.conf/100) < 0.80) : items)
   }, [filter, items])
 
+  const handleDownloadImage = async (url, filename) => {
+    if (!url) return
+    try {
+      const response = await fetch(url)
+      const blob = await response.blob()
+      const blobUrl = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = blobUrl
+      a.download = filename || 'classification.jpg'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(blobUrl)
+    } catch(e) {
+      window.open(url, '_blank')
+    }
+  }
+
   const handleSave = async (id, category) => {
     try {
       await classificationApi.addFeedback(id, category)
@@ -173,9 +191,21 @@ export default function Classifications() {
                       {/* Image */}
                       <div className="relative h-36 bg-gb-surface overflow-hidden">
                         {item.image_url ? (
-                          <img src={item.image_url} alt={cat}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                            onError={e=>{ e.target.style.display='none' }}/>
+                          <>
+                            <img src={item.image_url} alt={cat}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                              onError={e=>{ e.target.style.display='none' }}/>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDownloadImage(item.image_url, `classification_${item.id || i}.jpg`);
+                              }}
+                              title="Download Image"
+                              className="absolute bottom-2 right-2 p-1.5 rounded-lg bg-gb-surface/80 hover:bg-eco text-ink-sub hover:text-ink-inverse border border-gb-border hover:border-eco transition-all duration-200 cursor-pointer opacity-0 group-hover:opacity-100 shadow-md flex items-center justify-center"
+                            >
+                              <Download size={13} />
+                            </button>
+                          </>
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-4xl">
                             {cat==='PLASTIC'?'🧴':cat==='PAPER'?'📦':cat==='GLASS'?'🫙':cat==='METAL'?'🥫':cat==='ORGANIC'?'🥦':'♻️'}

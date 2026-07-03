@@ -185,6 +185,11 @@ class TranslationService {
       'en': 'GreenBin Suggestions',
       'ur': 'گرین بن تجاویز',
     },
+    'receive_eco_tips': {
+      'en': 'Receive Daily Eco Tips',
+      'ur': 'روزانہ ماحولیاتی تجاویز حاصل کریں',
+    },
+
     'upload_wifi': {
       'en': 'Upload only via Wi-Fi',
       'ur': 'صرف وائی فائی پر اپ لوڈ کریں',

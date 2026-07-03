@@ -88,8 +88,8 @@ class _ClassificationResultScreenState extends State<ClassificationResultScreen>
                 _usedOnDevice = true;
               });
             }
-            // Save to backend history in background (non-blocking)
-            _saveToHistory(widget.imageFile!);
+            // Save TFLite result to backend history in background (non-blocking)
+            _saveToHistory(result);
           } else {
             // TFLite ran but returned null — fallback to backend
             result = await ApiService.instance.classifyImage(widget.imageFile!, mode: 'single');
@@ -147,11 +147,11 @@ class _ClassificationResultScreenState extends State<ClassificationResultScreen>
     );
   }
 
-  /// Fire-and-forget: send the image to the backend so the scan is logged
-  /// in MongoDB (Activity tab, leaderboard points, streak).
-  void _saveToHistory(File imageFile) {
+  /// Fire-and-forget: save the on-device TFLite result to the backend so
+  /// the scan is logged in MongoDB with the correct TFLite category.
+  void _saveToHistory(ClassificationResult tfliteResult) {
     ApiService.instance
-        .classifyImage(imageFile, mode: 'single')
+        .saveTfliteResult(tfliteResult, inferenceMs: _inferenceMs)
         .catchError((_) {});
   }
 
@@ -624,4 +624,5 @@ class _ClassificationResultScreenState extends State<ClassificationResultScreen>
     );
   }
 
-}
+}
+

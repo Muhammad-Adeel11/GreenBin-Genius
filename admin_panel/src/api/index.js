@@ -127,3 +127,11 @@ export const googleTranslateApi = {
     }
   }
 }
+
+export const broadcastApi = {
+  getQuotes: () => api.get('/broadcast/quotes'),
+  sendNow: (data) => api.post('/broadcast/send', data),
+  schedule: (data) => api.post('/broadcast/schedule', data),
+  getSchedules: () => api.get('/broadcast/schedules'),
+  cancelSchedule: (id) => api.delete(`/broadcast/schedules/${id}`),
+}

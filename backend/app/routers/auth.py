@@ -21,6 +21,7 @@ from app.models.schemas import (
     TokenResponse,
     SuccessResponse,
     GoogleVerifyClaimRequest,
+    UserUpdateSettings,
 )
 from app.db.mongo import users_col
 
@@ -116,6 +117,7 @@ async def register(body: UserRegisterRequest):
         "email":      body.email,
         "password":   hashed,
         "language":   body.language or "en",
+        "notifications_enabled": True,
         "created_at": datetime.utcnow(),
         "goals":      [],
         "streak":     0,
@@ -221,12 +223,37 @@ async def get_me(current_user: dict = Depends(get_current_user)):
         "username":     current_user.get("username", ""),
         "profile_image": current_user.get("profile_image", ""),
         "language":     current_user.get("language", "en"),
+        "notifications_enabled": current_user.get("notifications_enabled", True),
         "total_scans":  current_user.get("total_scans", 0),
         "streak":       current_user.get("streak", 0),
         "is_anonymous": current_user.get("is_anonymous", False),
         "claimed_at":   current_user.get("claimed_at", None) and
                         current_user["claimed_at"].isoformat() if current_user.get("claimed_at") else None,
     }
+
+
+@router.patch(
+    "/settings",
+    summary="Update user specific settings",
+)
+async def update_settings(
+    body: UserUpdateSettings,
+    current_user: dict = Depends(get_current_user),
+):
+    updates = {}
+    if body.notifications_enabled is not None:
+        updates["notifications_enabled"] = body.notifications_enabled
+    if body.language is not None:
+        updates["language"] = body.language
+
+    if not updates:
+        raise HTTPException(status_code=400, detail="No setting updates provided.")
+
+    await users_col().update_one(
+        {"_id": current_user["_id"]},
+        {"$set": updates}
+    )
+    return {"success": True, "message": "Settings updated successfully."}
 
 
 @router.post(
