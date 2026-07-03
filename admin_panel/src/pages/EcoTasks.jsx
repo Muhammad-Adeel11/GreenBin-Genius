@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Plus, Target, Edit, Trash2, ToggleLeft, ToggleRight, CheckCircle, Clock, Users, Trophy, Loader2 } from 'lucide-react'
 import Layout from '../components/layout/Layout'
 import { PageHeader, DataTable, Modal, Spinner } from '../components/ui/index.jsx'
-import { tasksApi } from '../api'
+import { tasksApi, googleTranslateApi } from '../api'
 
 const TASK_TYPES = [
   { value: 'scan_count',    label: 'Total Scan Count (any category)' },
@@ -306,7 +306,19 @@ export default function EcoTasks() {
             </div>
 
             <div>
-              <label className="text-[0.74rem] font-semibold text-ink-sub block mb-1">Title (Urdu)</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[0.74rem] font-semibold text-ink-sub">Title (Urdu)</label>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const translated = await googleTranslateApi.translateToUrdu(title)
+                    setTitleUr(translated)
+                  }}
+                  className="text-[0.7rem] text-eco font-bold hover:underline cursor-pointer bg-transparent border-none"
+                >
+                  ✨ Auto-Translate from English
+                </button>
+              </div>
               <input value={titleUr} onChange={e => setTitleUr(e.target.value)}
                 placeholder="اردو عنوان" dir="rtl"
                 className="input text-[0.82rem] py-2 text-right" />
@@ -368,7 +380,19 @@ export default function EcoTasks() {
             </div>
 
             <div>
-              <label className="text-[0.74rem] font-semibold text-ink-sub block mb-1">Description (Urdu)</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[0.74rem] font-semibold text-ink-sub">Description (Urdu)</label>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const translated = await googleTranslateApi.translateToUrdu(description)
+                    setDescriptionUr(translated)
+                  }}
+                  className="text-[0.7rem] text-eco font-bold hover:underline cursor-pointer bg-transparent border-none"
+                >
+                  ✨ Auto-Translate from English
+                </button>
+              </div>
               <textarea value={descriptionUr} onChange={e => setDescriptionUr(e.target.value)} rows={2}
                 dir="rtl" placeholder="اردو تفصیل"
                 className="input text-[0.82rem] py-2 resize-none text-right" />

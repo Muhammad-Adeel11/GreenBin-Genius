@@ -112,3 +112,18 @@ export const tasksApi = {
   toggle:       (id)              => api.patch(`/tasks/${id}/toggle`),
   delete:       (id)              => api.delete(`/tasks/${id}`),
 }
+
+export const googleTranslateApi = {
+  translateToUrdu: async (text) => {
+    if (!text || !text.trim()) return ''
+    try {
+      const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ur&dt=t&q=${encodeURIComponent(text)}`)
+      if (!res.ok) throw new Error('Translation API failed')
+      const data = await res.json()
+      return data[0].map(item => item[0]).join('')
+    } catch (error) {
+      console.error('Translation error:', error)
+      return text
+    }
+  }
+}

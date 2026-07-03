@@ -5,7 +5,7 @@ import {
 } from 'lucide-react'
 import Layout from '../components/layout/Layout'
 import { Modal, Spinner, EmptyState } from '../components/ui/index.jsx'
-import { tipsApi, notificationsApi } from '../api'
+import { tipsApi, notificationsApi, googleTranslateApi } from '../api'
 
 // ── Emoji / colour maps ────────────────────────────────────────────────────────
 const CAT_EMOJI = {
@@ -202,7 +202,19 @@ function TipModal({ open, tip, onClose, onSave }) {
               className="input text-[0.82rem] py-2 resize-none" />
           </div>
           <div>
-            <label className="text-[0.74rem] font-semibold text-ink-sub block mb-1">Tip (اردو)</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-[0.74rem] font-semibold text-ink-sub">Tip (اردو)</label>
+              <button
+                type="button"
+                onClick={async () => {
+                  const translated = await googleTranslateApi.translateToUrdu(form.tip_english)
+                  set('tip_urdu', translated)
+                }}
+                className="text-[0.7rem] text-eco font-bold hover:underline cursor-pointer bg-transparent border-none"
+              >
+                ✨ Auto-Translate from English
+              </button>
+            </div>
             <textarea value={form.tip_urdu} onChange={e => set('tip_urdu', e.target.value)}
               rows={3} placeholder="اردو میں مختصر ٹپ..." dir="rtl"
               className="input text-[0.82rem] py-2 resize-none text-right" />
@@ -217,7 +229,22 @@ function TipModal({ open, tip, onClose, onSave }) {
       {tab === 'steps' && (
         <div className="space-y-4">
           <ListEditor label="Steps (English) — 6–8 detailed action steps" items={form.steps} onChange={v => set('steps', v)} />
-          <ListEditor label="Steps (اردو)" items={form.steps_ur} onChange={v => set('steps_ur', v)} />
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-[0.74rem] font-semibold text-ink-sub">Steps (اردو)</label>
+              <button
+                type="button"
+                onClick={async () => {
+                  const trans = await Promise.all((form.steps || []).map(s => googleTranslateApi.translateToUrdu(s)))
+                  set('steps_ur', trans)
+                }}
+                className="text-[0.7rem] text-eco font-bold hover:underline cursor-pointer bg-transparent border-none"
+              >
+                ✨ Auto-Translate Steps
+              </button>
+            </div>
+            <ListEditor label="" items={form.steps_ur} onChange={v => set('steps_ur', v)} />
+          </div>
         </div>
       )}
 

@@ -4,6 +4,13 @@ import Layout from '../components/layout/Layout'
 import { PageHeader, DataTable, Modal, Spinner } from '../components/ui/index.jsx'
 import { storiesApi } from '../api'
 
+function getYoutubeId(url) {
+  if (!url) return null
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/
+  const match = url.match(regExp)
+  return (match && match[2].length === 11) ? match[2] : null
+}
+
 export default function ImpactStories() {
   const [stories, setStories] = useState([])
   const [loading, setLoading] = useState(true)
@@ -22,6 +29,7 @@ export default function ImpactStories() {
   const [description, setDescription] = useState('')
   const [isActive, setIsActive] = useState(true)
   const [uploading, setUploading] = useState(false)
+  const [playingStoryId, setPlayingStoryId] = useState(null)
 
   const fetchStories = async () => {
     setLoading(true)
@@ -129,13 +137,71 @@ export default function ImpactStories() {
     {
       key: 'image_url',
       label: 'Cover',
-      render: (val) => (
-        <img 
-          src={val} 
-          alt="Cover" 
-          className="w-14 h-10 object-cover rounded-lg border border-gb-border bg-ink-muted/10" 
-        />
-      )
+      render: (val, row) => {
+        const isPlaying = row.id === playingStoryId && row.video_url;
+        if (isPlaying) {
+          const ytId = getYoutubeId(row.video_url);
+          if (ytId) {
+            return (
+              <div className="relative w-48 h-32 rounded-lg overflow-hidden border border-gb-border bg-black shadow-lg">
+                <iframe
+                  src={`https://www.youtube.com/embed/${ytId}?autoplay=1`}
+                  className="w-full h-full border-none"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+                <button 
+                  onClick={(e) => { e.stopPropagation(); setPlayingStoryId(null); }}
+                  className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 hover:bg-black/80 flex items-center justify-center text-white cursor-pointer z-10 border-none"
+                  title="Close Video"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            );
+          } else {
+            return (
+              <div className="relative w-48 h-32 rounded-lg overflow-hidden border border-gb-border bg-black shadow-lg">
+                <video
+                  src={row.video_url}
+                  className="w-full h-full object-cover"
+                  controls
+                  autoPlay
+                  playsInline
+                />
+                <button 
+                  onClick={(e) => { e.stopPropagation(); setPlayingStoryId(null); }}
+                  className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 hover:bg-black/80 flex items-center justify-center text-white cursor-pointer z-10 border-none"
+                  title="Close Video"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            );
+          }
+        }
+
+        return (
+          <div className="relative w-20 h-14 rounded-lg overflow-hidden border border-gb-border group/thumb bg-ink-muted/10">
+            <img 
+              src={val} 
+              alt="Cover" 
+              className="w-full h-full object-cover group-hover/thumb:scale-105 transition-transform duration-300" 
+            />
+            {row.video_url && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setPlayingStoryId(row.id); }}
+                className="absolute inset-0 flex items-center justify-center bg-black/30 hover:bg-black/50 transition-colors cursor-pointer border-none"
+                title="Play Video"
+              >
+                <span className="w-8 h-8 rounded-full bg-white/95 hover:bg-white flex items-center justify-center text-eco shadow-md transition-all hover:scale-110">
+                  <span className="ml-0.5 text-xs text-eco">▶</span>
+                </span>
+              </button>
+            )}
+          </div>
+        );
+      }
     },
     {
       key: 'title',

@@ -150,6 +150,18 @@ class BinCreate(BaseModel):
     waste_types: Optional[List[str]] = Field(default=["PLASTIC"])
 
 
+class BinUpdate(BaseModel):
+    """Payload for updating an existing bin."""
+    name: str = Field(..., example="BIN-105")
+    bin_type: str = Field(default="Plastic / Recyclable", example="Plastic / Recyclable")
+    latitude: float
+    longitude: float
+    address: Optional[str] = None
+    waste_types: Optional[List[str]] = Field(default=["PLASTIC"])
+    status: str = Field(default="AVAILABLE", example="AVAILABLE")
+
+
+
 
 class NearbyBinsResponse(BaseModel):
     total: int

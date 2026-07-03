@@ -149,7 +149,8 @@ async def get_leaderboard(_ = Depends(get_admin_user), limit: int = 10):
             "name":                   u.get("name", "Unknown"),
             "email":                  u.get("email", ""),
             "total_classifications":  u.get("total_scans", 0),
-            "contribution_points":    u.get("total_scans", 0) * 10,
+            "contribution_points":    u.get("contribution_points", 0),
+            "total_points":          u.get("total_points", 0),
         })
     return result
 
@@ -170,7 +171,8 @@ async def public_leaderboard(limit: int = 10, _ = Depends(get_admin_user)):
             "name":                  u.get("name", "Unknown"),
             "email":                 u.get("email", ""),
             "total_classifications": u.get("total_scans", 0),
-            "contribution_points":   u.get("total_scans", 0) * 10,
+            "contribution_points":   u.get("contribution_points", 0),
+            "total_points":          u.get("total_points", 0),
         })
     return result
 
@@ -181,14 +183,19 @@ async def admin_get_all_classifications(
     _ = Depends(get_admin_user),
     skip: int = 0,
     limit: int = 50,
+    user_id: str | None = Query(default=None),
 ):
-    """All classifications across all users for the admin panel."""
+    """All classifications across all users for the admin panel, optionally filtered by user_id."""
     col    = classifications_col()
-    cursor = col.find({}).sort("timestamp", -1).skip(skip).limit(limit)
+    query = {}
+    if user_id:
+        query["user_id"] = user_id
+
+    cursor = col.find(query).sort("timestamp", -1).skip(skip).limit(limit)
     items  = await cursor.to_list(length=limit)
     for i in items:
         i["id"] = str(i.pop("_id"))
         if "timestamp" in i and hasattr(i["timestamp"], "isoformat"):
             i["timestamp"] = i["timestamp"].isoformat()
-    total = await col.count_documents({})
+    total = await col.count_documents(query)
     return {"total": total, "items": items}

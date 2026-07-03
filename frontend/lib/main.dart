@@ -77,27 +77,100 @@ class _GreenBinGeniusAppState extends State<GreenBinGeniusApp> {
       if (notification != null && navigatorKey.currentContext != null) {
         ScaffoldMessenger.of(navigatorKey.currentContext!).showSnackBar(
           SnackBar(
-            content: Row(
-              children: [
-                const Text('🔔  ', style: TextStyle(fontSize: 16)),
-                Expanded(
-                  child: Text(
-                    '${notification.title ?? ''}: ${notification.body ?? ''}',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            margin: const EdgeInsets.only(bottom: 20, left: 16, right: 16),
+            content: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF2E7D32), Color(0xFF1B5E20)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-              ],
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF1B5E20).withOpacity(0.35),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.15),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  // Bell Icon inside white-translucent circle
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Center(
+                      child: Icon(Icons.notifications_active_rounded, color: Colors.white, size: 20),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Title and body
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          notification.title ?? 'Notification',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          notification.body ?? '',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.white.withOpacity(0.85),
+                            height: 1.3,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Action button
+                  TextButton(
+                    style: TextButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: const Color(0xFF2E7D32),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: () {
+                      ScaffoldMessenger.of(navigatorKey.currentContext!).hideCurrentSnackBar();
+                      navigatorKey.currentState?.push(
+                        MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                      );
+                    },
+                    child: const Text(
+                      'View',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            action: SnackBarAction(
-              label: 'View',
-              onPressed: () {
-                navigatorKey.currentState?.push(
-                  MaterialPageRoute(builder: (_) => const NotificationsScreen()),
-                );
-              },
-            ),
-            duration: const Duration(seconds: 5),
+            duration: const Duration(seconds: 6),
           ),
         );
       }

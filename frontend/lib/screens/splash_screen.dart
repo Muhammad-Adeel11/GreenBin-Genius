@@ -60,8 +60,8 @@ class _SplashScreenState extends State<SplashScreen> {
                   ),
                   child: Image.asset(
                     'assets/images/logo/greenbin_new_logo.png',
-                    width: R.fs(context, 80),
-                    height: R.fs(context, 80),
+                    width: R.fs(context, 96),
+                    height: R.fs(context, 96),
                     fit: BoxFit.contain,
                   ),
                 ),
@@ -105,10 +105,10 @@ class _SplashScreenState extends State<SplashScreen> {
 class _BackgroundPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = const Color(0xFF1565C0);
+    final paint = Paint()..color = const Color(0xFF1B5E20);
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), paint);
 
-    paint.color = const Color(0xFF2196F3);
+    paint.color = const Color(0xFF2E7D32);
     final path1 = Path()
       ..moveTo(size.width * 0.2, 0)
       ..quadraticBezierTo(size.width * 0.6, size.height * 0.3,
@@ -117,7 +117,7 @@ class _BackgroundPainter extends CustomPainter {
       ..close();
     canvas.drawPath(path1, paint);
 
-    paint.color = Colors.white.withOpacity(0.07);
+    paint.color = Colors.white.withOpacity(0.06);
     final path2 = Path()
       ..moveTo(0, size.height * 0.6)
       ..quadraticBezierTo(size.width * 0.4, size.height * 0.7,

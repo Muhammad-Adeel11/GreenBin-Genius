@@ -39,6 +39,12 @@ def _serialize(doc: dict) -> dict:
     return doc
 
 
+def _parse_iso(val: str) -> datetime:
+    if val.endswith("Z"):
+        val = val[:-1] + "+00:00"
+    return datetime.fromisoformat(val)
+
+
 def _require_admin(user: dict):
     if (user.get("role") or "USER").upper() != "ADMIN":
         raise HTTPException(status_code=403, detail="Admin access required.")
@@ -223,7 +229,7 @@ async def create_task(body: dict, current_user: dict = Depends(get_current_user)
         "reward_points":   int(body["reward_points"]),
         "badge_icon":      body.get("badge_icon", "🌿"),
         "difficulty":      body.get("difficulty", "medium"),
-        "deadline":        datetime.fromisoformat(body["deadline"]) if body.get("deadline") else None,
+        "deadline":        _parse_iso(body["deadline"]) if body.get("deadline") else None,
         "is_active":       bool(body.get("is_active", True)),
         "created_by":      str(current_user["_id"]),
         "created_at":      datetime.utcnow(),
@@ -240,7 +246,7 @@ async def update_task(task_id: str, body: dict, current_user: dict = Depends(get
 
     updates = {k: v for k, v in body.items() if k not in ["_id", "id", "created_at", "created_by"]}
     if "deadline" in updates and updates["deadline"]:
-        updates["deadline"] = datetime.fromisoformat(updates["deadline"])
+        updates["deadline"] = _parse_iso(updates["deadline"])
     updates["updated_at"] = datetime.utcnow()
 
     res = await tasks_col().update_one({"_id": ObjectId(task_id)}, {"$set": updates})

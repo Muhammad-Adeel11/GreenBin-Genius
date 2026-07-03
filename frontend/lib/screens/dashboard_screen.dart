@@ -865,7 +865,6 @@ class LeaderboardTab extends StatefulWidget {
 }
 
 class _LeaderboardTabState extends State<LeaderboardTab> {
-  bool _isMembersActive = true;
   String _selectedTimeFilter = 'Last 24 Hours';
   bool _isLoading = true;
   String? _error;
@@ -923,9 +922,7 @@ class _LeaderboardTabState extends State<LeaderboardTab> {
         _error = null;
       });
 
-      final data = _isMembersActive
-          ? await ApiService.instance.getMemberLeaderboard()
-          : await ApiService.instance.getCountryLeaderboard();
+      final data = await ApiService.instance.getMemberLeaderboard();
 
       if (mounted) {
         setState(() {
@@ -1055,40 +1052,9 @@ class _LeaderboardTabState extends State<LeaderboardTab> {
                 ),
               ),
               SizedBox(height: sp),
-              Row(
-                children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() => _isMembersActive = true);
-                        _fetchLeaderboard();
-                      },
-                      child: Container(
-                        padding: EdgeInsets.only(bottom: R.h(context, 1.5)),
-                        decoration: BoxDecoration(border: Border(bottom: BorderSide(color: _isMembersActive ? const Color(0xFF007AFF) : Colors.transparent, width: 2))),
-                        child: Center(child: Text(TranslationService.translate('leaderboard_members'), style: TextStyle(color: _isMembersActive ? const Color(0xFF007AFF) : (isDark ? Colors.white54 : Colors.grey), fontWeight: FontWeight.bold, fontSize: R.fs(context, 14)))),
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() => _isMembersActive = false);
-                        _fetchLeaderboard();
-                      },
-                      child: Container(
-                        padding: EdgeInsets.only(bottom: R.h(context, 1.5)),
-                        decoration: BoxDecoration(border: Border(bottom: BorderSide(color: !_isMembersActive ? const Color(0xFF007AFF) : Colors.transparent, width: 2))),
-                        child: Center(child: Text(TranslationService.translate('leaderboard_countries'), style: TextStyle(color: !_isMembersActive ? const Color(0xFF007AFF) : (isDark ? Colors.white54 : Colors.grey), fontWeight: FontWeight.bold, fontSize: R.fs(context, 14)))),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
             ],
           ),
         ),
-        Divider(height: 1, thickness: 1, color: isDark ? Colors.white10 : const Color(0xFFEEEEEE)),
         Expanded(
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())
@@ -1785,7 +1751,6 @@ class _ImpactTabState extends State<ImpactTab> {
               ),
             ),
           ),
-          SizedBox(height: sp * 1.5),
           Padding(
             padding: R.pagePadding(context),
             child: Row(
@@ -1793,21 +1758,20 @@ class _ImpactTabState extends State<ImpactTab> {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: (() {
                 final history = _myStats?['monthly_history'] as List? ?? [];
-                // Default months if history is empty or short
-                final defaultMonths = ["APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV"];
+                if (history.isEmpty) {
+                  final defaultMonths = ["APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV"];
+                  return defaultMonths.map((m) => _buildBar(context, m, R.h(context, 1.0), m == "NOV")).toList();
+                }
                 final List<Widget> bars = [];
-                
-                for (int i = 0; i < defaultMonths.length; i++) {
-                  final monthName = defaultMonths[i];
-                  // Find if we have real data for this month
-                  final record = history.firstWhere((h) => h['month'] == monthName, orElse: () => null);
-                  final count = record != null ? (record['count'] as num).toDouble() : 0.0;
+                for (int i = 0; i < history.length; i++) {
+                  final record = history[i] as Map? ?? {};
+                  final monthName = record['month']?.toString() ?? '';
+                  final count = (record['count'] as num?)?.toDouble() ?? 0.0;
                   
-                  // Scale height: min 10, max 80. Base it on count.
-                  double h = 10 + (count * 2.0);
+                  double h = 10 + (count * 4.0);
                   if (h > 80) h = 80;
 
-                  bars.add(_buildBar(context, monthName, R.h(context, h / 10), i == defaultMonths.length - 1));
+                  bars.add(_buildBar(context, monthName, R.h(context, h / 10), i == history.length - 1));
                 }
                 return bars;
               })(),
@@ -1837,19 +1801,26 @@ class _ImpactTabState extends State<ImpactTab> {
           SizedBox(height: sp),
           SizedBox(
             height: R.h(context, 8),
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: R.pagePadding(context),
-              children: [
-                _buildDateCircle(context, "T"), 
-                _buildDateCircle(context, "W"), 
-                _buildDateCircle(context, "T"),
-                _buildDateCircle(context, "F"), 
-                _buildDateCircle(context, "S"), 
-                _buildDateCircle(context, "S"),
-                _buildDateCircle(context, "M", isActive: true),
-              ],
-            ),
+            child: (() {
+              final daily = _myStats?['daily_history'] as List? ?? [];
+              if (daily.isEmpty) {
+                final fallbackDays = ["T", "W", "T", "F", "S", "S", "M"];
+                return ListView(
+                  scrollDirection: Axis.horizontal,
+                  padding: R.pagePadding(context),
+                  children: fallbackDays.map((d) => _buildDateCircle(context, d, isActive: d == "M")).toList(),
+                );
+              }
+              return ListView(
+                scrollDirection: Axis.horizontal,
+                padding: R.pagePadding(context),
+                children: daily.map((item) {
+                  final dayStr = item['day']?.toString() ?? '';
+                  final active = item['active'] == true;
+                  return _buildDateCircle(context, dayStr, isActive: active);
+                }).toList(),
+              );
+            })(),
           ),
           SizedBox(height: sp * 2.5),
           Padding(
@@ -1897,7 +1868,10 @@ class _ImpactTabState extends State<ImpactTab> {
           SizedBox(height: R.h(context, 12)),
         ],
       ),
-    );
+      );
+    //   ],
+    // );
+
   }
 
   Widget _buildBar(BuildContext context, String label, double height, bool isActive) {

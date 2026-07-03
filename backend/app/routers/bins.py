@@ -5,8 +5,9 @@ Follows FR-5 (GPS Bin Locator) from SRS.
 """
 
 from fastapi import APIRouter, Query, HTTPException
+from bson import ObjectId
 from app.db.mongo import bins_col
-from app.models.schemas import BinCreate, SuccessResponse
+from app.models.schemas import BinCreate, BinUpdate, SuccessResponse
 
 router = APIRouter(prefix="/api", tags=["Bin Locator"])
 
@@ -271,3 +272,44 @@ async def seed_bins():
         "inserted": len(result.inserted_ids),
         "message": "Sample bins seeded.",
     }
+
+
+@router.put("/bins/{bin_id}", summary="[Admin] Update an existing bin location", response_model=SuccessResponse)
+async def update_bin(bin_id: str, bin_data: BinUpdate):
+    """Updates an existing waste bin in the system."""
+    col = bins_col()
+    update_doc = {
+        "name": bin_data.name,
+        "bin_type": bin_data.bin_type,
+        "address": bin_data.address,
+        "waste_types": bin_data.waste_types or ["PLASTIC"],
+        "status": bin_data.status,
+        "location": {
+            "type": "Point",
+            "coordinates": [bin_data.longitude, bin_data.latitude]
+        }
+    }
+    
+    result = await col.update_one({"_id": ObjectId(bin_id)}, {"$set": update_doc})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Bin not found")
+        
+    return {
+        "success": True,
+        "message": f"Bin '{bin_data.name}' updated successfully."
+    }
+
+
+@router.delete("/bins/{bin_id}", summary="[Admin] Delete a bin location", response_model=SuccessResponse)
+async def delete_bin(bin_id: str):
+    """Deletes a bin from the system."""
+    col = bins_col()
+    result = await col.delete_one({"_id": ObjectId(bin_id)})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Bin not found")
+        
+    return {
+        "success": True,
+        "message": "Bin deleted successfully."
+    }
+

@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import Layout from '../components/layout/Layout'
 import { ConfidenceBar, Spinner } from '../components/ui/index.jsx'
-import { analyticsApi, adminApi } from '../api'
+import { analyticsApi, adminApi, classificationApi } from '../api'
 
 /* ── Epoch training curve ─────────────────────────────────────────────────── */
 const EPOCH_DATA = Array.from({ length: 51 }, (_, i) => ({
@@ -59,6 +59,27 @@ export default function AIModel() {
   }
 
   const setCorrection = (id, val) => setCorrections(p => ({ ...p, [id]: val }))
+
+  const handleSubmitCorrection = async (id) => {
+    const sel = corrections[id]
+    if (!sel) return
+    try {
+      // Map 'Contaminated (Trash)' to 'OTHER' or send as-is
+      const mappedLabel = sel === 'Contaminated (Trash)' ? 'OTHER' : sel.toUpperCase()
+      await classificationApi.addFeedback(id, mappedLabel)
+      alert("Category label corrected successfully!")
+      setLowConf(prev => prev.filter(item => (item.id || item._id) !== id))
+    } catch (e) {
+      console.error(e)
+      if (id === '1' || id === '2' || id === '3' || id === '4' || id === '5') {
+        const mappedLabel = sel === 'Contaminated (Trash)' ? 'OTHER' : sel.toUpperCase()
+        alert(`[Simulation] Corrected item ${id} to category: ${mappedLabel}`)
+        setLowConf(prev => prev.filter(item => (item.id || item._id) !== id))
+      } else {
+        alert(e.response?.data?.detail || e.message || "Failed to submit correction")
+      }
+    }
+  }
 
   const displayed = (lowConf.length ? lowConf : MOCK_LOW_CONF).slice(page * 5, page * 5 + 5)
 
@@ -224,7 +245,7 @@ export default function AIModel() {
                   </td>
                   <td>
                     <button
-                      onClick={() => console.log('Submit', item.id, corrections[item.id])}
+                      onClick={() => handleSubmitCorrection(item.id || i)}
                       className={`w-7 h-7 rounded-full flex items-center justify-center border transition-all cursor-pointer
                         ${sel ? 'bg-eco border-eco text-ink-inverse' : 'bg-gb-surface border-gb-border text-ink-muted hover:border-eco-border'}`}>
                       <CheckCircle2 size={14}/>

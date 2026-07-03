@@ -317,6 +317,70 @@ async def classify_yolo(
     )
 
 
+@router.post(
+    "/classify/{classification_id}/feedback",
+    summary="Submit category correction feedback for a classification",
+)
+async def submit_classification_feedback(
+    classification_id: str,
+    payload: dict,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Submits a correction for a classification.
+    Available to users and admins.
+    """
+    corrected_category = payload.get("corrected_category")
+    if not corrected_category:
+        raise HTTPException(status_code=400, detail="corrected_category is required")
+
+    try:
+        oid = ObjectId(classification_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid classification ID.")
+
+    col = classifications_col()
+    classification = await col.find_one({"_id": oid})
+    if not classification:
+        raise HTTPException(status_code=404, detail="Classification not found")
+
+    # If the user is not an admin, they can only correct their own classification
+    is_admin = (current_user.get("role") or "").upper() == "ADMIN"
+    if not is_admin and classification.get("user_id") != str(current_user["_id"]):
+        raise HTTPException(status_code=403, detail="You can only correct your own classifications.")
+
+    # Update database
+    corrected = corrected_category.upper()
+    update_fields = {
+        "predicted_category": corrected,
+        "category": corrected,
+        "user_feedback": corrected,
+        "is_verified": True,
+        "verification_status": "verified"
+    }
+    if "original_category" not in classification:
+        update_fields["original_category"] = classification.get("category")
+
+    await col.update_one(
+        {"_id": oid},
+        {"$set": update_fields}
+    )
+
+    # Award points to the owner if not already verified
+    if not classification.get("is_verified"):
+        owner_id = classification.get("user_id")
+        if owner_id:
+            try:
+                await users_col().update_one(
+                    {"_id": ObjectId(owner_id)},
+                    {"$inc": {"contribution_points": 5}}
+                )
+            except Exception as e:
+                logger.error(f"Failed to award points to user {owner_id}: {e}")
+
+    return {"success": True, "message": "Feedback submitted and classification updated."}
+
+
 @router.get(
     "/classify/test",
     summary="Health-check: verify AI services are loaded",

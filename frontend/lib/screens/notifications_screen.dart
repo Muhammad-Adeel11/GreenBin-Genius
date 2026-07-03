@@ -64,6 +64,27 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     'system':   '⚙️',
   };
 
+  List<Color> _typeGradient(String type, bool isDark) {
+    switch (type) {
+      case 'scan':
+        return isDark
+            ? [const Color(0xFF1E88E5), const Color(0xFF64B5F6)]
+            : [const Color(0xFF1565C0), const Color(0xFF1E88E5)];
+      case 'points':
+        return isDark
+            ? [const Color(0xFFF9A825), const Color(0xFFFFD54F)]
+            : [const Color(0xFFE65100), const Color(0xFFF57C00)];
+      case 'campaign':
+        return isDark
+            ? [const Color(0xFF2E7D32), const Color(0xFF81C784)]
+            : [const Color(0xFF1B5E20), const Color(0xFF2E7D32)];
+      default:
+        return isDark
+            ? [const Color(0xFF424242), const Color(0xFF757575)]
+            : [const Color(0xFF616161), const Color(0xFF9E9E9E)];
+    }
+  }
+
   Color _typeColor(String type, bool isDark) {
     switch (type) {
       case 'scan':     return isDark ? const Color(0xFF64B5F6) : const Color(0xFF1E88E5);
@@ -92,13 +113,21 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg     = isDark ? const Color(0xFF121212) : const Color(0xFFF5F7FA);
-    const accent = Color(0xFF2196F3);
+    final bg     = isDark ? const Color(0xFF121212) : const Color(0xFFF8FAF9);
+    final accentGrad = const [Color(0xFF2E7D32), Color(0xFF1B5E20)];
 
     return Scaffold(
       backgroundColor: bg,
       appBar: AppBar(
-        backgroundColor: accent,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: accentGrad,
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
         foregroundColor: Colors.white,
         elevation: 0,
         title: Row(
@@ -114,6 +143,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 decoration: BoxDecoration(
                   color: Colors.redAccent,
                   borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.redAccent.withOpacity(0.4),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
                 child: Text(
                   '$_unreadCount',
@@ -152,16 +188,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         ],
       ),
       body: RefreshIndicator(
-        color: accent,
+        color: const Color(0xFF2E7D32),
         onRefresh: _load,
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator(color: Color(0xFF2196F3)))
+            ? const Center(child: CircularProgressIndicator(color: Color(0xFF2E7D32)))
             : _notifications.isEmpty
                 ? _buildEmptyState(isDark)
                 : ListView.separated(
-                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                     itemCount: _notifications.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
                     itemBuilder: (context, i) => _buildNotifCard(context, i, isDark),
                   ),
       ),
@@ -174,33 +210,48 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            width: 90,
-            height: 90,
+            width: 100,
+            height: 100,
             decoration: BoxDecoration(
-              color: const Color(0xFF2196F3).withOpacity(0.1),
+              gradient: LinearGradient(
+                colors: isDark
+                    ? [const Color(0xFF2E7D32).withOpacity(0.2), const Color(0xFF1B5E20).withOpacity(0.2)]
+                    : [const Color(0xFFE8F5E9), const Color(0xFFC8E6C9)],
+              ),
               shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+                  blurRadius: 15,
+                  offset: const Offset(0, 6),
+                ),
+              ],
             ),
             child: const Center(
-              child: Text('🔔', style: TextStyle(fontSize: 40)),
+              child: Text('🔔', style: TextStyle(fontSize: 44)),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           Text(
             TranslationService.translate('no_notifications'),
             style: TextStyle(
-              fontSize: 18,
+              fontSize: 19,
               fontWeight: FontWeight.bold,
               color: isDark ? Colors.white : Colors.black87,
             ),
           ),
           const SizedBox(height: 8),
-          Text(
-            TranslationService.translate('notifications_subtitle'),
-            style: TextStyle(
-              fontSize: 14,
-              color: isDark ? Colors.white54 : Colors.grey[600],
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Text(
+              TranslationService.translate('notifications_subtitle'),
+              style: TextStyle(
+                fontSize: 14,
+                color: isDark ? Colors.white54 : Colors.grey[600],
+                height: 1.4,
+              ),
+              textAlign: TextAlign.center,
             ),
-            textAlign: TextAlign.center,
           ),
         ],
       ),
@@ -214,6 +265,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final isRead   = (n['is_read'] as bool?) ?? true;
     final emoji    = _typeEmoji[type] ?? '🔔';
     final typeClr  = _typeColor(type, isDark);
+    final gradColors = _typeGradient(type, isDark);
     final title    = TranslationService.isUrdu ? (n['title_ur'] ?? n['title_en'] ?? '') : (n['title_en'] ?? '');
     final message  = TranslationService.isUrdu ? (n['message_ur'] ?? n['message_en'] ?? '') : (n['message_en'] ?? '');
     final timeAgo  = _relativeTime(n['created_at']);
@@ -223,115 +275,152 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         if (!isRead && id.isNotEmpty) _markRead(id, index);
       },
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
+        duration: const Duration(milliseconds: 200),
         decoration: BoxDecoration(
           color: isDark
-              ? (isRead ? const Color(0xFF1E1E1E) : const Color(0xFF1A2535))
-              : (isRead ? Colors.white : const Color(0xFFE8F4FD)),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: isRead
-                ? Colors.transparent
-                : typeClr.withOpacity(0.4),
-            width: 1.5,
-          ),
+              ? (isRead ? const Color(0xFF1E1E1E) : const Color(0xFF1A261C))
+              : (isRead ? Colors.white : const Color(0xFFF1F8F3)),
+          borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.25 : 0.05),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
+              color: Colors.black.withOpacity(isDark ? 0.25 : 0.04),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
             ),
           ],
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: Stack(
             children: [
-              // Emoji avatar
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: typeClr.withOpacity(0.12),
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Text(emoji, style: const TextStyle(fontSize: 22)),
-                ),
-              ),
-              const SizedBox(width: 14),
-
-              // Content
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            title,
-                            textDirection: TranslationService.isUrdu ? TextDirection.rtl : TextDirection.ltr,
-                            style: TextStyle(
-                              fontSize: R.fs(context, 14),
-                              fontWeight: isRead ? FontWeight.w600 : FontWeight.bold,
-                              color: isDark ? Colors.white : Colors.black87,
-                            ),
-                          ),
-                        ),
-                        if (!isRead)
-                          Container(
-                            width: 8,
-                            height: 8,
-                            margin: const EdgeInsets.only(left: 6),
-                            decoration: BoxDecoration(
-                              color: typeClr,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      message,
-                      textDirection: TranslationService.isUrdu ? TextDirection.rtl : TextDirection.ltr,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: R.fs(context, 12.5),
-                        color: isDark ? Colors.white60 : Colors.grey[700],
-                        height: 1.45,
+              // Unread border stripe indicator
+              if (!isRead)
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: 5,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: gradColors,
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: typeClr.withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(6),
+                  ),
+                ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (!isRead) const SizedBox(width: 5),
+                    // Gradient Emoji avatar
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [gradColors[0].withOpacity(0.18), gradColors[1].withOpacity(0.18)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: gradColors[0].withOpacity(0.1),
+                          width: 1,
+                        ),
+                      ),
+                      child: Center(
+                        child: Text(emoji, style: const TextStyle(fontSize: 24)),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+
+                    // Content
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  title,
+                                  textDirection: TranslationService.isUrdu ? TextDirection.rtl : TextDirection.ltr,
+                                  style: TextStyle(
+                                    fontSize: R.fs(context, 14.5),
+                                    fontWeight: isRead ? FontWeight.w600 : FontWeight.w800,
+                                    color: isDark ? Colors.white : Colors.black87,
+                                  ),
+                                ),
+                              ),
+                              if (!isRead)
+                                Container(
+                                  width: 8,
+                                  height: 8,
+                                  margin: const EdgeInsets.only(left: 8, top: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.redAccent,
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.redAccent.withOpacity(0.5),
+                                        blurRadius: 4,
+                                        spreadRadius: 1,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                            ],
                           ),
-                          child: Text(
-                            type.toUpperCase(),
+                          const SizedBox(height: 6),
+                          Text(
+                            message,
+                            textDirection: TranslationService.isUrdu ? TextDirection.rtl : TextDirection.ltr,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                              color: typeClr,
-                              letterSpacing: 0.8,
+                              fontSize: R.fs(context, 13),
+                              color: isDark ? Colors.white60 : Colors.grey[700],
+                              height: 1.45,
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          timeAgo,
-                          style: TextStyle(
-                            fontSize: R.fs(context, 11),
-                            color: isDark ? Colors.white38 : Colors.grey[500],
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [gradColors[0].withOpacity(0.12), gradColors[1].withOpacity(0.12)],
+                                  ),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  type.toUpperCase(),
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                    color: gradColors[0],
+                                    letterSpacing: 0.8,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                timeAgo,
+                                style: TextStyle(
+                                  fontSize: R.fs(context, 11),
+                                  color: isDark ? Colors.white38 : Colors.grey[500],
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ],
                 ),

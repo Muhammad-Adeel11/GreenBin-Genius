@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Plus, Megaphone, Send, AlertCircle } from 'lucide-react'
 import Layout from '../components/layout/Layout'
 import { PageHeader, DataTable, Modal, Spinner } from '../components/ui/index.jsx'
-import { notificationsApi } from '../api'
+import { notificationsApi, googleTranslateApi } from '../api'
 
 export default function Campaigns() {
   const [campaigns, setCampaigns] = useState([])
@@ -187,7 +187,19 @@ export default function Campaigns() {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-[0.76rem] font-semibold text-ink-sub text-right block">Title (Urdu)</label>
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const translated = await googleTranslateApi.translateToUrdu(titleEnglish)
+                    setTitleUrdu(translated)
+                  }}
+                  className="text-[0.7rem] text-eco font-bold hover:underline cursor-pointer bg-transparent border-none"
+                >
+                  ✨ Auto-Translate
+                </button>
+                <label className="text-[0.76rem] font-semibold text-ink-sub text-right block">Title (Urdu)</label>
+              </div>
               <input
                 type="text"
                 value={titleUrdu}
@@ -213,7 +225,19 @@ export default function Campaigns() {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-[0.76rem] font-semibold text-ink-sub text-right block">Message (Urdu)</label>
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const translated = await googleTranslateApi.translateToUrdu(messageEnglish)
+                    setMessageUrdu(translated)
+                  }}
+                  className="text-[0.7rem] text-eco font-bold hover:underline cursor-pointer bg-transparent border-none"
+                >
+                  ✨ Auto-Translate
+                </button>
+                <label className="text-[0.76rem] font-semibold text-ink-sub text-right block">Message (Urdu)</label>
+              </div>
               <textarea
                 value={messageUrdu}
                 onChange={e => setMessageUrdu(e.target.value)}

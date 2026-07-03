@@ -57,6 +57,7 @@ dependencies:
   # Firebase (FCM push notifications)
   firebase_core: ^3.13.1
   firebase_messaging: ^15.2.5
+  youtube_player_flutter: ^10.0.1
 
 dev_dependencies:
   flutter_test:
@@ -118,5 +119,5 @@ flutter:
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
-  image_path: "assets/images/logo/greenbin_new_logo.png"
+  image_path: "assets/images/logo/greenbin_logo.png"
   min_sdk_android: 21 # android min sdk min:16, default:21
